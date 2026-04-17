@@ -3,28 +3,52 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Portaria LEM - v61.4</title>
-
-  <!-- PWA -->
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#1a2744">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Portaria">
-  <link rel="apple-touch-icon" href="icon-192.png">
-
+  <title>Portaria LEM - v62</title>
   <style>
     :root { --primary: #1a2744; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --accent: #3498db; }
     body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; justify-content: center; }
     .container { width: 100%; max-width: 480px; }
     .header-topo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     .btn-planilha { background: white; border: 1.5px solid #dcdcdc; color: #888; font-size: 0.6rem; padding: 6px 12px; border-radius: 20px; cursor: pointer; text-transform: uppercase; font-weight: bold; }
-    .paineis-contagem { display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
-    .mini-card { flex: 1; background: white; padding: 10px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border-bottom: 3px solid #ccc; min-width: 140px; }
+
+    /* === PAINÉIS DE CONTAGEM - CORRIGIDO === */
+    .paineis-contagem { display: flex; gap: 8px; margin-bottom: 15px; }
+    .mini-card {
+      flex: 1;
+      min-width: 0; /* CHAVE: impede overflow com texto grande */
+      background: white;
+      padding: 10px;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      border-bottom: 3px solid #ccc;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
     .mini-card span { display: block; font-size: 0.55rem; font-weight: bold; color: #888; text-transform: uppercase; }
     .mini-card b { font-size: 1.3rem; color: var(--primary); }
-    .mini-card .detalhe-produto { font-size: 0.6rem; color: #555; margin-top: 6px; line-height: 1.3; text-align: left; padding: 0 4px; }
-    .mini-card .detalhe-produto div { margin: 2px 0; }
+
+    /* === RESUMO POR PRODUTO (linha compacta acima dos detalhes) === */
+    .resumo-produto {
+      font-size: 0.62rem;
+      font-weight: bold;
+      color: var(--primary);
+      margin: 4px 0 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: left;
+      padding: 0 2px;
+    }
+
+    .mini-card .detalhe-produto { font-size: 0.6rem; color: #555; line-height: 1.4; text-align: left; padding: 0 2px; }
+    .mini-card .detalhe-produto div {
+      margin: 1px 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     .tabs { display: flex; gap: 5px; margin-bottom: 15px; background: #e0e4e8; padding: 5px; border-radius: 12px; }
     .tab-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: transparent; color: #666; font-size: 0.7rem; text-transform: uppercase; }
     .tab-btn.active { background: white; color: var(--primary); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -48,7 +72,27 @@
     .detalhe-linha { font-size: 0.65rem; color: #777; line-height: 1.2; margin-top: 2px; }
     .detalhe-linha b { color: #444; }
     .st-badge { font-size: 0.55rem; padding: 4px 8px; border-radius: 15px; font-weight: bold; color: white; border: none; cursor: pointer; }
-    .btn-edit { background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 5px; vertical-align: middle; }
+
+    /* === BOTÃO EDITAR — padronizado com st-badge === */
+    .btn-edit {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #f0f0f0;
+      border: none;
+      cursor: pointer;
+      padding: 4px 7px;
+      border-radius: 15px;
+      vertical-align: middle;
+      margin-left: 3px;
+    }
+    .btn-edit img {
+      width: 12px;
+      height: 12px;
+      display: block;
+      filter: invert(20%) sepia(0%) saturate(0%) brightness(40%);
+    }
+
     .btn-chamar { background: #f39c12; border: none; color: white; font-size: 0.55rem; font-weight: bold; padding: 4px 8px; border-radius: 10px; cursor: pointer; margin-top: 4px; text-transform: uppercase; display: block; }
     .banner-chamada { display: none; background: #fff3cd; border: 2px solid #f39c12; border-radius: 12px; padding: 14px 16px; margin-bottom: 15px; }
     .banner-chamada.ativo { display: block; animation: pulsar 1.5s infinite; }
@@ -56,34 +100,9 @@
     .banner-msg { font-size: 1rem; font-weight: bold; color: #1a2744; margin-bottom: 10px; }
     .btn-ok-chamada { background: var(--success); border: none; color: white; font-weight: bold; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; text-transform: uppercase; width: 100%; }
     @keyframes pulsar { 0%,100%{border-color:#f39c12;} 50%{border-color:#e74c3c;} }
-
-    /* Banner de instalação PWA */
-    #install-banner { display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--primary); color: white; padding: 14px 20px; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.25); z-index: 9999; max-width: 440px; width: calc(100% - 40px); box-sizing: border-box; }
-    #install-banner.visivel { display: flex; align-items: center; gap: 12px; animation: slideUp 0.4s ease; }
-    @keyframes slideUp { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
-    .install-icone { font-size: 1.8rem; flex-shrink: 0; }
-    .install-texto { flex: 1; }
-    .install-texto strong { display: block; font-size: 0.85rem; margin-bottom: 2px; }
-    .install-texto span { font-size: 0.65rem; opacity: 0.8; }
-    .install-botoes { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
-    .btn-instalar { background: white; color: var(--primary); border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; font-size: 0.7rem; cursor: pointer; text-transform: uppercase; }
-    .btn-fechar-install { background: transparent; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.3); padding: 6px 10px; border-radius: 8px; font-size: 0.65rem; cursor: pointer; }
   </style>
 </head>
 <body>
-
-<!-- Banner de instalação PWA -->
-<div id="install-banner">
-  <div class="install-icone">📱</div>
-  <div class="install-texto">
-    <strong>Instalar Portaria Savana</strong>
-    <span>Acesso rápido direto da tela inicial</span>
-  </div>
-  <div class="install-botoes">
-    <button class="btn-instalar" id="btn-instalar">⬇ Instalar</button>
-    <button class="btn-fechar-install" id="btn-fechar-install">Agora não</button>
-  </div>
-</div>
 
 <div class="container">
   <div class="header-topo">
@@ -95,11 +114,13 @@
     <div class="mini-card" style="border-bottom: 3px solid var(--accent)">
       <span>No Pátio</span>
       <b id="contPatio">0</b>
+      <div class="resumo-produto" id="resumoPatio"></div>
       <div class="detalhe-produto" id="detalhePatio"></div>
     </div>
     <div class="mini-card" style="border-bottom: 3px solid var(--success)">
       <span>Carregados</span>
       <b id="contCarga">0</b>
+      <div class="resumo-produto" id="resumoCarga"></div>
       <div class="detalhe-produto" id="detalheCarga"></div>
     </div>
   </div>
@@ -157,50 +178,19 @@
   </div>
 </div>
 
+<!-- SVG do ícone de editar embutido como data URI para não depender de rede -->
+<svg id="iconEditSVG" style="display:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+</svg>
+
 <script>
   const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwCMcDylEoZF0u19tTD_6xJHN5NG6EV_6BsPZyO3BxwAlw6hK32SNokg6lwaLJkENiiEw/exec?dados=true";
+
+  /* SVG inline do lápis — mesmo visual do PNG enviado */
+  const EDIT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
   
   let veiculosPatio = [];
   let veiculosCarregados = [];
-
-  // ── PWA: Registro do Service Worker ──
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(console.error);
-  }
-
-  // ── PWA: Banner de instalação ──
-  let deferredPrompt = null;
-  const installBanner = document.getElementById('install-banner');
-  const btnInstalar = document.getElementById('btn-instalar');
-  const btnFecharInstall = document.getElementById('btn-fechar-install');
-
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    // Só mostra o banner se o usuário ainda não instalou
-    if (!localStorage.getItem('pwa-instalado')) {
-      setTimeout(() => installBanner.classList.add('visivel'), 1500);
-    }
-  });
-
-  btnInstalar.addEventListener('click', async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') localStorage.setItem('pwa-instalado', '1');
-    deferredPrompt = null;
-    installBanner.classList.remove('visivel');
-  });
-
-  btnFecharInstall.addEventListener('click', () => {
-    installBanner.classList.remove('visivel');
-  });
-
-  window.addEventListener('appinstalled', () => {
-    installBanner.classList.remove('visivel');
-    localStorage.setItem('pwa-instalado', '1');
-  });
-  // ── Fim PWA ──
 
   function abrirPlanilha() {
     var s = prompt('🔒 Senha de Acesso:');
@@ -212,18 +202,54 @@
     document.getElementById('contPatio').innerText = veiculosPatio.length;
     document.getElementById('contCarga').innerText = veiculosCarregados.length;
     
+    /* ---- PÁTIO: agrupar por produto ---- */
     const patioPorProd = {};
     veiculosPatio.forEach(v => {
-      const k = `${v.produto}-${v.transportadora}`;
-      if (!patioPorProd[k]) patioPorProd[k] = { p: v.produto, t: v.transportadora, q: 0 };
-      patioPorProd[k].q++;
+      if (!patioPorProd[v.produto]) patioPorProd[v.produto] = 0;
+      patioPorProd[v.produto]++;
     });
-    
+
+    /* Linha de resumo compacta: "10-SOJA / 5-MILHO" */
+    const resumoPatioArr = Object.entries(patioPorProd)
+      .sort((a,b) => b[1]-a[1])
+      .map(([p,q]) => `${q}-${p}`);
+    document.getElementById('resumoPatio').innerText = resumoPatioArr.join(' / ') || '';
+
+    /* Detalhes por produto + transportadora */
+    const patioPorProdTrans = {};
+    veiculosPatio.forEach(v => {
+      const k = `${v.produto}-${v.transportadora}`;
+      if (!patioPorProdTrans[k]) patioPorProdTrans[k] = { p: v.produto, t: v.transportadora, q: 0 };
+      patioPorProdTrans[k].q++;
+    });
     let htmlP = '';
-    Object.values(patioPorProd).sort((a,b)=>a.p.localeCompare(b.p)).forEach(i => {
+    Object.values(patioPorProdTrans).sort((a,b)=>a.p.localeCompare(b.p)).forEach(i => {
       htmlP += `<div>${i.q} ${i.p} - (${i.t})</div>`;
     });
     document.getElementById('detalhePatio').innerHTML = htmlP || '<div style="color:#aaa;">—</div>';
+
+    /* ---- CARREGADOS: mesma lógica ---- */
+    const cargaPorProd = {};
+    veiculosCarregados.forEach(v => {
+      if (!cargaPorProd[v.produto]) cargaPorProd[v.produto] = 0;
+      cargaPorProd[v.produto]++;
+    });
+    const resumoCargaArr = Object.entries(cargaPorProd)
+      .sort((a,b) => b[1]-a[1])
+      .map(([p,q]) => `${q}-${p}`);
+    document.getElementById('resumoCarga').innerText = resumoCargaArr.join(' / ') || '';
+
+    const cargaPorProdTrans = {};
+    veiculosCarregados.forEach(v => {
+      const k = `${v.produto}-${v.transportadora}`;
+      if (!cargaPorProdTrans[k]) cargaPorProdTrans[k] = { p: v.produto, t: v.transportadora, q: 0 };
+      cargaPorProdTrans[k].q++;
+    });
+    let htmlC = '';
+    Object.values(cargaPorProdTrans).sort((a,b)=>a.p.localeCompare(b.p)).forEach(i => {
+      htmlC += `<div>${i.q} ${i.p} - (${i.t})</div>`;
+    });
+    document.getElementById('detalheCarga').innerHTML = htmlC || '<div style="color:#aaa;">—</div>';
   }
 
   async function carregarEstado() {
@@ -279,7 +305,7 @@
           <span class="data-hora-canto">${dStr} - ${hStr}</span>
           ${tipo === 'ENTRADA' ? `
             <button class="st-badge" style="background:${d.ordem==='SIM'?'#27ae60':'#e74c3c'}" onclick="toggleOrdem(this,'${d.placa}')">${d.ordem}</button>
-            <button class="btn-edit" onclick="prepararEdicao('${d.placa}','${d.motorista}','${d.transportadora}','${d.produto}','${d.ordem}')">✏️</button>
+            <button class="btn-edit" title="Editar" onclick="prepararEdicao('${d.placa}','${d.motorista}','${d.transportadora}','${d.produto}','${d.ordem}')">${EDIT_ICON_SVG}</button>
           ` : '<span style="color:var(--success); font-weight:bold; font-size:0.6rem">SAÍDA ✅</span>'}
         </td>`;
     tbody.appendChild(tr);
