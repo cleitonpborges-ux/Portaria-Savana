@@ -1,0 +1,304 @@
+ <!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portaria LEM - v61.4</title>
+  <style>
+    :root { --primary: #1a2744; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --accent: #3498db; }
+    body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; justify-content: center; }
+    .container { width: 100%; max-width: 480px; }
+    .header-topo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .btn-planilha { background: white; border: 1.5px solid #dcdcdc; color: #888; font-size: 0.6rem; padding: 6px 12px; border-radius: 20px; cursor: pointer; text-transform: uppercase; font-weight: bold; }
+    .paineis-contagem { display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
+    .mini-card { flex: 1; background: white; padding: 10px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border-bottom: 3px solid #ccc; min-width: 140px; }
+    .mini-card span { display: block; font-size: 0.55rem; font-weight: bold; color: #888; text-transform: uppercase; }
+    .mini-card b { font-size: 1.3rem; color: var(--primary); }
+    .mini-card .detalhe-produto { font-size: 0.6rem; color: #555; margin-top: 6px; line-height: 1.3; text-align: left; padding: 0 4px; }
+    .mini-card .detalhe-produto div { margin: 2px 0; }
+    .tabs { display: flex; gap: 5px; margin-bottom: 15px; background: #e0e4e8; padding: 5px; border-radius: 12px; }
+    .tab-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: transparent; color: #666; font-size: 0.7rem; text-transform: uppercase; }
+    .tab-btn.active { background: white; color: var(--primary); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); display: none; border-top: 5px solid var(--primary); }
+    .card.active { display: block; }
+    .campo { margin-bottom: 12px; }
+    label { display: block; font-weight: bold; font-size: 0.65rem; color: #888; margin-bottom: 4px; text-transform: uppercase; }
+    input, select { width: 100%; padding: 12px; border: 1.5px solid #eee; border-radius: 10px; box-sizing: border-box; font-size: 1rem; outline: none; background: #fafafa; text-transform: uppercase; }
+    .btn-acao { width: 100%; padding: 16px; border: none; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; font-size: 0.9rem; text-transform: uppercase; margin-top: 10px; }
+    .btn-entrar { background: var(--primary); }
+    .btn-sair { background: var(--success); }
+    .turno-header { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding: 10px; border-radius: 8px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
+    .label-dia { background: #fff3cd; color: #856404; }
+    .label-noite { background: #d1ecf1; color: #0c5460; }
+    .btn-limpar { background: rgba(255,255,255,0.6); border: none; padding: 4px 10px; border-radius: 4px; color: inherit; cursor: pointer; font-size: 0.6rem; font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 5px; }
+    td { padding: 12px 5px; border-bottom: 1px solid #f1f1f1; vertical-align: middle; }
+    .container-info { width: 55%; }
+    .container-status { width: 45%; text-align: right; vertical-align: top; }
+    .data-hora-canto { font-size: 0.65rem; font-weight: bold; color: #555; display: block; margin-bottom: 5px; }
+    .detalhe-linha { font-size: 0.65rem; color: #777; line-height: 1.2; margin-top: 2px; }
+    .detalhe-linha b { color: #444; }
+    .st-badge { font-size: 0.55rem; padding: 4px 8px; border-radius: 15px; font-weight: bold; color: white; border: none; cursor: pointer; }
+    .btn-edit { background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 5px; vertical-align: middle; }
+    .btn-chamar { background: #f39c12; border: none; color: white; font-size: 0.55rem; font-weight: bold; padding: 4px 8px; border-radius: 10px; cursor: pointer; margin-top: 4px; text-transform: uppercase; display: block; }
+    .banner-chamada { display: none; background: #fff3cd; border: 2px solid #f39c12; border-radius: 12px; padding: 14px 16px; margin-bottom: 15px; }
+    .banner-chamada.ativo { display: block; animation: pulsar 1.5s infinite; }
+    .banner-titulo { font-size: 0.65rem; font-weight: bold; color: #856404; text-transform: uppercase; margin-bottom: 6px; }
+    .banner-msg { font-size: 1rem; font-weight: bold; color: #1a2744; margin-bottom: 10px; }
+    .btn-ok-chamada { background: var(--success); border: none; color: white; font-weight: bold; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; text-transform: uppercase; width: 100%; }
+    @keyframes pulsar { 0%,100%{border-color:#f39c12;} 50%{border-color:#e74c3c;} }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header-topo">
+    <div style="font-size: 0.6rem; font-weight: bold; color: #aaa;">PORTARIA SAVANA</div>
+    <button class="btn-planilha" onclick="abrirPlanilha()">📊 PLANILHA</button>
+  </div>
+
+  <div class="paineis-contagem">
+    <div class="mini-card" style="border-bottom: 3px solid var(--accent)">
+      <span>No Pátio</span>
+      <b id="contPatio">0</b>
+      <div class="detalhe-produto" id="detalhePatio"></div>
+    </div>
+    <div class="mini-card" style="border-bottom: 3px solid var(--success)">
+      <span>Carregados</span>
+      <b id="contCarga">0</b>
+      <div class="detalhe-produto" id="detalheCarga"></div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabBtnEnt" onclick="switchTab('abaEntrada', this)">Entrada</button>
+    <button class="tab-btn" onclick="switchTab('abaSaida', this)">Saída (NFE)</button>
+    <button class="tab-btn" onclick="switchTab('abaHist', this)">Histórico</button>
+  </div>
+
+  <div id="abaEntrada" class="card active">
+    <div id="bannerChamada" class="banner-chamada">
+      <div class="banner-titulo">📢 CHAMADA ATIVA</div>
+      <div class="banner-msg" id="bannerMsg"></div>
+      <button class="btn-ok-chamada" onclick="dispensarChamada(this)">✅ OK — PORTARIA CIENTE</button>
+    </div>
+    <h2 id="tituloEntrada">Nova Entrada</h2>
+    <input type="hidden" id="edit_mode" value="false">
+    <div class="campo"><label>Placa</label><input type="text" id="p_ent" placeholder="ABC1234"></div>
+    <div class="campo"><label>Motorista</label><input type="text" id="m_ent"></div>
+    <div class="campo"><label>Empresa</label><input type="text" id="t_ent"></div>
+    <div class="campo"><label>Produto</label>
+      <select id="prod_ent">
+        <option>SOJA</option>
+        <option>MILHO</option>
+        <option>MILHO WAXY</option>
+        <option>ALGODÃO</option>
+        <option>TRIGO</option>
+        <option>BRIQUETE</option>
+        <option>FERTILIZANTE</option>
+      </select>
+    </div>
+    <div class="campo"><label>Ordem</label>
+      <select id="o_ent">
+        <option value="SIM">SIM</option>
+        <option value="NÃO">NÃO</option>
+      </select>
+    </div>
+    <button class="btn-acao btn-entrar" id="btnEnt" onclick="registrarEntrada()">✓ Salvar Entrada</button>
+  </div>
+
+  <div id="abaSaida" class="card">
+    <h2 style="color: var(--success);">Registrar Saída</h2>
+    <div class="campo"><label>Placa</label><input type="text" id="p_sai"></div>
+    <div class="campo"><label>Número NFE</label><input type="text" id="nfe_sai"></div>
+    <button class="btn-acao btn-sair" id="btnSai" onclick="registrarSaida()">⇥ Registrar Saída</button>
+  </div>
+
+  <div id="abaHist" class="card">
+    <h2 style="font-size: 1rem; margin-bottom: 15px;">HISTÓRICO DO TURNO</h2>
+    <div class="turno-header label-dia"><span>☀️ DIA</span><button class="btn-limpar" onclick="limparTabela('tabDia')">ZERAR</button></div>
+    <table id="tabDia"><tbody></tbody></table>
+    <div class="turno-header label-noite"><span>🌙 NOITE</span><button class="btn-limpar" onclick="limparTabela('tabNoite')">ZERAR</button></div>
+    <table id="tabNoite"><tbody></tbody></table>
+  </div>
+</div>
+
+<script>
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwCMcDylEoZF0u19tTD_6xJHN5NG6EV_6BsPZyO3BxwAlw6hK32SNokg6lwaLJkENiiEw/exec?dados=true";
+  
+  let veiculosPatio = [];
+  let veiculosCarregados = [];
+
+  function abrirPlanilha() {
+    var s = prompt('🔒 Senha de Acesso:');
+    if (s === '123mudar') { window.open('https://docs.google.com/spreadsheets/d/1ld0si9PW5xHkHWM5h-4J1mvnqoRrEgQ961aEgMI9_ik/edit', '_blank'); }
+    else if (s !== null) { alert('❌ Senha incorreta!'); }
+  }
+
+  function atualizarDetalhesProdutos() {
+    document.getElementById('contPatio').innerText = veiculosPatio.length;
+    document.getElementById('contCarga').innerText = veiculosCarregados.length;
+    
+    const patioPorProd = {};
+    veiculosPatio.forEach(v => {
+      const k = `${v.produto}-${v.transportadora}`;
+      if (!patioPorProd[k]) patioPorProd[k] = { p: v.produto, t: v.transportadora, q: 0 };
+      patioPorProd[k].q++;
+    });
+    
+    let htmlP = '';
+    Object.values(patioPorProd).sort((a,b)=>a.p.localeCompare(b.p)).forEach(i => {
+      htmlP += `<div>${i.q} ${i.p} - (${i.t})</div>`;
+    });
+    document.getElementById('detalhePatio').innerHTML = htmlP || '<div style="color:#aaa;">—</div>';
+  }
+
+  async function carregarEstado() {
+    try {
+      const res = await fetch(WEB_APP_URL);
+      const json = await res.json();
+      const dados = json.dados || [];
+      
+      document.querySelector("#tabDia tbody").innerHTML = "";
+      document.querySelector("#tabNoite tbody").innerHTML = "";
+      veiculosPatio = []; veiculosCarregados = [];
+
+      dados.sort((a, b) => a.chegada - b.chegada);
+
+      dados.forEach(r => {
+        if (r.status === "PÁTIO") veiculosPatio.push(r);
+        else if (r.status === "SAÍDA") veiculosCarregados.push(r);
+        addHist(r, r.status === "SAÍDA" ? 'SAÍDA' : 'ENTRADA', r.dataEntrada);
+      });
+
+      atualizarDetalhesProdutos();
+      if (json.chamada) {
+        document.getElementById('bannerMsg').innerText = json.chamada;
+        document.getElementById('bannerChamada').classList.add('ativo');
+      } else {
+        document.getElementById('bannerChamada').classList.remove('ativo');
+      }
+    } catch(e) { console.error(e); }
+  }
+
+  function addHist(d, tipo, dataManual = null) {
+    const agora = new Date();
+    const hStr = dataManual ? dataManual.split(" ")[1] : agora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    const dStr = dataManual ? dataManual.split(" ")[0] : agora.toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'});
+    
+    let hInt = dataManual ? parseInt(hStr.split(":")[0]) : agora.getHours();
+    const tabID = (hInt >= 6 && hInt < 18) ? "#tabDia" : "#tabNoite";
+    const tbody = document.querySelector(tabID + " tbody");
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+        <td class="container-info">
+          <span style="font-size: 0.6rem; color: #aaa; font-weight: bold;">N°${String(d.chegada).padStart(2,'0')}</span><br>
+          <b style="font-size: 1rem;">${d.placa}</b>
+          <div class="detalhe-linha"><b>MOT:</b> ${d.motorista || '---'}</div>
+          ${tipo === 'ENTRADA' ? `<button class="btn-chamar" onclick="chamarVeiculo('${d.placa}','${d.motorista}', this)">📢 Chamar</button>` : ''}
+        </td>
+        <td style="width:30%; text-align:center;">
+          <div class="detalhe-linha">${d.transportadora || '---'}</div>
+          <div class="detalhe-linha"><b>${d.produto || (d.nfe ? 'NFE: '+d.nfe : '---')}</b></div>
+        </td>
+        <td class="container-status">
+          <span class="data-hora-canto">${dStr} - ${hStr}</span>
+          ${tipo === 'ENTRADA' ? `
+            <button class="st-badge" style="background:${d.ordem==='SIM'?'#27ae60':'#e74c3c'}" onclick="toggleOrdem(this,'${d.placa}')">${d.ordem}</button>
+            <button class="btn-edit" onclick="prepararEdicao('${d.placa}','${d.motorista}','${d.transportadora}','${d.produto}','${d.ordem}')">✏️</button>
+          ` : '<span style="color:var(--success); font-weight:bold; font-size:0.6rem">SAÍDA ✅</span>'}
+        </td>`;
+    tbody.appendChild(tr);
+  }
+
+  async function chamarVeiculo(placa, motorista, btn) {
+    const nome = motorista || placa;
+    const msg = `🚛 VEÍCULO ${placa} — SR(A). ${nome}, FAVOR DIRIGIR-SE À BALANÇA!`;
+    const original = btn.innerText;
+    btn.innerText = "⏳ ENVIANDO..."; btn.style.background = "#aaa"; btn.disabled = true;
+    try {
+      await fetch(WEB_APP_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ acao: "CHAMAR", mensagem: msg }) });
+      btn.innerText = "✅ CHAMADO!"; btn.style.background = "#27ae60";
+      setTimeout(() => { btn.innerText = original; btn.style.background = "#f39c12"; btn.disabled = false; }, 3000);
+      carregarEstado();
+    } catch(e) { alert("Erro!"); btn.disabled = false; }
+  }
+
+  async function dispensarChamada(btn) {
+    const originalText = btn.innerText;
+    btn.innerText = "⏳ PROCESSANDO..."; btn.disabled = true;
+    try {
+      await fetch(WEB_APP_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ acao: "OK_CHAMADA" }) });
+      document.getElementById('bannerChamada').classList.remove('ativo');
+      carregarEstado();
+    } catch(e) { 
+        alert("Erro!"); 
+        btn.innerText = originalText; 
+        btn.disabled = false;
+    }
+  }
+
+  async function registrarEntrada() {
+    const btn = document.getElementById('btnEnt');
+    const isEdit = document.getElementById('edit_mode').value === "true";
+    const d = { 
+        placa: document.getElementById('p_ent').value.toUpperCase().trim(), 
+        motorista: document.getElementById('m_ent').value.toUpperCase().trim(), 
+        transportadora: document.getElementById('t_ent').value.toUpperCase().trim(), 
+        produto: document.getElementById('prod_ent').value, 
+        ordem: document.getElementById('o_ent').value, 
+        acao: isEdit ? "EDITAR" : "ENTRADA" 
+    };
+    if(!d.placa) return alert("Placa obrigatória!");
+    btn.disabled = true; btn.innerText = "⏳ ENVIANDO...";
+    try {
+      await fetch(WEB_APP_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(d) });
+      document.getElementById('p_ent').value = ""; document.getElementById('m_ent').value = "";
+      document.getElementById('t_ent').value = ""; document.getElementById('edit_mode').value = "false";
+      document.getElementById('tituloEntrada').innerText = "Nova Entrada";
+      carregarEstado();
+    } catch (e) { alert("Erro!"); } finally { btn.disabled = false; btn.innerText = "✓ Salvar Entrada"; }
+  }
+
+  async function registrarSaida() {
+    const btn = document.getElementById('btnSai');
+    const d = { placa: document.getElementById('p_sai').value.toUpperCase().trim(), nfe: document.getElementById('nfe_sai').value.toUpperCase().trim(), acao: "SAIDA" };
+    if(!d.placa || !d.nfe) return alert("Preencha Placa e NFE!");
+    btn.disabled = true; btn.innerText = "⏳ PROCESSANDO...";
+    try {
+      await fetch(WEB_APP_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(d) });
+      document.getElementById('p_sai').value = ""; document.getElementById('nfe_sai').value = "";
+      carregarEstado();
+    } catch (e) { alert("Erro!"); } finally { btn.disabled = false; btn.innerText = "⇥ Registrar Saída"; }
+  }
+
+  async function toggleOrdem(btn, placa) {
+    const novo = btn.innerText === 'SIM' ? 'NÃO' : 'SIM';
+    btn.innerText = "⏳";
+    try {
+      await fetch(WEB_APP_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ placa, ordem: novo, acao: "EDITAR_ORDEM" }) });
+      carregarEstado();
+    } catch(e) { alert("Erro!"); }
+  }
+
+  function prepararEdicao(p, m, t, pr, ord) {
+    document.getElementById('p_ent').value = p; document.getElementById('m_ent').value = m;
+    document.getElementById('t_ent').value = t; document.getElementById('prod_ent').value = pr;
+    document.getElementById('o_ent').value = ord; document.getElementById('edit_mode').value = "true";
+    document.getElementById('tituloEntrada').innerText = "✏️ EDITANDO: " + p;
+    switchTab('abaEntrada', document.getElementById('tabBtnEnt'));
+  }
+
+  function switchTab(id, btn) {
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active'); btn.classList.add('active');
+  }
+
+  function limparTabela(id) { if(confirm("Limpar visualização?")) document.querySelector(`#${id} tbody`).innerHTML = ""; }
+
+  window.addEventListener('DOMContentLoaded', () => { carregarEstado(); setInterval(carregarEstado, 10000); });
+</script>
+</body>
+</html>
