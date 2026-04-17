@@ -1,0 +1,17 @@
+{
+  "name": "Portaria Savana",
+  "short_name": "Portaria",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1a2744",
+  "theme_color": "#1a2744",
+  "description": "Sistema de Gestão de Portaria e Logística",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/7544/7544957.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
