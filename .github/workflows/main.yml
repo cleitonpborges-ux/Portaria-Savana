@@ -80,15 +80,7 @@ jobs:
           EOF
 
       - name: Construir APK
-        run: |
-          node -e "
-            const crypto = require('crypto');
-            const fs = require('fs');
-            const content = fs.readFileSync('twa-manifest.json');
-            const hash = crypto.createHash('sha256').update(content).digest('hex');
-            fs.writeFileSync('.checksum', hash);
-          "
-          bubblewrap build --skipSigning
+        run: printf "n\n" | bubblewrap build --skipSigning
 
       - name: Salvar APK para Download
         uses: actions/upload-artifact@v4
