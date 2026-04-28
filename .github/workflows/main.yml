@@ -27,19 +27,17 @@ jobs:
 
       - name: Construir APK
         run: |
-          # 1. Inicializa o projeto PWA baseado no seu link
+          # 1. Configura as variáveis de ambiente para o Bubblewrap não perguntar nada
+          export JAVA_HOME=$JAVA_HOME_17_X64
+          export ANDROID_HOME=$ANDROID_SDK_ROOT
+          
+          # 2. Inicializa o projeto PWA
           bubblewrap init --manifest=https://cleitonpborges-ux.github.io/Portaria-Savana/manifest.json --yes
           
-          # 2. Configura os caminhos do Android SDK e JDK automaticamente para o robô não perguntar
-          echo "jks:
-            path: ./android.keystore
-            password: 'password'
-            keyPassword: 'password'
-            alias: 'android'
-          jdkPath: /usr/lib/jvm/temurin-17-jdk-amd64
-          androidSdkPath: /usr/local/lib/android/sdk" > tetherys.json
+          # 3. Cria o arquivo de configuração manual para garantir que ele pule as perguntas
+          echo "{\"jdkPath\":\"$JAVA_HOME\",\"androidSdkPath\":\"$ANDROID_HOME\"}" > ~/.bubblewrap/config.json
 
-          # 3. Roda o Build final sem pedir assinatura
+          # 4. Roda o Build final
           bubblewrap build --skipSigning
 
       - name: Salvar APK para Download
