@@ -22,16 +22,24 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Instalar Bubblewrap e Android SDK
-        run: |
-          npm install -g @bubblewrap/cli
-          # Isso aceita as licenças do Android automaticamente
-          yes | sdkmanager --licenses || true
+      - name: Instalar Bubblewrap
+        run: npm install -g @bubblewrap/cli
 
       - name: Construir APK
         run: |
-          # O comando 'yes' responde "sim" para todas as perguntas do terminal
-          yes | bubblewrap init --manifest=https://cleitonpborges-ux.github.io/Portaria-Savana/manifest.json --yes
+          # 1. Inicializa o projeto PWA baseado no seu link
+          bubblewrap init --manifest=https://cleitonpborges-ux.github.io/Portaria-Savana/manifest.json --yes
+          
+          # 2. Configura os caminhos do Android SDK e JDK automaticamente para o robô não perguntar
+          echo "jks:
+            path: ./android.keystore
+            password: 'password'
+            keyPassword: 'password'
+            alias: 'android'
+          jdkPath: /usr/lib/jvm/temurin-17-jdk-amd64
+          androidSdkPath: /usr/local/lib/android/sdk" > tetherys.json
+
+          # 3. Roda o Build final sem pedir assinatura
           bubblewrap build --skipSigning
 
       - name: Salvar APK para Download
