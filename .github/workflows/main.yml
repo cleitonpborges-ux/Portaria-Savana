@@ -27,17 +27,16 @@ jobs:
 
       - name: Construir APK
         run: |
-          # 1. Configura as variáveis de ambiente para o Bubblewrap não perguntar nada
-          export JAVA_HOME=$JAVA_HOME_17_X64
-          export ANDROID_HOME=$ANDROID_SDK_ROOT
+          # 1. Cria a pasta de configuração que o Bubblewrap exige
+          mkdir -p ~/.bubblewrap
           
-          # 2. Inicializa o projeto PWA
-          bubblewrap init --manifest=https://cleitonpborges-ux.github.io/Portaria-Savana/manifest.json --yes
+          # 2. Cria o arquivo de configuração com os caminhos exatos do servidor
+          echo "{\"jdkPath\":\"$JAVA_HOME\",\"androidSdkPath\":\"$ANDROID_SDK_ROOT\"}" > ~/.bubblewrap/config.json
           
-          # 3. Cria o arquivo de configuração manual para garantir que ele pule as perguntas
-          echo "{\"jdkPath\":\"$JAVA_HOME\",\"androidSdkPath\":\"$ANDROID_HOME\"}" > ~/.bubblewrap/config.json
-
-          # 4. Roda o Build final
+          # 3. Inicializa o projeto (o comando 'yes' garante que ele aceite tudo)
+          yes | bubblewrap init --manifest=https://cleitonpborges-ux.github.io/Portaria-Savana/manifest.json --yes
+          
+          # 4. Gera o APK pulando a assinatura
           bubblewrap build --skipSigning
 
       - name: Salvar APK para Download
