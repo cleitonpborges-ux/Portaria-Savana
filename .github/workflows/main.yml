@@ -2,6 +2,7 @@ name: Gerar APK Portaria Savana
 on:
   push:
     branches: [ main ]
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,26 +24,57 @@ jobs:
       - name: Instalar Bubblewrap
         run: npm install -g @bubblewrap/cli
 
-      - name: Criar twa-manifest.json manualmente
+      - name: Instalar Android SDK + Configurar + Build
         run: |
-          cat > twa-manifest.json << 'EOF'
+          set -e
+
+          # 1. Instala o Android SDK em caminho fixo
+          SDK_ROOT="$HOME/android-sdk"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
+          unzip -q cmdtools.zip -d "$SDK_ROOT/cmdline-tools"
+          mv "$SDK_ROOT/cmdline-tools/cmdline-tools" "$SDK_ROOT/cmdline-tools/latest"
+
+          export PATH="$SDK_ROOT/cmdline-tools/latest/bin:$SDK_ROOT/platform-tools:$PATH"
+          export ANDROID_HOME="$SDK_ROOT"
+          export ANDROID_SDK_ROOT="$SDK_ROOT"
+
+          # 2. Aceita licenças e instala componentes
+          yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses || true
+          sdkmanager --sdk_root="$SDK_ROOT" \
+            "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0"
+
+          # 3. Configura o Bubblewrap apontando para os caminhos corretos
+          mkdir -p ~/.bubblewrap
+          cat > ~/.bubblewrap/config.json << EOF
+          {
+            "jdkPath": "$JAVA_HOME",
+            "androidSdkPath": "$SDK_ROOT"
+          }
+          EOF
+
+          # 4. Cria o twa-manifest.json
+          cat > twa-manifest.json << 'MANIFEST'
           {
             "packageId": "io.github.cleitonpborges_ux.portaria_savana",
             "host": "cleitonpborges-ux.github.io",
             "name": "Portaria Savana",
-            "launcherName": "Portaria Savana",
+            "launcherName": "Portaria",
             "display": "standalone",
-            "themeColor": "#FFFFFF",
-            "navigationColor": "#000000",
-            "navigationColorDark": "#000000",
-            "navigationDividerColor": "#000000",
-            "navigationDividerColorDark": "#000000",
-            "backgroundColor": "#FFFFFF",
+            "themeColor": "#0f2040",
+            "navigationColor": "#0f2040",
+            "navigationColorDark": "#0f2040",
+            "navigationDividerColor": "#0f2040",
+            "navigationDividerColorDark": "#0f2040",
+            "backgroundColor": "#0f2040",
             "enableNotifications": false,
-            "startUrl": "/Portaria-Savana/",
-            "iconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icons/icon-512x512.png",
-            "maskableIconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icons/icon-512x512.png",
-            "monochromeIconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icons/icon-512x512.png",
+            "startUrl": "/Portaria-Savana/index.html",
+            "iconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icons/icon-512.png",
+            "maskableIconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icons/icon-512.png",
+            "monochromeIconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icons/icon-192.png",
             "appVersion": "1",
             "appVersionCode": 1,
             "signingKey": {
@@ -55,33 +87,18 @@ jobs:
             "isMetaQuest": false,
             "fullScopeUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/",
             "minSdkVersion": 19,
-            "orientation": "default",
+            "orientation": "portrait",
             "fingerprints": [],
-            "alphaDependencies": {
-              "enabled": false
-            },
+            "alphaDependencies": { "enabled": false },
             "generatorApp": "bubblewrap-cli",
             "webManifestUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/manifest.json",
             "serviceWorkerUrl": null,
             "shortcuts": []
           }
-          EOF
+          MANIFEST
 
-      - name: Configurar Bubblewrap (JDK e SDK)
-        run: |
-          mkdir -p ~/.bubblewrap
-          cat > ~/.bubblewrap/config.json << EOF
-          {
-            "jdkPath": "$JAVA_HOME",
-            "androidSdkPath": "$ANDROID_HOME"
-          }
-          EOF
-
-      - name: Aceitar licenças Android SDK
-        run: yes | sdkmanager --licenses || true
-
-      - name: Construir APK
-        run: bubblewrap build --skipSigning
+          # 5. Build!
+          bubblewrap build --skipSigning
 
       - name: Salvar APK para Download
         uses: actions/upload-artifact@v4
