@@ -1,0 +1,32 @@
+name: Gerar APK Portaria Savana
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar Bubblewrap
+        run: npm install -g @bubblewrap/cli
+
+      - name: Criar APK
+        # O comando abaixo inicializa e compila o APK baseado no seu link
+        run: |
+          bubblewrap init --manifest=https://cleitonpborges-ux.github.io/COTTON-24-25---SAVANA/manifest.json --yes
+          bubblewrap build --skipSigning
+
+      - name: Disponibilizar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: App-Portaria-Savana
+          path: ./*.apk
