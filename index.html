@@ -1258,9 +1258,100 @@
     }
     .idb-sync-dot.pendente { background: var(--warn); animation: piscar-critico 1.5s infinite; }
 
+    /* ===================== BANNER ATUALIZAÇÃO PWA ===================== */
+    #bannerUpdate {
+      display: none;
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      width: calc(100% - 32px);
+      max-width: 440px;
+      background: linear-gradient(135deg, #1a3560, #0f2040);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.25);
+      padding: 18px 18px;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    #bannerUpdate.ativo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      animation: slideUpBanner 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    @keyframes slideUpBanner {
+      from { opacity: 0; transform: translateX(-50%) translateY(40px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+    .banner-update-icon {
+      font-size: 2rem;
+      flex-shrink: 0;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
+    }
+    .banner-update-body { flex: 1; }
+    .banner-update-title {
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: 0.2px;
+      line-height: 1.45;
+    }
+    .banner-update-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      flex-shrink: 0;
+    }
+    .btn-update-sim {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+      border: none;
+      border-radius: 20px;
+      padding: 8px 18px;
+      font-size: 0.68rem;
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      transition: all 0.15s;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(37,99,235,0.4);
+    }
+    .btn-update-sim:active { transform: scale(0.95); }
+    .btn-update-nao {
+      background: transparent;
+      color: rgba(255,255,255,0.55);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 20px;
+      padding: 7px 18px;
+      font-size: 0.63rem;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-update-nao:active { transform: scale(0.95); background: rgba(255,255,255,0.08); }
+
   </style>
 </head>
 <body>
+
+<!-- BANNER ATUALIZAÇÃO PWA -->
+<div id="bannerUpdate">
+  <div class="banner-update-icon">🚀</div>
+  <div class="banner-update-body">
+    <div class="banner-update-title"><b>Nova versão disponível!</b><br>Deseja atualizar?</div>
+  </div>
+  <div class="banner-update-actions">
+    <button class="btn-update-sim" onclick="confirmarUpdate()">✅ SIM</button>
+    <button class="btn-update-nao" onclick="document.getElementById('bannerUpdate').classList.remove('ativo')">⏰ ADIAR</button>
+  </div>
+</div>
 
 <!-- TOAST CONTAINER -->
 <div id="toastContainer"></div>
@@ -2771,6 +2862,14 @@ ${trocasStr}
 </script>
   <!-- Registro do Service Worker PWA -->
   <script>
+    let _pendingSW = null;
+
+    function confirmarUpdate() {
+      document.getElementById('bannerUpdate').classList.remove('ativo');
+      if (_pendingSW) { _pendingSW.postMessage('skipWaiting'); }
+      window.location.reload();
+    }
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
@@ -2780,10 +2879,8 @@ ${trocasStr}
               const newSW = reg.installing;
               newSW.addEventListener('statechange', () => {
                 if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-                  if (confirm('Nova versão disponível! Atualizar agora?')) {
-                    newSW.postMessage('skipWaiting');
-                    window.location.reload();
-                  }
+                  _pendingSW = newSW;
+                  document.getElementById('bannerUpdate').classList.add('ativo');
                 }
               });
             });
