@@ -27,16 +27,39 @@ jobs:
 
       - name: Construir APK
         run: |
-          # 1. Cria a pasta de configuração que o Bubblewrap exige
+          # Prepara a pasta de configuração
           mkdir -p ~/.bubblewrap
-          
-          # 2. Cria o arquivo de configuração com os caminhos exatos do servidor
           echo "{\"jdkPath\":\"$JAVA_HOME\",\"androidSdkPath\":\"$ANDROID_SDK_ROOT\"}" > ~/.bubblewrap/config.json
           
-          # 3. Inicializa o projeto (o comando 'yes' garante que ele aceite tudo)
-          yes | bubblewrap init --manifest=https://cleitonpborges-ux.github.io/Portaria-Savana/manifest.json --yes
-          
-          # 4. Gera o APK pulando a assinatura
+          # Cria o arquivo do projeto manualmente para evitar o loop de perguntas no terminal
+          echo '{
+            "packageId": "com.portaria.savana",
+            "host": "cleitonpborges-ux.github.io",
+            "name": "Portaria Savana",
+            "launcherName": "Savana",
+            "display": "standalone",
+            "themeColor": "#000000",
+            "navigationColor": "#000000",
+            "backgroundColor": "#ffffff",
+            "startUrl": "/Portaria-Savana/",
+            "iconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icon-512x512.png",
+            "maskableIconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icon-512x512.png",
+            "splashScreenFadeOutDuration": 300,
+            "signingKey": { "path": "./android.keystore", "alias": "android" },
+            "appVersionName": "1.0.0",
+            "appVersionCode": 1,
+            "shortcuts": [],
+            "generatorApp": "bubblewrap-cli",
+            "webManifestUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/manifest.json",
+            "fallbackType": "customtabs",
+            "features": {},
+            "alphaDependencies": { "enabled": false },
+            "enableSiteSettingsShortcut": true,
+            "isChromeOSOnly": false,
+            "isWebManifestValidated": true
+          }' > twa-manifest.json
+
+          # Gera o APK final usando a configuração criada acima
           bubblewrap build --skipSigning
 
       - name: Salvar APK para Download
