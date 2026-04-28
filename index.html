@@ -2,46 +2,382 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Portaria LEM - v62</title>
-  <style>
-    :root { --primary: #1a2744; --bg: #f4f7f6; --success: #27ae60; --danger: #e74c3c; --accent: #3498db; }
-    body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; justify-content: center; }
-    .container { width: 100%; max-width: 480px; }
-    .header-topo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .btn-planilha { background: white; border: 1.5px solid #dcdcdc; color: #888; font-size: 0.6rem; padding: 6px 12px; border-radius: 20px; cursor: pointer; text-transform: uppercase; font-weight: bold; }
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
-    /* === PAINÉIS DE CONTAGEM - CORRIGIDO === */
-    .paineis-contagem { display: flex; gap: 8px; margin-bottom: 15px; }
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f2040">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Portaria">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <title>Portaria LEM - v1</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0f2040;
+      --primary-light: #1a3560;
+      --bg: #f0f2f5;
+      --card-bg: #ffffff;
+      --success: #16a34a;
+      --success-light: #dcfce7;
+      --danger: #dc2626;
+      --danger-light: #fee2e2;
+      --accent: #2563eb;
+      --accent-light: #dbeafe;
+      --warn: #d97706;
+      --warn-light: #fef3c7;
+      --text-main: #111827;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --radius-sm: 10px;
+      --radius-md: 16px;
+      --radius-lg: 22px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 16px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,0.14), 0 4px 12px rgba(0,0,0,0.08);
+      --tab-h: 60px;
+    }
+
+    /* DARK MODE (NOITE) */
+    body.modo-noite {
+      --bg: #0a0f1e;
+      --card-bg: #111827;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --border: #1e293b;
+      --primary: #2563eb;
+      --primary-light: #3b82f6;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+      --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,0.5);
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: 'DM Sans', 'Segoe UI', sans-serif;
+      background: var(--bg);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      transition: background 0.4s ease;
+    }
+
+    /* ===================== STICKY HEADER ===================== */
+    .sticky-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: var(--card-bg);
+      box-shadow: var(--shadow-md);
+      transition: background 0.4s ease;
+    }
+
+    .header-topo {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px 8px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-brand .brand-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--primary);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+    }
+
+    .header-brand .brand-name {
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      line-height: 1;
+    }
+    .header-brand .brand-sub {
+      font-size: 0.58rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.3px;
+    }
+
+    .header-actions { display: flex; gap: 6px; align-items: center; }
+
+    .btn-header {
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.58rem;
+      padding: 6px 10px;
+      border-radius: 20px;
+      cursor: pointer;
+      text-transform: uppercase;
+      font-weight: 700;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .btn-header:active { transform: scale(0.95); }
+
+    .turno-strip {
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      padding: 7px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .turno-strip-left {
+      display: flex;
+      flex-direction: column;
+    }
+    .turno-strip-name {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: white;
+      letter-spacing: 0.3px;
+    }
+    .turno-strip-sub {
+      font-size: 0.58rem;
+      color: rgba(255,255,255,0.65);
+      margin-top: 1px;
+    }
+
+    .btn-troca-turno {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.25);
+      color: white;
+      font-size: 0.58rem;
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: 20px;
+      cursor: pointer;
+      text-transform: uppercase;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .btn-troca-turno:active { transform: scale(0.95); background: rgba(255,255,255,0.25); }
+
+    /* TABS dentro do sticky header */
+    .tabs-wrapper {
+      padding: 6px 14px 8px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--bg);
+      padding: 4px;
+      border-radius: var(--radius-sm);
+    }
+
+    /* ===================== ICON TABS ===================== */
+    .tab-btn {
+      flex: 1;
+      padding: 7px 4px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      font-family: inherit;
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+      letter-spacing: 0.3px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .tab-btn.active {
+      background: var(--card-bg);
+      color: var(--primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .tab-btn:active { transform: scale(0.94); }
+
+    .tab-label { line-height: 1; }
+
+    /* Bolinha 3D */
+    .tab-icon-wrap {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: all 0.2s;
+      /* estado inativo: apagado */
+      opacity: 0.45;
+      filter: grayscale(0.3);
+    }
+
+    .tab-btn.active .tab-icon-wrap {
+      opacity: 1;
+      filter: none;
+    }
+
+    /* Sombra 3D e gradiente por cor */
+    .tab-icon-entrada {
+      background: radial-gradient(circle at 38% 32%, #5b9bff 0%, #1565c0 55%, #0d3b8e 100%);
+      box-shadow: 0 4px 10px rgba(21,101,192,0.45), inset 0 2px 4px rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.25);
+    }
+
+    .tab-icon-saida {
+      background: radial-gradient(circle at 38% 32%, #6ee084 0%, #27a543 55%, #145c22 100%);
+      box-shadow: 0 4px 10px rgba(39,165,67,0.45), inset 0 2px 4px rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.25);
+    }
+
+    .tab-icon-hist {
+      background: radial-gradient(circle at 38% 32%, #6b8cbf 0%, #1a3560 55%, #0f2040 100%);
+      box-shadow: 0 4px 10px rgba(26,53,96,0.45), inset 0 2px 4px rgba(255,255,255,0.3), inset 0 -2px 4px rgba(0,0,0,0.25);
+    }
+
+    /* brilho highlight no topo da bolinha */
+    .tab-icon-wrap::before {
+      content: '';
+      position: absolute;
+      top: 6px;
+      left: 9px;
+      width: 12px;
+      height: 7px;
+      background: rgba(255,255,255,0.45);
+      border-radius: 50%;
+      filter: blur(2px);
+      pointer-events: none;
+    }
+
+    .tab-svg {
+      width: 18px;
+      height: 18px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ===================== CONTAINER ===================== */
+    .container {
+      width: 100%;
+      max-width: 480px;
+      padding: 16px;
+      margin-top: 148px; /* height of sticky header */
+    }
+
+    /* ===================== PAINÉIS CONTAGEM ===================== */
+    .paineis-contagem {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      align-items: stretch;
+    }
+
     .mini-card {
       flex: 1;
-      min-width: 0; /* CHAVE: impede overflow com texto grande */
-      background: white;
-      padding: 10px;
-      border-radius: 12px;
+      min-width: 0;
+      background: var(--card-bg);
+      padding: 14px 12px;
+      border-radius: var(--radius-md);
       text-align: center;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      box-shadow: var(--shadow-sm);
       border-bottom: 3px solid #ccc;
-      box-sizing: border-box;
-      overflow: hidden;
+      transition: background 0.4s ease;
+      /* sem overflow:hidden — deixa o card crescer */
     }
-    .mini-card span { display: block; font-size: 0.55rem; font-weight: bold; color: #888; text-transform: uppercase; }
-    .mini-card b { font-size: 1.3rem; color: var(--primary); }
 
-    /* === RESUMO POR PRODUTO (linha compacta acima dos detalhes) === */
+    .mini-card span {
+      display: block;
+      font-size: 0.55rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .mini-card b {
+      font-size: 1.6rem;
+      color: var(--text-main);
+      font-weight: 800;
+      display: block;
+      line-height: 1.1;
+      font-family: 'JetBrains Mono', monospace;
+      margin: 2px 0;
+    }
+
     .resumo-produto {
-      font-size: 0.62rem;
-      font-weight: bold;
+      font-size: 0.58rem;
+      font-weight: 700;
       color: var(--primary);
-      margin: 4px 0 3px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      margin: 4px 0 5px;
+      white-space: normal;       /* permite quebra de linha */
+      word-break: break-word;
+      line-height: 1.5;
       text-align: left;
-      padding: 0 2px;
+      /* tags de produto inline */
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
     }
 
-    .mini-card .detalhe-produto { font-size: 0.6rem; color: #555; line-height: 1.4; text-align: left; padding: 0 2px; }
+    /* cada produto vira um pill colorido */
+    .resumo-produto .prod-pill {
+      display: inline-block;
+      background: var(--accent-light);
+      color: var(--accent);
+      border-radius: 20px;
+      padding: 2px 7px;
+      font-size: 0.54rem;
+      font-weight: 800;
+      white-space: nowrap;
+      line-height: 1.6;
+    }
+    body.modo-noite .resumo-produto .prod-pill {
+      background: rgba(37,99,235,0.18);
+      color: #93c5fd;
+    }
+    .mini-card[data-tipo="carga"] .resumo-produto .prod-pill {
+      background: var(--success-light);
+      color: var(--success);
+    }
+    body.modo-noite .mini-card[data-tipo="carga"] .resumo-produto .prod-pill {
+      background: rgba(22,163,74,0.18);
+      color: #86efac;
+    }
+
+    .mini-card .detalhe-produto {
+      font-size: 0.57rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      text-align: left;
+      margin-top: 4px;
+    }
+
     .mini-card .detalhe-produto div {
       margin: 1px 0;
       white-space: nowrap;
@@ -49,75 +385,1075 @@
       text-overflow: ellipsis;
     }
 
-    .tabs { display: flex; gap: 5px; margin-bottom: 15px; background: #e0e4e8; padding: 5px; border-radius: 12px; }
-    .tab-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: transparent; color: #666; font-size: 0.7rem; text-transform: uppercase; }
-    .tab-btn.active { background: white; color: var(--primary); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-    .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); display: none; border-top: 5px solid var(--primary); }
+
+    /* ===================== CARDS ===================== */
+    .card {
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      display: none;
+      border-top: 4px solid var(--primary);
+      transition: background 0.4s ease;
+      animation: fadeSlideIn 0.25s ease;
+    }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     .card.active { display: block; }
-    .campo { margin-bottom: 12px; }
-    label { display: block; font-weight: bold; font-size: 0.65rem; color: #888; margin-bottom: 4px; text-transform: uppercase; }
-    input, select { width: 100%; padding: 12px; border: 1.5px solid #eee; border-radius: 10px; box-sizing: border-box; font-size: 1rem; outline: none; background: #fafafa; text-transform: uppercase; }
-    .btn-acao { width: 100%; padding: 16px; border: none; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; font-size: 0.9rem; text-transform: uppercase; margin-top: 10px; }
-    .btn-entrar { background: var(--primary); }
-    .btn-sair { background: var(--success); }
-    .turno-header { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding: 10px; border-radius: 8px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
-    .label-dia { background: #fff3cd; color: #856404; }
-    .label-noite { background: #d1ecf1; color: #0c5460; }
-    .btn-limpar { background: rgba(255,255,255,0.6); border: none; padding: 4px 10px; border-radius: 4px; color: inherit; cursor: pointer; font-size: 0.6rem; font-weight: bold; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 5px; }
-    td { padding: 12px 5px; border-bottom: 1px solid #f1f1f1; vertical-align: middle; }
+
+    /* ===================== PS4 LIGHT BAR SWEEP ===================== */
+    .mini-card { position: relative; overflow: hidden; }
+
+    .mini-card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      border-radius: var(--radius-md);
+      pointer-events: none;
+      opacity: 0;
+      background: transparent;
+    }
+
+    .mini-card[data-tipo="patio"].ps4-sweep::after {
+      background: linear-gradient(
+        105deg,
+        transparent 0%, transparent 20%,
+        rgba(59,130,246,0.10) 38%,
+        rgba(147,197,253,0.60) 50%,
+        rgba(59,130,246,0.10) 62%,
+        transparent 80%, transparent 100%
+      );
+      background-size: 300% 100%;
+      animation: ps4Sweep 0.9s cubic-bezier(0.22,0.61,0.36,1) forwards;
+      opacity: 1;
+    }
+
+    .mini-card[data-tipo="carga"].ps4-sweep::after {
+      background: linear-gradient(
+        105deg,
+        transparent 0%, transparent 20%,
+        rgba(34,197,94,0.10) 38%,
+        rgba(134,239,172,0.60) 50%,
+        rgba(34,197,94,0.10) 62%,
+        transparent 80%, transparent 100%
+      );
+      background-size: 300% 100%;
+      animation: ps4Sweep 0.9s cubic-bezier(0.22,0.61,0.36,1) forwards;
+      opacity: 1;
+    }
+
+    @keyframes ps4Sweep {
+      0%   { background-position: 200% center; opacity: 1; }
+      75%  { background-position: -100% center; opacity: 1; }
+      100% { background-position: -200% center; opacity: 0; }
+    }
+
+    .mini-card[data-tipo="patio"].ps4-sweep {
+      box-shadow: var(--shadow-sm), 0 0 22px rgba(59,130,246,0.40), 0 0 6px rgba(59,130,246,0.25) inset;
+    }
+    .mini-card[data-tipo="carga"].ps4-sweep {
+      box-shadow: var(--shadow-sm), 0 0 22px rgba(34,197,94,0.40), 0 0 6px rgba(34,197,94,0.25) inset;
+    }
+
+    @keyframes numPop {
+      0%   { transform: scale(1); }
+      35%  { transform: scale(1.22); }
+      65%  { transform: scale(0.95); }
+      100% { transform: scale(1); }
+    }
+    .num-pop { animation: numPop 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+
+
+
+    .campo { margin-bottom: 14px; }
+
+    label {
+      display: block;
+      font-weight: 700;
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 14px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 1rem;
+      outline: none;
+      background: var(--bg);
+      color: var(--text-main);
+      text-transform: uppercase;
+      font-family: inherit;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      -webkit-appearance: none;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+      background: var(--card-bg);
+    }
+
+    textarea { resize: vertical; min-height: 70px; font-size: 0.9rem; }
+
+    .btn-acao {
+      width: 100%;
+      padding: 18px;
+      border: none;
+      border-radius: var(--radius-sm);
+      color: white;
+      font-weight: 800;
+      cursor: pointer;
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      margin-top: 10px;
+      font-family: inherit;
+      letter-spacing: 0.5px;
+      transition: all 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-acao:active { transform: scale(0.97); }
+
+    .btn-acao::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0);
+      transition: background 0.15s;
+    }
+    .btn-acao:active::after { background: rgba(255,255,255,0.1); }
+
+    .btn-entrar { background: linear-gradient(135deg, var(--primary), var(--primary-light)); box-shadow: 0 4px 14px rgba(15,32,64,0.3); }
+    .btn-sair { background: linear-gradient(135deg, #16a34a, #15803d); box-shadow: 0 4px 14px rgba(22,163,74,0.3); }
+
+    /* ===================== HISTÓRICO ===================== */
+    .hist-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
+
+    .input-busca {
+      flex: 1;
+      padding: 12px 14px;
+      font-size: 0.78rem;
+      border: 1.5px solid var(--border);
+      border-radius: 30px;
+      background: var(--bg);
+      color: var(--text-main);
+      outline: none;
+      text-transform: uppercase;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .input-busca:focus { border-color: var(--primary); }
+
+    .turno-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 18px;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .label-dia { background: var(--warn-light); color: #92400e; }
+    body.modo-noite .label-dia { background: rgba(217,119,6,0.15); color: #fcd34d; }
+
+    .label-noite { background: var(--accent-light); color: #1e40af; }
+    body.modo-noite .label-noite { background: rgba(37,99,235,0.15); color: #93c5fd; }
+
+    .btn-limpar {
+      background: rgba(0,0,0,0.08);
+      border: none;
+      padding: 4px 10px;
+      border-radius: 6px;
+      color: inherit;
+      cursor: pointer;
+      font-size: 0.58rem;
+      font-weight: 700;
+      font-family: inherit;
+      text-transform: uppercase;
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 4px; }
+
+    td {
+      padding: 12px 5px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+      color: var(--text-main);
+    }
+
     .container-info { width: 55%; }
     .container-status { width: 45%; text-align: right; vertical-align: top; }
-    .data-hora-canto { font-size: 0.65rem; font-weight: bold; color: #555; display: block; margin-bottom: 5px; }
-    .detalhe-linha { font-size: 0.65rem; color: #777; line-height: 1.2; margin-top: 2px; }
-    .detalhe-linha b { color: #444; }
-    .st-badge { font-size: 0.55rem; padding: 4px 8px; border-radius: 15px; font-weight: bold; color: white; border: none; cursor: pointer; }
+    .data-hora-canto { font-size: 0.62rem; font-weight: 700; color: var(--text-muted); white-space: nowrap; font-family: 'JetBrains Mono', monospace; }
+    .detalhe-linha { font-size: 0.65rem; color: var(--text-muted); line-height: 1.3; margin-top: 2px; }
+    .detalhe-linha b { color: var(--text-main); }
+    .obs-linha { font-size: 0.6rem; color: var(--text-muted); font-style: italic; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
 
-    /* === BOTÃO EDITAR — padronizado com st-badge === */
-    .btn-edit {
+    /* ===================== TEMPO NO PÁTIO ===================== */
+    .tempo-badge { display: inline-block; font-size: 0.52rem; font-weight: 700; padding: 3px 8px; border-radius: 20px; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+    .tempo-ok { background: #dcfce7; color: #15803d; }
+    .tempo-alerta { background: #fef3c7; color: #92400e; }
+    .tempo-critico { background: #fee2e2; color: #991b1b; animation: piscar-critico 2s infinite; }
+    @keyframes piscar-critico { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
+
+    /* ===================== BADGES E BOTÕES ===================== */
+    /* Token compartilhado: todos os mini-botões da linha têm a mesma altura */
+    .row-btns {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Base comum para st-badge, btn-edit, btn-chamar, btn-obs */
+    .st-badge,
+    .btn-edit,
+    .btn-chamar,
+    .btn-obs {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background: #f0f0f0;
-      border: none;
+      height: 26px;           /* altura fixa = tudo alinhado */
+      padding: 0 10px;
+      border-radius: 13px;    /* pílula perfeita */
+      font-size: 0.58rem;
+      font-weight: 700;
+      font-family: inherit;
+      text-transform: uppercase;
+      white-space: nowrap;
       cursor: pointer;
-      padding: 4px 7px;
-      border-radius: 15px;
-      vertical-align: middle;
-      margin-left: 3px;
-    }
-    .btn-edit img {
-      width: 12px;
-      height: 12px;
-      display: block;
-      filter: invert(20%) sepia(0%) saturate(0%) brightness(40%);
+      border: none;
+      letter-spacing: 0.3px;
+      transition: all 0.15s;
     }
 
-    .btn-chamar { background: #f39c12; border: none; color: white; font-size: 0.55rem; font-weight: bold; padding: 4px 8px; border-radius: 10px; cursor: pointer; margin-top: 4px; text-transform: uppercase; display: block; }
-    .banner-chamada { display: none; background: #fff3cd; border: 2px solid #f39c12; border-radius: 12px; padding: 14px 16px; margin-bottom: 15px; }
+    .st-badge:active,
+    .btn-edit:active,
+    .btn-chamar:active,
+    .btn-obs:active { transform: scale(0.92); }
+
+    /* Cores individuais */
+    .st-badge { color: white; }
+
+    .btn-edit {
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      color: var(--text-muted);
+      padding: 0 8px;
+    }
+
+    .btn-chamar {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: white;
+      box-shadow: 0 2px 6px rgba(245,158,11,0.25);
+    }
+
+    .btn-obs {
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      color: white;
+      box-shadow: 0 2px 6px rgba(124,58,237,0.25);
+    }
+
+    /* ===================== BANNER CHAMADA ===================== */
+    .banner-chamada {
+      display: none;
+      background: var(--warn-light);
+      border: 2px solid var(--warn);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
     .banner-chamada.ativo { display: block; animation: pulsar 1.5s infinite; }
-    .banner-titulo { font-size: 0.65rem; font-weight: bold; color: #856404; text-transform: uppercase; margin-bottom: 6px; }
-    .banner-msg { font-size: 1rem; font-weight: bold; color: #1a2744; margin-bottom: 10px; }
-    .btn-ok-chamada { background: var(--success); border: none; color: white; font-weight: bold; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; text-transform: uppercase; width: 100%; }
-    @keyframes pulsar { 0%,100%{border-color:#f39c12;} 50%{border-color:#e74c3c;} }
+    .banner-titulo { font-size: 0.65rem; font-weight: 700; color: #92400e; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.3px; }
+    .banner-msg { font-size: 1rem; font-weight: 700; color: var(--primary); margin-bottom: 12px; }
+
+    .btn-ok-chamada {
+      background: linear-gradient(135deg, var(--success), #15803d);
+      border: none;
+      color: white;
+      font-weight: 700;
+      padding: 14px 20px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      width: 100%;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .btn-ok-chamada:active { transform: scale(0.97); }
+
+    @keyframes pulsar { 0%,100%{border-color:var(--warn);} 50%{border-color:var(--danger);} }
+
+    /* ===================== MODAL ===================== */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 999;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 0;
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-overlay.ativo { display: flex; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+
+    .modal-box {
+      background: var(--card-bg);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      padding: 24px 20px 32px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: var(--shadow-lg);
+      animation: slideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes slideUp { from{transform:translateY(60px);opacity:0;} to{transform:translateY(0);opacity:1;} }
+
+    .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 4px; margin: 0 auto 16px; }
+    .modal-box h3 { margin: 0 0 6px; font-size: 1.1rem; color: var(--text-main); font-weight: 800; }
+    .modal-box p { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 16px; }
+
+    .modal-btn-row { display: flex; gap: 8px; margin-top: 16px; }
+
+    .btn-modal-ok {
+      flex: 2;
+      padding: 16px;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .btn-modal-ok:active { transform: scale(0.97); }
+
+    .btn-modal-cancel {
+      flex: 1;
+      padding: 16px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--text-muted);
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .btn-modal-cancel:active { transform: scale(0.97); }
+
+    /* MODAL RELATÓRIO - tela cheia */
+    .modal-overlay.modal-full { align-items: center; }
+    .modal-box.modal-full-box {
+      border-radius: var(--radius-lg);
+      padding: 24px 20px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    /* ===================== RELATÓRIO ===================== */
+    .rel-box {
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      font-size: 0.75rem;
+      line-height: 1.7;
+      color: var(--text-main);
+      white-space: pre-wrap;
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 12px;
+      max-height: 50vh;
+      overflow-y: auto;
+    }
+
+    .btn-copiar {
+      background: linear-gradient(135deg, var(--accent), #1d4ed8);
+      border: none;
+      color: white;
+      font-weight: 700;
+      padding: 14px 20px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      width: 100%;
+      margin-top: 10px;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .btn-copiar:active { transform: scale(0.97); }
+    .btn-copiar.copiado { background: linear-gradient(135deg, var(--success), #15803d); }
+
+    /* ===================== CHAMADAS ===================== */
+    .chamada-item { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.72rem; color: var(--text-main); }
+    .chamada-item:last-child { border-bottom: none; }
+    .chamada-hora { font-size: 0.6rem; color: var(--text-muted); }
+    .chamada-count { display: inline-block; background: var(--warn); color: white; font-size: 0.52rem; font-weight: 700; padding: 2px 7px; border-radius: 20px; margin-left: 4px; }
+    .chamada-inline { font-size: 0.58rem; color: #92400e; background: var(--warn-light); border: 1px solid #fde68a; border-radius: 6px; padding: 3px 7px; margin-top: 5px; display: inline-block; }
+    .chamada-inline-vazia { display: none; }
+
+    /* ===================== SUBTABS ===================== */
+    .subtabs { display: flex; gap: 4px; margin-bottom: 14px; }
+    .subtab-btn {
+      flex: 1;
+      padding: 10px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-weight: 700;
+      background: var(--bg);
+      color: var(--text-muted);
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .subtab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+    .subtab-content { display: none; }
+    .subtab-content.active { display: block; }
+
+    /* ===================== FEEDBACK ===================== */
+    .feedback-box {
+      display: none;
+      background: var(--success-light);
+      border: 1.5px solid #86efac;
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      font-size: 0.82rem;
+      color: #15803d;
+      font-weight: 600;
+      animation: fadeSlideIn 0.25s ease;
+    }
+
+    /* ===================== PREVIEW SAÍDA ===================== */
+    .preview-saida-box {
+      display: none;
+      background: var(--accent-light);
+      border: 1.5px solid #93c5fd;
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      font-size: 0.8rem;
+      color: #1e40af;
+    }
+
+    /* ===================== OFFLINE INDICATOR ===================== */
+    .offline-bar {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 200;
+      background: var(--danger);
+      color: white;
+      text-align: center;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .offline-bar.ativo { display: block; }
+
+    /* ===================== SYNC INDICATOR ===================== */
+    .sync-badge {
+      display: none;
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      background: var(--warn);
+      color: white;
+      border-radius: 30px;
+      padding: 8px 14px;
+      font-size: 0.62rem;
+      font-weight: 700;
+      box-shadow: var(--shadow-md);
+      z-index: 90;
+      animation: bounce 1s infinite alternate;
+    }
+    .sync-badge.ativo { display: block; }
+    @keyframes bounce { from{transform:translateY(0);} to{transform:translateY(-4px);} }
+
+    .tr-hidden { display: none; }
+
+    /* ===================== CARD HEADER ===================== */
+    .card-h2 {
+      margin: 0 0 18px;
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    /* ===================== CARD HEADER COM ÍCONE ===================== */
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 20px;
+    }
+
+    .card-header-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      line-height: 1;
+      margin: 0;
+      color: var(--text-main);
+    }
+    .card-header-title.azul { color: #1565c0; }
+    .card-header-title.verde { color: #16a34a; }
+
+    /* ===================== MODO NOITE TOGGLE ===================== */
+    .btn-modo-noite {
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: all 0.2s;
+    }
+    .btn-modo-noite:active { transform: scale(0.9); }
+
+    /* ===================== SCROLL BAR ===================== */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* ===================== TOAST NOTIFICATIONS ===================== */
+    #toastContainer {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+      width: 90%;
+      max-width: 380px;
+    }
+
+    .toast {
+      background: #1e293b;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 40px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.35);
+      pointer-events: none;
+      text-align: center;
+      animation: toastIn 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards;
+      letter-spacing: 0.2px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .toast.toast-success { background: linear-gradient(135deg, #15803d, #16a34a); }
+    .toast.toast-error { background: linear-gradient(135deg, #991b1b, #dc2626); }
+    .toast.toast-info { background: linear-gradient(135deg, #1e3a8a, #2563eb); }
+    .toast.toast-warn { background: linear-gradient(135deg, #92400e, #d97706); }
+    .toast.saindo { animation: toastOut 0.3s ease forwards; }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(20px) scale(0.9); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes toastOut {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to   { opacity: 0; transform: translateY(10px) scale(0.9); }
+    }
+
+    /* ===================== STATUS LOCAL (entrada form) ===================== */
+    .status-local {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      margin: 8px 0 4px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      animation: fadeSlideIn 0.2s ease;
+    }
+    .status-local.ativo { display: flex; }
+    .status-local.validando { background: var(--accent-light); color: #1e40af; border: 1.5px solid #93c5fd; }
+    .status-local.enviando  { background: var(--warn-light);  color: #92400e;  border: 1.5px solid #fde68a; }
+    .status-local.sucesso   { background: var(--success-light); color: #15803d; border: 1.5px solid #86efac; }
+    .status-local.erro      { background: var(--danger-light);  color: #991b1b; border: 1.5px solid #fca5a5; }
+
+    .status-local .status-spinner {
+      width: 14px; height: 14px;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===================== CUSTOM MODAL (substitui alert/prompt) ===================== */
+    .custom-dialog-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 1000;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      backdrop-filter: blur(2px);
+    }
+    .custom-dialog-overlay.ativo { display: flex; }
+    .custom-dialog-box {
+      background: var(--card-bg);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      padding: 24px 20px 32px;
+      width: 100%;
+      max-width: 480px;
+      animation: slideUpDialog 0.3s cubic-bezier(0.34,1.2,0.64,1) forwards;
+    }
+    @keyframes slideUpDialog {
+      from { transform: translateY(100%); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    .custom-dialog-icon { font-size: 2rem; text-align: center; margin-bottom: 8px; }
+    .custom-dialog-title { font-size: 1rem; font-weight: 800; color: var(--text-main); margin: 0 0 6px; text-align: center; }
+    .custom-dialog-msg { font-size: 0.82rem; color: var(--text-muted); text-align: center; margin: 0 0 20px; line-height: 1.5; }
+    .custom-dialog-input {
+      width: 100%;
+      padding: 14px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 1rem;
+      outline: none;
+      background: var(--bg);
+      color: var(--text-main);
+      text-transform: uppercase;
+      font-family: inherit;
+      margin-bottom: 16px;
+    }
+    .custom-dialog-input:focus { border-color: var(--primary); }
+    .custom-dialog-btns { display: flex; gap: 10px; }
+
+    /* ===================== OCR CÂMERA ===================== */
+    .placa-row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .placa-row input {
+      flex: 1;
+    }
+    .btn-ocr {
+      flex-shrink: 0;
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, #0f2040, #1a3560);
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      transition: all 0.15s;
+      box-shadow: 0 2px 8px rgba(15,32,64,0.3);
+      padding: 0;
+    }
+    .btn-ocr:active { transform: scale(0.93); opacity: 0.85; }
+    .btn-ocr .ocr-icon { font-size: 1.3rem; line-height: 1; }
+    .btn-ocr .ocr-label { font-size: 0.42rem; font-weight: 800; color: rgba(255,255,255,0.75); text-transform: uppercase; letter-spacing: 0.3px; }
+    .btn-ocr.loading { background: linear-gradient(135deg, #d97706, #b45309); }
+    .btn-ocr.sucesso { background: linear-gradient(135deg, #15803d, #16a34a); }
+
+    /* Modal OCR */
+    .ocr-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 1100;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .ocr-overlay.ativo { display: flex; }
+    .ocr-header {
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 14px;
+      opacity: 0.8;
+    }
+    .ocr-viewfinder {
+      position: relative;
+      width: 320px;
+      height: 180px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+    }
+    #ocrVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .ocr-corners {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .ocr-corner {
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      border-color: #3b82f6;
+      border-style: solid;
+      border-width: 0;
+    }
+    .ocr-corner.tl { top:8px; left:8px; border-top-width:3px; border-left-width:3px; border-radius:4px 0 0 0; }
+    .ocr-corner.tr { top:8px; right:8px; border-top-width:3px; border-right-width:3px; border-radius:0 4px 0 0; }
+    .ocr-corner.bl { bottom:8px; left:8px; border-bottom-width:3px; border-left-width:3px; border-radius:0 0 0 4px; }
+    .ocr-corner.br { bottom:8px; right:8px; border-bottom-width:3px; border-right-width:3px; border-radius:0 0 4px 0; }
+    .ocr-scan-line { display: none; } /* não usado no modo foto */
+    .ocr-status {
+      margin-top: 14px;
+      color: white;
+      font-size: 0.8rem;
+      font-weight: 600;
+      min-height: 22px;
+      text-align: center;
+    }
+    .ocr-btns {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .btn-ocr-capturar {
+      background: #3b82f6;
+      border: none;
+      color: white;
+      font-weight: 800;
+      font-size: 0.82rem;
+      padding: 14px 28px;
+      border-radius: 40px;
+      cursor: pointer;
+      font-family: inherit;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: all 0.15s;
+    }
+    .btn-ocr-capturar:active { transform: scale(0.95); }
+    .btn-ocr-cancelar {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.7);
+      font-weight: 700;
+      font-size: 0.82rem;
+      padding: 14px 20px;
+      border-radius: 40px;
+      cursor: pointer;
+      font-family: inherit;
+      text-transform: uppercase;
+      transition: all 0.15s;
+    }
+    .ocr-result-box {
+      display: none;
+      margin-top: 12px;
+      background: #1e293b;
+      border: 1.5px solid #3b82f6;
+      border-radius: 10px;
+      padding: 12px 16px;
+      text-align: center;
+    }
+    .ocr-result-box.ativo { display: block; }
+    .ocr-result-placa {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: white;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 3px;
+    }
+    .ocr-result-sub {
+      font-size: 0.62rem;
+      color: rgba(255,255,255,0.5);
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+    .btn-ocr-confirmar {
+      margin-top: 10px;
+      background: linear-gradient(135deg, #15803d, #16a34a);
+      border: none;
+      color: white;
+      font-weight: 800;
+      font-size: 0.82rem;
+      padding: 12px 24px;
+      border-radius: 40px;
+      cursor: pointer;
+      font-family: inherit;
+      text-transform: uppercase;
+      transition: all 0.15s;
+      width: 100%;
+    }
+    .btn-ocr-reler {
+      margin-top: 6px;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.6);
+      font-weight: 700;
+      font-size: 0.72rem;
+      padding: 8px 16px;
+      border-radius: 40px;
+      cursor: pointer;
+      font-family: inherit;
+      text-transform: uppercase;
+      width: 100%;
+    }
+    
+
+    /* ===================== IDB SYNC STATUS ===================== */
+    .idb-sync-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      display: inline-block;
+      margin-right: 4px;
+    }
+    .idb-sync-dot.pendente { background: var(--warn); animation: piscar-critico 1.5s infinite; }
+
   </style>
 </head>
 <body>
 
-<div class="container">
+<!-- TOAST CONTAINER -->
+<div id="toastContainer"></div>
+
+<!-- CUSTOM DIALOG (substitui alert/prompt/confirm) -->
+<div class="custom-dialog-overlay" id="customDialog">
+  <div class="custom-dialog-box">
+    <div class="custom-dialog-icon" id="dialogIcon">⚠️</div>
+    <div class="custom-dialog-title" id="dialogTitle">Atenção</div>
+    <div class="custom-dialog-msg" id="dialogMsg"></div>
+    <input type="text" class="custom-dialog-input" id="dialogInput" style="display:none" autocomplete="off" autocorrect="off">
+    <div class="custom-dialog-btns" id="dialogBtns"></div>
+  </div>
+</div>
+
+<!-- OFFLINE BAR -->
+<div class="offline-bar" id="offlineBar">📡 SEM CONEXÃO — Dados salvos localmente</div>
+
+<!-- SYNC BADGE -->
+<div class="sync-badge" id="syncBadge">⏳ Sincronizando...</div>
+
+<!-- STICKY HEADER -->
+<div class="sticky-header" id="stickyHeader">
   <div class="header-topo">
-    <div style="font-size: 0.6rem; font-weight: bold; color: #aaa;">PORTARIA SAVANA</div>
-    <button class="btn-planilha" onclick="abrirPlanilha()">📊 PLANILHA</button>
+    <div class="header-brand">
+      <div class="brand-icon">🚛</div>
+      <div>
+        <div class="brand-name">Portaria Savana</div>
+        <div class="brand-sub" id="relogio">--:--</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-modo-noite" id="btnModoNoite" onclick="toggleModoNoite()" title="Modo Noite">🌙</button>
+      <button class="btn-header" onclick="abrirRelatorio()">📋 Relatório</button>
+      <button class="btn-header" onclick="abrirPlanilha()">📊</button>
+    </div>
   </div>
 
+  <!-- BARRA DE TURNO -->
+  <div class="turno-strip" id="turnoStrip">
+    <div class="turno-strip-left">
+      <div class="turno-strip-name" id="turnoNomeAtual">TURNO EM ANDAMENTO</div>
+      <div class="turno-strip-sub" id="turnoPorteiroAtual">Nenhuma troca registrada</div>
+    </div>
+    <button class="btn-troca-turno" onclick="abrirModalTurno()">🔄 Trocar Turno</button>
+  </div>
+
+  <!-- TABS FIXAS -->
+  <div class="tabs-wrapper">
+    <div class="tabs">
+
+      <!-- ENTRADA: botão azul estilo 3D -->
+      <button class="tab-btn active" id="tabBtnEnt" onclick="switchTab('abaEntrada', this)">
+        <span class="tab-icon-wrap tab-icon-entrada">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="tab-svg">
+            <rect x="3" y="2" width="13" height="20" rx="2" stroke="white" stroke-width="2" fill="none"/>
+            <polyline points="10,12 3,12" stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+            <polyline points="6,8.5 2.5,12 6,15.5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <line x1="10" y1="7" x2="10" y2="17" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="tab-label">Entrada</span>
+      </button>
+
+      <!-- SAÍDA: botão verde estilo 3D -->
+      <button class="tab-btn" onclick="switchTab('abaSaida', this)">
+        <span class="tab-icon-wrap tab-icon-saida">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="tab-svg">
+            <rect x="3" y="2" width="13" height="20" rx="2" stroke="white" stroke-width="2" fill="none"/>
+            <polyline points="12,12 19,12" stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+            <polyline points="15.5,8.5 19,12 15.5,15.5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <line x1="10" y1="7" x2="10" y2="17" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="tab-label">Saída</span>
+      </button>
+
+      <!-- HISTÓRICO: ícone papel + relógio -->
+      <button class="tab-btn" onclick="switchTab('abaHist', this)">
+        <span class="tab-icon-wrap tab-icon-hist">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="tab-svg">
+            <!-- Documento -->
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h8" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="14,2 14,8 20,8" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="6" y1="12" x2="12" y2="12" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+            <line x1="6" y1="15" x2="11" y2="15" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+            <line x1="6" y1="9" x2="9" y2="9" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+            <!-- Relógio (canto inferior direito) -->
+            <circle cx="18" cy="18" r="4.5" fill="#1a3560" stroke="white" stroke-width="1.8"/>
+            <polyline points="18,15.8 18,18 19.5,19.2" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <span class="tab-label">Histórico</span>
+      </button>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TROCAR TURNO -->
+<div class="modal-overlay" id="modalTurno">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <h3>🔄 Trocar Turno</h3>
+    <p>Informe o nome do porteiro que está assumindo:</p>
+    <div class="campo">
+      <label>Nome do Porteiro</label>
+      <input type="text" id="input_porteiro" placeholder="EX: JOÃO SILVA" autocomplete="off">
+    </div>
+    <div class="modal-btn-row">
+      <button class="btn-modal-cancel" onclick="fecharModal('modalTurno')">Cancelar</button>
+      <button class="btn-modal-ok" onclick="confirmarTrocarTurno()">✓ Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL OBSERVAÇÃO -->
+<div class="modal-overlay" id="modalObs">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <h3>📝 Observação</h3>
+    <p id="modalObsPlaca"></p>
+    <div class="campo">
+      <label>Observação</label>
+      <textarea id="input_obs" placeholder="EX: AGUARDANDO PESAGEM, PROBLEMA NO LACRE..."></textarea>
+    </div>
+    <div class="modal-btn-row">
+      <button class="btn-modal-cancel" onclick="fecharModal('modalObs')">Cancelar</button>
+      <button class="btn-modal-ok" onclick="salvarObs()">✓ Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RELATÓRIO -->
+<div class="modal-overlay modal-full" id="modalRelatorio">
+  <div class="modal-box modal-full-box" style="max-width:480px;width:100%;">
+    <div class="modal-handle"></div>
+    <h3>📋 Relatório do Turno</h3>
+    <div class="rel-box" id="relatorioTexto"></div>
+    <button class="btn-copiar" id="btnCopiar" onclick="copiarRelatorio()">📋 Copiar para WhatsApp</button>
+    <button onclick="fecharModal('modalRelatorio')" style="width:100%;margin-top:8px;padding:12px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;font-size:0.82rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Fechar</button>
+  </div>
+</div>
+
+<!-- INPUT OCULTO DA CÂMERA (nativo — funciona sem HTTPS) -->
+<input type="file" id="ocrFileInput" accept="image/*" capture="environment" style="display:none" onchange="ocrProcessarImagem(this)">
+
+<!-- MODAL OCR -->
+<div class="ocr-overlay" id="ocrOverlay">
+  <div class="ocr-header">📸 Leitura de Placa por OCR</div>
+
+  <!-- Preview da foto tirada -->
+  <div class="ocr-viewfinder" id="ocrPreviewBox" style="display:none; background:#111;">
+    <img id="ocrPreviewImg" style="width:100%;height:100%;object-fit:contain;" alt="preview">
+    <div class="ocr-corners">
+      <div class="ocr-corner tl"></div>
+      <div class="ocr-corner tr"></div>
+      <div class="ocr-corner bl"></div>
+      <div class="ocr-corner br"></div>
+    </div>
+  </div>
+
+  <canvas id="ocrCanvas" style="display:none;"></canvas>
+  <div class="ocr-status" id="ocrStatus">Toque em "Fotografar" para abrir a câmera</div>
+
+  <div class="ocr-result-box" id="ocrResultBox">
+    <div class="ocr-result-placa" id="ocrResultPlaca"></div>
+    <div class="ocr-result-sub">Placa detectada — confirme ou tente novamente</div>
+    <button class="btn-ocr-confirmar" onclick="ocrConfirmar()">✓ Usar esta placa</button>
+    <button class="btn-ocr-reler" onclick="ocrReler()">↺ Fotografar novamente</button>
+  </div>
+
+  <div class="ocr-btns" id="ocrBtns">
+    <button class="btn-ocr-capturar" onclick="document.getElementById('ocrFileInput').click()">📷 Fotografar</button>
+    <button class="btn-ocr-cancelar" onclick="ocrFechar()">Cancelar</button>
+  </div>
+  <div style="margin-top:10px;">
+    <button onclick="ocrFechar()" style="background:none;border:none;color:rgba(255,255,255,0.35);font-size:0.65rem;cursor:pointer;text-decoration:underline;font-family:inherit;">Digitar placa manualmente</button>
+  </div>
+</div>
+
+<!-- CONTAINER PRINCIPAL -->
+<div class="container">
+
+  <!-- PAINÉIS CONTAGEM -->
   <div class="paineis-contagem">
-    <div class="mini-card" style="border-bottom: 3px solid var(--accent)">
+    <div class="mini-card" data-tipo="patio" style="border-bottom-color: var(--accent)">
       <span>No Pátio</span>
       <b id="contPatio">0</b>
       <div class="resumo-produto" id="resumoPatio"></div>
       <div class="detalhe-produto" id="detalhePatio"></div>
     </div>
-    <div class="mini-card" style="border-bottom: 3px solid var(--success)">
+    <div class="mini-card" data-tipo="carga" style="border-bottom-color: var(--success)">
       <span>Carregados</span>
       <b id="contCarga">0</b>
       <div class="resumo-produto" id="resumoCarga"></div>
@@ -125,279 +1461,1336 @@
     </div>
   </div>
 
-  <div class="tabs">
-    <button class="tab-btn active" id="tabBtnEnt" onclick="switchTab('abaEntrada', this)">Entrada</button>
-    <button class="tab-btn" onclick="switchTab('abaSaida', this)">Saída (NFE)</button>
-    <button class="tab-btn" onclick="switchTab('abaHist', this)">Histórico</button>
-  </div>
-
+  <!-- ABA ENTRADA -->
   <div id="abaEntrada" class="card active">
     <div id="bannerChamada" class="banner-chamada">
-      <div class="banner-titulo">📢 CHAMADA ATIVA</div>
+      <div class="banner-titulo">📢 Chamada Ativa</div>
       <div class="banner-msg" id="bannerMsg"></div>
-      <button class="btn-ok-chamada" onclick="dispensarChamada(this)">✅ OK — PORTARIA CIENTE</button>
+      <button class="btn-ok-chamada" onclick="dispensarChamada(this)">✅ OK — Portaria Ciente</button>
     </div>
-    <h2 id="tituloEntrada">Nova Entrada</h2>
+    <div class="card-header" id="headerEntrada">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+        <polyline points="10,12 3,12" stroke="#1565c0" stroke-width="2.5" stroke-linecap="round"/>
+        <polyline points="6.5,8.5 3,12 6.5,15.5" stroke="#1565c0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <div class="card-header-title azul" id="tituloEntradaTexto">Nova Entrada</div>
+    </div>
     <input type="hidden" id="edit_mode" value="false">
-    <div class="campo"><label>Placa</label><input type="text" id="p_ent" placeholder="ABC1234"></div>
-    <div class="campo"><label>Motorista</label><input type="text" id="m_ent"></div>
-    <div class="campo"><label>Empresa</label><input type="text" id="t_ent"></div>
-    <div class="campo"><label>Produto</label>
+    <div class="campo">
+      <label>Placa <span style="font-size:0.52rem;color:var(--text-muted);font-weight:500;text-transform:none;">(ou use a câmera 📸)</span></label>
+      <div class="placa-row">
+        <input type="text" id="p_ent" placeholder="ABC1234" inputmode="text" autocomplete="off" autocorrect="off" spellcheck="false">
+        <button class="btn-ocr" id="btnOcrEnt" onclick="abrirOCR('p_ent')" title="Ler placa pela câmera">
+          <span class="ocr-icon">📷</span>
+          <span class="ocr-label">OCR</span>
+        </button>
+      </div>
+    </div>
+    <div class="campo">
+      <label>Motorista</label>
+      <input type="text" id="m_ent" autocomplete="off" autocorrect="off">
+    </div>
+    <div class="campo">
+      <label>Empresa</label>
+      <input type="text" id="t_ent" autocomplete="off" autocorrect="off">
+    </div>
+    <div class="campo">
+      <label>Produto</label>
       <select id="prod_ent">
-        <option>SOJA</option>
-        <option>MILHO</option>
-        <option>MILHO WAXY</option>
-        <option>ALGODÃO</option>
-        <option>TRIGO</option>
-        <option>BRIQUETE</option>
-        <option>FERTILIZANTE</option>
+        <option>SOJA</option><option>MILHO</option><option>MILHO WAXY</option>
+        <option>ALGODÃO</option><option>TRIGO</option><option>BRIQUETE</option><option>FERTILIZANTE</option>
       </select>
     </div>
-    <div class="campo"><label>Ordem</label>
+    <div class="campo">
+      <label>Ordem</label>
       <select id="o_ent">
         <option value="SIM">SIM</option>
         <option value="NÃO">NÃO</option>
       </select>
     </div>
+    <div class="campo">
+      <label>Observação (opcional)</label>
+      <textarea id="obs_ent" placeholder="EX: AGUARDANDO DOCUMENTO, VEÍCULO COM AVARIA..."></textarea>
+    </div>
+    <div class="status-local" id="statusLocalEnt">
+      <span class="status-spinner" id="statusSpinnerEnt"></span>
+      <span id="statusLocalEntMsg">Validando...</span>
+    </div>
     <button class="btn-acao btn-entrar" id="btnEnt" onclick="registrarEntrada()">✓ Salvar Entrada</button>
   </div>
 
-  <div id="abaSaida" class="card">
-    <h2 style="color: var(--success);">Registrar Saída</h2>
-    <div class="campo"><label>Placa</label><input type="text" id="p_sai"></div>
-    <div class="campo"><label>Número NFE</label><input type="text" id="nfe_sai"></div>
+  <!-- ABA SAÍDA -->
+  <div id="abaSaida" class="card" style="border-top-color: var(--success)">
+    <div class="card-header">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+        <polyline points="14,12 21,12" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round"/>
+        <polyline points="17.5,8.5 21,12 17.5,15.5" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <div class="card-header-title verde">Registrar Saída</div>
+    </div>
+    <div class="feedback-box" id="feedbackSaida"></div>
+    <div class="campo">
+      <label>Placa</label>
+      <div class="placa-row">
+        <input type="text" id="p_sai" oninput="previewSaida(this.value)" autocomplete="off" autocorrect="off" spellcheck="false">
+        <button class="btn-ocr" onclick="abrirOCR('p_sai')" title="Ler placa pela câmera">
+          <span class="ocr-icon">📷</span>
+          <span class="ocr-label">OCR</span>
+        </button>
+      </div>
+    </div>
+    <div class="preview-saida-box" id="preview_saida"></div>
+    <div class="campo">
+      <label>Número NFE</label>
+      <input type="text" id="nfe_sai" inputmode="numeric" autocomplete="off">
+    </div>
     <button class="btn-acao btn-sair" id="btnSai" onclick="registrarSaida()">⇥ Registrar Saída</button>
   </div>
 
-  <div id="abaHist" class="card">
-    <h2 style="font-size: 1rem; margin-bottom: 15px;">HISTÓRICO DO TURNO</h2>
-    <div class="turno-header label-dia"><span>☀️ DIA</span><button class="btn-limpar" onclick="limparTabela('tabDia')">ZERAR</button></div>
+  <!-- ABA HISTÓRICO -->
+  <div id="abaHist" class="card" style="border-top-color: var(--accent)">
+    <div class="hist-toolbar">
+      <input type="text" class="input-busca" id="campoBusca" placeholder="🔍 Buscar placa ou motorista..." oninput="filtrarHistorico(this.value)">
+    </div>
+    <div class="turno-header label-dia">
+      <span>☀️ Turno Dia</span>
+      <button class="btn-limpar" onclick="limparTabela('tabDia')">Zerar</button>
+    </div>
     <table id="tabDia"><tbody></tbody></table>
-    <div class="turno-header label-noite"><span>🌙 NOITE</span><button class="btn-limpar" onclick="limparTabela('tabNoite')">ZERAR</button></div>
+    <div class="turno-header label-noite">
+      <span>🌙 Turno Noite</span>
+      <button class="btn-limpar" onclick="limparTabela('tabNoite')">Zerar</button>
+    </div>
     <table id="tabNoite"><tbody></tbody></table>
   </div>
-</div>
 
-<!-- SVG do ícone de editar embutido como data URI para não depender de rede -->
-<svg id="iconEditSVG" style="display:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
-</svg>
+</div>
 
 <script>
   const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwCMcDylEoZF0u19tTD_6xJHN5NG6EV_6BsPZyO3BxwAlw6hK32SNokg6lwaLJkENiiEw/exec?dados=true";
+  const EDIT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const LS_TURNO_KEY   = 'portaria_turno';
+  const LS_PENDING_KEY = 'portaria_pending';
+  const LS_ESTADO_KEY  = 'portaria_estado';
+  const LS_OBS_KEY     = 'portaria_obs';
 
-  /* SVG inline do lápis — mesmo visual do PNG enviado */
-  const EDIT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-  
+  /* ===================== HASH SENHA (SHA-256) =====================
+   * A senha "123mudar" foi substituída pelo seu hash SHA-256.
+   * Mesmo que alguém abra o código-fonte, verá apenas este hash e
+   * não conseguirá descobrir a senha original facilmente.
+   * Hash gerado de: "123mudar"
+   */
+  const SENHA_HASH = "ef92b778bafe771207fec105bf7a9abf8a5decd9b97668ab5c0b50d8df00cb5e";
+
+  async function hashSenha(senha) {
+    const enc = new TextEncoder().encode(senha);
+    const buf = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+
+  /* ===================== INDEXEDDB — FILA OFFLINE ROBUSTA =====================
+   * Substitui o localStorage para a fila de pendentes.
+   * IndexedDB é mais robusto, suporta mais dados e não bloqueia a thread.
+   */
+  const IDB_NAME    = 'portariaDB';
+  const IDB_VERSION = 1;
+  const IDB_STORE   = 'pendentes';
+  let _idb = null;
+
+  function abrirIDB() {
+    return new Promise((resolve, reject) => {
+      if (_idb) { resolve(_idb); return; }
+      const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          db.createObjectStore(IDB_STORE, { keyPath: 'id', autoIncrement: true });
+        }
+      };
+      req.onsuccess = e => { _idb = e.target.result; resolve(_idb); };
+      req.onerror   = () => reject(req.error);
+    });
+  }
+
+  async function idbAdicionarPendente(payload) {
+    try {
+      const db = await abrirIDB();
+      return new Promise((res, rej) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).add({ payload, ts: Date.now(), status: 'pendente' });
+        tx.oncomplete = res;
+        tx.onerror = () => rej(tx.error);
+      });
+    } catch(e) {
+      // Fallback para localStorage se IndexedDB falhar
+      adicionarPendente(payload);
+    }
+  }
+
+  async function idbListarPendentes() {
+    try {
+      const db = await abrirIDB();
+      return new Promise((res, rej) => {
+        const tx = db.transaction(IDB_STORE, 'readonly');
+        const req = tx.objectStore(IDB_STORE).getAll();
+        req.onsuccess = () => res(req.result || []);
+        req.onerror   = () => rej(req.error);
+      });
+    } catch(e) {
+      return [];
+    }
+  }
+
+  async function idbRemoverPendente(id) {
+    try {
+      const db = await abrirIDB();
+      return new Promise((res, rej) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).delete(id);
+        tx.oncomplete = res;
+        tx.onerror = () => rej(tx.error);
+      });
+    } catch(e) {}
+  }
+
+  async function sincronizarIDB() {
+    const pendentes = await idbListarPendentes();
+    if (pendentes.length === 0) return;
+    const badge = document.getElementById('syncBadge');
+    badge.classList.add('ativo');
+    badge.innerText = `⏳ Sync: ${pendentes.length} pendente(s)...`;
+    let sincronizados = 0;
+    for (const item of pendentes) {
+      try {
+        await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", body: JSON.stringify(item.payload) });
+        await idbRemoverPendente(item.id);
+        sincronizados++;
+      } catch(e) { /* mantém na fila */ }
+    }
+    badge.classList.remove('ativo');
+    badge.innerText = '⏳ Sincronizando...';
+    if (sincronizados > 0) {
+      mostrarToast(`✅ ${sincronizados} registro(s) sincronizado(s)!`, 'success', 3000);
+      carregarEstado();
+    }
+    atualizarContadorIDB();
+  }
+
+  async function atualizarContadorIDB() {
+    const pendentes = await idbListarPendentes();
+    const badge = document.getElementById('syncBadge');
+    if (pendentes.length > 0) {
+      badge.classList.add('ativo');
+      badge.innerText = `📴 ${pendentes.length} dado(s) pendente(s)`;
+    } else {
+      badge.classList.remove('ativo');
+    }
+  }
+
+  /* ===================== OCR — TESSERACT.JS (via foto nativa) =====================
+   * Usa input[type=file capture=environment] em vez de getUserMedia.
+   * Funciona em HTTP, file://, WebView e qualquer contexto — sem precisar de HTTPS.
+   */
+  let _ocrTargetId  = null;
+  let _ocrPlacaDet  = '';
+
+  // ===================== TESSERACT OCR =====================
+  let _tessWorker = null;
+  let _tessReady  = false;
+
+  function carregarTesseract() {
+    return new Promise((resolve, reject) => {
+      if (window.Tesseract) { resolve(); return; }
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js';
+      s.onload  = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  async function iniciarTesseract() {
+    if (_tessReady) return true;
+    try {
+      await carregarTesseract();
+      _tessWorker = await Tesseract.createWorker('por', 1, { logger: () => {} });
+      await _tessWorker.setParameters({
+        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+        tessedit_pageseg_mode: '6',
+        preserve_interword_spaces: '0',
+      });
+      _tessReady = true;
+      return true;
+    } catch(e) {
+      console.error('Tesseract init error:', e);
+      return false;
+    }
+  }
+
+  function abrirOCR(targetInputId) {
+    _ocrTargetId = targetInputId;
+    _ocrPlacaDet = '';
+    const overlay    = document.getElementById('ocrOverlay');
+    const status     = document.getElementById('ocrStatus');
+    const resultBox  = document.getElementById('ocrResultBox');
+    const btns       = document.getElementById('ocrBtns');
+    const previewBox = document.getElementById('ocrPreviewBox');
+    // Reset UI
+    resultBox.classList.remove('ativo');
+    btns.style.display   = 'flex';
+    previewBox.style.display = 'none';
+    status.innerText = 'Toque em "Fotografar" para abrir a câmera';
+    // Limpa input para garantir que o evento onchange dispara mesmo tirando a mesma foto
+    document.getElementById('ocrFileInput').value = '';
+    overlay.classList.add('ativo');
+  }
+
+  /* Extrai placa de uma string de texto bruto do OCR.
+   * Tolera erros comuns: O↔0, I↔1, S↔5, B↔8, Q↔0, Z↔2 */
+  /* Extrai e corrige placa brasileira do texto bruto do Tesseract.
+   * Estratégia: testa direto, depois aplica correções posição-a-posição. */
+  function extrairPlaca(texto) {
+    if (!texto) return '';
+
+    // Limpa e normaliza
+    const str = texto.replace(/[^A-Z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+
+    // Helpers: corrige apenas dígitos ou apenas letras em cada posição
+    const toLetra  = c => ({ '0':'O','1':'I','2':'Z','3':'E','4':'A','5':'S','6':'G','7':'T','8':'B','9':'G' }[c] || c);
+    const toDigito = c => ({ 'O':'0','I':'1','Z':'2','E':'3','A':'4','S':'5','G':'6','T':'7','B':'8','Q':'0','D':'0' }[c] || c);
+
+    function corrigirToken(t) {
+      if (t.length < 7) return null;
+      const s = t.slice(0, 7);
+
+      // Tenta padrão antigo: LLL DDDD
+      const ant = s.slice(0,3).split('').map(toLetra).join('') +
+                  s.slice(3,7).split('').map(toDigito).join('');
+      if (/^[A-Z]{3}\d{4}$/.test(ant)) return ant;
+
+      // Tenta padrão Mercosul: LLL D L DD
+      const merc = s.slice(0,3).split('').map(toLetra).join('') +
+                   toDigito(s[3]) +
+                   toLetra(s[4]) +
+                   s.slice(5,7).split('').map(toDigito).join('');
+      if (/^[A-Z]{3}\d[A-Z]\d{2}$/.test(merc)) return merc;
+
+      return null;
+    }
+
+    // 1. Testa cada token separado
+    for (const token of str.split(' ')) {
+      const t = token.replace(/[^A-Z0-9]/g,'');
+      if (t.length < 6) continue;
+      // Direto sem correção
+      const mAnt  = t.match(/[A-Z]{3}\d{4}/);   if (mAnt)  return mAnt[0];
+      const mMerc = t.match(/[A-Z]{3}\d[A-Z]\d{2}/); if (mMerc) return mMerc[0];
+      // Com correção posicional
+      const corr = corrigirToken(t);
+      if (corr) return corr;
+    }
+
+    // 2. Janela deslizante sobre o texto todo (captura tokens grudados)
+    const tudo = str.replace(/\s/g,'');
+    for (let i = 0; i <= tudo.length - 7; i++) {
+      const jan = tudo.slice(i, i+7);
+      const mAnt  = jan.match(/^[A-Z]{3}\d{4}$/);   if (mAnt)  return mAnt[0];
+      const mMerc = jan.match(/^[A-Z]{3}\d[A-Z]\d{2}$/); if (mMerc) return mMerc[0];
+      const corr  = corrigirToken(jan);
+      if (corr) return corr;
+    }
+
+    return '';
+  }
+
+  async function ocrProcessarImagem(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const status     = document.getElementById('ocrStatus');
+    const resultBox  = document.getElementById('ocrResultBox');
+    const btns       = document.getElementById('ocrBtns');
+    const previewBox = document.getElementById('ocrPreviewBox');
+    const previewImg = document.getElementById('ocrPreviewImg');
+    const canvas     = document.getElementById('ocrCanvas');
+
+    const url = URL.createObjectURL(file);
+    previewImg.src = url;
+    previewBox.style.display = 'block';
+    btns.style.display = 'none';
+    resultBox.classList.remove('ativo');
+    status.innerText = '🔍 Carregando engine OCR...';
+
+    const ok = await iniciarTesseract();
+    if (!ok) {
+      status.innerText = '❌ Erro ao carregar OCR. Verifique sua conexão e tente novamente.';
+      btns.style.display = 'flex';
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    status.innerText = '🔍 Analisando imagem...';
+
+    const img = new Image();
+    img.onload = async () => {
+      const W = img.width, H = img.height;
+
+      // ── helpers de canvas ──
+      function prepCanvas(srcImg, sx, sy, sw, sh, filtro) {
+        // destino: máx 800px de largura para agilizar o Tesseract
+        const escala = Math.min(1, 800 / sw);
+        canvas.width  = Math.round(sw * escala);
+        canvas.height = Math.round(sh * escala);
+        const ctx = canvas.getContext('2d');
+        ctx.filter = filtro || 'none';
+        ctx.drawImage(srcImg, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+        ctx.filter = 'none';
+        return ctx;
+      }
+
+      async function testar(srcImg, sx, sy, sw, sh, filtro) {
+        prepCanvas(srcImg, sx, sy, sw, sh, filtro);
+        const r = await _tessWorker.recognize(canvas);
+        const raw = r.data.text.toUpperCase().replace(/[^A-Z0-9\s]/g,' ').trim();
+        return { placa: extrairPlaca(raw), raw };
+      }
+
+      let placa = '';
+      let ultimoRaw = '';
+
+      // ── TENTATIVAS em ordem crescente de agressividade ──
+
+      // 1) Faixa central 50% da altura (onde a placa costuma estar)
+      const faixaY = Math.round(H * 0.25), faixaH = Math.round(H * 0.50);
+      let res = await testar(img, 0, faixaY, W, faixaH, 'contrast(1.8) brightness(1.1) saturate(0)');
+      placa = res.placa; ultimoRaw = res.raw;
+
+      // 2) Faixa inferior 40% (placa na traseira / foto de cima)
+      if (!placa) {
+        res = await testar(img, 0, Math.round(H*0.60), W, Math.round(H*0.40), 'contrast(1.8) brightness(1.1) saturate(0)');
+        placa = res.placa; ultimoRaw = res.raw;
+      }
+
+      // 3) Imagem inteira com contraste alto
+      if (!placa) {
+        res = await testar(img, 0, 0, W, H, 'contrast(2.0) brightness(1.2) saturate(0)');
+        placa = res.placa; ultimoRaw = res.raw;
+      }
+
+      // 4) Imagem inteira sem filtro (às vezes fundo claro já ajuda)
+      if (!placa) {
+        res = await testar(img, 0, 0, W, H, 'none');
+        placa = res.placa; ultimoRaw = res.raw;
+      }
+
+      // 5) Imagem inteira invertida (placa escura sobre fundo claro)
+      if (!placa) {
+        res = await testar(img, 0, 0, W, H, 'invert(1) contrast(2.0) saturate(0)');
+        placa = res.placa; ultimoRaw = res.raw;
+      }
+
+      if (placa) {
+        _ocrPlacaDet = placa;
+        document.getElementById('ocrResultPlaca').innerText = placa;
+        resultBox.classList.add('ativo');
+        status.innerText = '✅ Placa detectada!';
+      } else {
+        const textoLido = ultimoRaw.replace(/\s+/g,' ').trim().slice(0, 50);
+        status.innerText = textoLido
+          ? `⚠️ Leu: "${textoLido}" — centralize a placa e fotografe de frente.`
+          : '⚠️ Não encontrei texto. Tente com mais luz ou aproxime mais.';
+        btns.style.display = 'flex';
+      }
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => {
+      status.innerText = '❌ Erro ao carregar imagem.';
+      btns.style.display = 'flex';
+    };
+    img.src = url;
+  }
+
+  function ocrConfirmar() {
+    if (_ocrPlacaDet && _ocrTargetId) {
+      const inp = document.getElementById(_ocrTargetId);
+      inp.value = _ocrPlacaDet;
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+      if (_ocrTargetId === 'p_sai') previewSaida(_ocrPlacaDet);
+    }
+    ocrFechar();
+    mostrarToast(`✅ Placa ${_ocrPlacaDet} preenchida!`, 'success');
+  }
+
+  function ocrReler() {
+    const resultBox  = document.getElementById('ocrResultBox');
+    const btns       = document.getElementById('ocrBtns');
+    const previewBox = document.getElementById('ocrPreviewBox');
+    resultBox.classList.remove('ativo');
+    previewBox.style.display = 'none';
+    btns.style.display = 'flex';
+    document.getElementById('ocrStatus').innerText = 'Toque em "Fotografar" para tentar novamente';
+    document.getElementById('ocrFileInput').value = '';
+  }
+
+  function ocrFechar() {
+    document.getElementById('ocrOverlay').classList.remove('ativo');
+    document.getElementById('ocrResultBox').classList.remove('ativo');
+    document.getElementById('ocrPreviewBox').style.display = 'none';
+    document.getElementById('ocrFileInput').value = '';
+  }
+
+  /* ===================== TOAST ===================== */
+  function mostrarToast(msg, tipo = '', duracao = 3000) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = 'toast' + (tipo ? ' toast-' + tipo : '');
+    toast.innerText = msg;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add('saindo');
+      setTimeout(() => toast.remove(), 320);
+    }, duracao);
+  }
+
+  /* ===================== STATUS LOCAL ENTRADA ===================== */
+  function setStatusEnt(estado, msg) {
+    const box = document.getElementById('statusLocalEnt');
+    const msgEl = document.getElementById('statusLocalEntMsg');
+    const spinner = document.getElementById('statusSpinnerEnt');
+    box.className = 'status-local';
+    if (!estado) { box.classList.remove('ativo'); return; }
+    box.classList.add('ativo', estado);
+    msgEl.innerText = msg;
+    spinner.style.display = (estado === 'validando' || estado === 'enviando') ? 'block' : 'none';
+  }
+
+  /* ===================== CUSTOM DIALOG ===================== */
+  let _dialogResolve = null;
+
+  function mostrarDialog({ icone = '⚠️', titulo, msg, input = false, inputPlaceholder = '', botoes = [{ texto: 'OK', tipo: 'ok' }] }) {
+    return new Promise(resolve => {
+      _dialogResolve = resolve;
+      document.getElementById('dialogIcon').innerText = icone;
+      document.getElementById('dialogTitle').innerText = titulo;
+      document.getElementById('dialogMsg').innerText = msg;
+      const inp = document.getElementById('dialogInput');
+      if (input) {
+        inp.style.display = 'block';
+        inp.value = '';
+        inp.placeholder = inputPlaceholder || '';
+        setTimeout(() => inp.focus(), 200);
+      } else {
+        inp.style.display = 'none';
+      }
+      const btnsEl = document.getElementById('dialogBtns');
+      btnsEl.innerHTML = '';
+      botoes.forEach(b => {
+        const btn = document.createElement('button');
+        btn.innerText = b.texto;
+        if (b.tipo === 'ok') {
+          btn.className = 'btn-modal-ok';
+          btn.style.flex = '1';
+          btn.style.padding = '16px';
+        } else {
+          btn.className = 'btn-modal-cancel';
+          btn.style.flex = '1';
+        }
+        btn.onclick = () => {
+          fecharCustomDialog();
+          resolve(b.tipo === 'ok' ? (input ? inp.value : true) : (b.valor !== undefined ? b.valor : false));
+        };
+        btnsEl.appendChild(btn);
+      });
+      document.getElementById('customDialog').classList.add('ativo');
+    });
+  }
+
+  function fecharCustomDialog() {
+    document.getElementById('customDialog').classList.remove('ativo');
+  }
+
+  document.getElementById('customDialog').addEventListener('click', function(e) {
+    if (e.target === this) { fecharCustomDialog(); if (_dialogResolve) _dialogResolve(false); }
+  });
+
+
+
   let veiculosPatio = [];
   let veiculosCarregados = [];
+  let historicoChamadas = [];
+  let turnoAtual = { porteiro: '', inicio: null, trocas: [] };
+  let observacoesMap = {};
+  let obsEditandoPlaca = '';
+  let modoNoiteForced = null;
 
-  function abrirPlanilha() {
-    var s = prompt('🔒 Senha de Acesso:');
-    if (s === '123mudar') { window.open('https://docs.google.com/spreadsheets/d/1ld0si9PW5xHkHWM5h-4J1mvnqoRrEgQ961aEgMI9_ik/edit', '_blank'); }
-    else if (s !== null) { alert('❌ Senha incorreta!'); }
+  /* ===================== RELÓGIO ===================== */
+  function atualizarRelogio() {
+    const agora = new Date();
+    document.getElementById('relogio').innerText = agora.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    // Modo noite automático baseado no horário
+    if (modoNoiteForced === null) {
+      const h = agora.getHours();
+      const deveSerNoite = h >= 18 || h < 6;
+      document.body.classList.toggle('modo-noite', deveSerNoite);
+      document.getElementById('btnModoNoite').innerText = deveSerNoite ? '☀️' : '🌙';
+    }
   }
 
-  function atualizarDetalhesProdutos() {
+  function toggleModoNoite() {
+    const noite = !document.body.classList.contains('modo-noite');
+    modoNoiteForced = noite;
+    document.body.classList.toggle('modo-noite', noite);
+    document.getElementById('btnModoNoite').innerText = noite ? '☀️' : '🌙';
+  }
+
+  /* ===================== TURNO — PERSISTÊNCIA ===================== */
+  function salvarTurno() {
+    const salvo = { porteiro: turnoAtual.porteiro, inicio: turnoAtual.inicio ? turnoAtual.inicio.toISOString() : null, trocas: turnoAtual.trocas };
+    localStorage.setItem(LS_TURNO_KEY, JSON.stringify(salvo));
+  }
+
+  function carregarTurno() {
+    try {
+      const salvo = JSON.parse(localStorage.getItem(LS_TURNO_KEY) || 'null');
+      if (salvo) {
+        turnoAtual.porteiro = salvo.porteiro || '';
+        turnoAtual.inicio = salvo.inicio ? new Date(salvo.inicio) : null;
+        turnoAtual.trocas = salvo.trocas || [];
+      }
+    } catch(e) {}
+  }
+
+  function carregarObs() {
+    try { observacoesMap = JSON.parse(localStorage.getItem(LS_OBS_KEY) || '{}'); } catch(e) {}
+  }
+
+  function salvarObs_local() {
+    localStorage.setItem(LS_OBS_KEY, JSON.stringify(observacoesMap));
+  }
+
+  /* ===================== FILA OFFLINE (IndexedDB + localStorage fallback) ===================== */
+  function adicionarPendente(payload) {
+    // Fallback localStorage (caso IndexedDB falhe)
+    const fila = JSON.parse(localStorage.getItem(LS_PENDING_KEY) || '[]');
+    fila.push({ payload, ts: Date.now() });
+    localStorage.setItem(LS_PENDING_KEY, JSON.stringify(fila));
+    atualizarContadorIDB();
+  }
+
+  async function sincronizarPendentes() {
+    // Prioridade: IndexedDB
+    await sincronizarIDB();
+    // Também tenta o localStorage (fallback legado)
+    const fila = JSON.parse(localStorage.getItem(LS_PENDING_KEY) || '[]');
+    if (fila.length === 0) return;
+    const badge = document.getElementById('syncBadge');
+    badge.classList.add('ativo');
+    const restante = [];
+    for (const item of fila) {
+      try {
+        await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", body: JSON.stringify(item.payload) });
+      } catch(e) { restante.push(item); }
+    }
+    localStorage.setItem(LS_PENDING_KEY, JSON.stringify(restante));
+    badge.classList.remove('ativo');
+    if (restante.length === 0) carregarEstado();
+  }
+
+  /* ===================== ONLINE / OFFLINE ===================== */
+  function atualizarStatusRede() {
+    const bar = document.getElementById('offlineBar');
+    if (!navigator.onLine) {
+      bar.classList.add('ativo');
+      atualizarContadorIDB();
+    } else {
+      bar.classList.remove('ativo');
+      sincronizarPendentes();
+    }
+  }
+
+  window.addEventListener('online', atualizarStatusRede);
+  window.addEventListener('offline', atualizarStatusRede);
+
+  /* ===================== HAPTIC ===================== */
+  function vibrar(ms) {
+    if (navigator.vibrate) navigator.vibrate(ms || 50);
+  }
+
+  /* ===================== TURNO ===================== */
+  function abrirModalTurno() {
+    document.getElementById('input_porteiro').value = '';
+    document.getElementById('modalTurno').classList.add('ativo');
+    setTimeout(() => document.getElementById('input_porteiro').focus(), 200);
+  }
+
+  function confirmarTrocarTurno() {
+    const nome = document.getElementById('input_porteiro').value.trim().toUpperCase();
+    if (!nome) {
+      mostrarToast('⚠️ Informe o nome do porteiro!', 'warn');
+      return;
+    }
+    const agora = new Date();
+    const horaStr = agora.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    const dataStr = agora.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'});
+    turnoAtual.trocas.push({ porteiro: nome, hora: horaStr, data: dataStr });
+    turnoAtual.porteiro = nome;
+    turnoAtual.inicio = agora;
+    document.querySelector("#tabDia tbody").innerHTML = "";
+    document.querySelector("#tabNoite tbody").innerHTML = "";
+    atualizarBarraTurno();
+    salvarTurno();
+    vibrar(80);
+    fecharModal('modalTurno');
+    switchTab('abaEntrada', document.getElementById('tabBtnEnt'));
+    setTimeout(() => mostrarToast(`✅ Turno trocado! Porteiro: ${nome} — ${horaStr}`, 'success', 4000), 150);
+  }
+
+  function atualizarBarraTurno() {
+    const agora = new Date();
+    if (!turnoAtual.porteiro) {
+      document.getElementById('turnoNomeAtual').innerText = 'TURNO EM ANDAMENTO';
+      document.getElementById('turnoPorteiroAtual').innerText = 'Nenhuma troca registrada';
+      return;
+    }
+    document.getElementById('turnoNomeAtual').innerText = `👤 ${turnoAtual.porteiro}`;
+    const mins = turnoAtual.inicio ? Math.floor((agora - turnoAtual.inicio) / 60000) : 0;
+    const horaStr = turnoAtual.inicio ? turnoAtual.inicio.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) : '--:--';
+    const duracao = mins < 60 ? `${mins}min` : `${Math.floor(mins/60)}h${('0'+mins%60).slice(-2)}`;
+    document.getElementById('turnoPorteiroAtual').innerText = `Desde ${horaStr} — ${duracao} em turno`;
+  }
+
+  /* ===================== RELATÓRIO ===================== */
+  async function abrirRelatorio() {
+    document.getElementById('relatorioTexto').innerText = '⏳ Buscando dados da planilha...';
+    document.getElementById('btnCopiar').innerText = '📋 Copiar para WhatsApp';
+    document.getElementById('btnCopiar').classList.remove('copiado');
+    document.getElementById('modalRelatorio').classList.add('ativo');
+
+    let dadosFrescos = [];
+    try {
+      const res = await fetch(WEB_APP_URL);
+      const json = await res.json();
+      dadosFrescos = json.dados || [];
+    } catch(e) {
+      dadosFrescos = [...veiculosPatio, ...veiculosCarregados];
+    }
+
+    const agora = new Date();
+    const dataStr = agora.toLocaleDateString('pt-BR');
+    const horaStr = agora.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    const emPatio = dadosFrescos.filter(v => v.status === 'PÁTIO').sort((a,b) => (a.chegada||0) - (b.chegada||0));
+    const saidos  = dadosFrescos.filter(v => v.status === 'SAÍDA').sort((a,b) => (a.chegada||0) - (b.chegada||0));
+    const totalEntradas = emPatio.length + saidos.length;
+
+    // ── Agrupar pátio por produto ──
+    const patioGrupos = {};
+    emPatio.forEach(v => { const p = v.produto||'---'; if(!patioGrupos[p]) patioGrupos[p]=[]; patioGrupos[p].push(v); });
+    const resumoPatioParts = Object.entries(patioGrupos).sort((a,b)=>a[0].localeCompare(b[0])).map(([p,l])=>`${l.length}-${p}`);
+    const resumoPatio = resumoPatioParts.join(' / ') || '—';
+
+    let detalhePatioStr = '';
+    Object.entries(patioGrupos).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([prod, lista]) => {
+      detalhePatioStr += `\n  *${prod}: ${String(lista.length).padStart(2,'0')}*\n`;
+      lista.forEach((v, i) => {
+        const oc = (v.ordem||'').toUpperCase().trim() === 'SIM' ? ' O.C - OK' : '';
+        const obs = observacoesMap[v.placa] || v.observacao || '';
+        const obsStr = obs ? ` ${obs}` : '';
+        detalhePatioStr += `  ${i+1}° ${v.placa} - (${v.transportadora||'---'})${oc}${obsStr}\n`;
+      });
+    });
+    detalhePatioStr = detalhePatioStr.trimEnd() || '  • —';
+
+    // ── Agrupar saídos por produto ──
+    const saidaGrupos = {};
+    saidos.forEach(v => { const p = v.produto||'---'; if(!saidaGrupos[p]) saidaGrupos[p]=[]; saidaGrupos[p].push(v); });
+    const resumoSaidaParts = Object.entries(saidaGrupos).sort((a,b)=>a[0].localeCompare(b[0])).map(([p,l])=>`${l.length}-${p}`);
+    const resumoSaida = resumoSaidaParts.join(' / ') || '—';
+
+    let detalheCargaStr = '';
+    Object.entries(saidaGrupos).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([prod, lista]) => {
+      detalheCargaStr += `\n  *${prod}: ${String(lista.length).padStart(2,'0')}*\n`;
+      lista.forEach((v, i) => {
+        const nfe = v.nfe ? ` NFE: ${v.nfe}` : '';
+        detalheCargaStr += `  ${i+1}° ${v.placa} - (${v.transportadora||'---'})${nfe}\n`;
+      });
+    });
+    detalheCargaStr = detalheCargaStr.trimEnd() || '  • —';
+
+    // ── Críticos +4h ──
+    emPatio.forEach(v => {
+      if (!v.chegadaTimestamp && v.dataEntrada) {
+        try { const p=v.dataEntrada.split(' '); const [d,m,a]=p[0].split('/'); const [h,mi]=p[1].split(':'); v.chegadaTimestamp=new Date(a,m-1,d,h,mi).getTime(); } catch(e) {}
+      }
+    });
+    const criticos = emPatio.filter(v => v.chegadaTimestamp && (Date.now()-v.chegadaTimestamp) > 4*3600000);
+    const criticosStr = criticos.length > 0 ? criticos.map(v=>`  • ${v.placa} (${v.motorista||'---'})`).join('\n') : '  • Nenhum';
+
+    let trocasStr = '  • Nenhuma troca registrada';
+    if (turnoAtual.trocas.length > 0) { trocasStr = turnoAtual.trocas.map(t=>`  • ${t.porteiro} — ${t.data} às ${t.hora}`).join('\n'); }
+
+    const texto =
+`📋 Relatório do Turno
+🚛 PORTARIA SAVANA — RELATÓRIO
+📅 ${dataStr} às ${horaStr}${turnoAtual.porteiro ? '\n👤 Porteiro: ' + turnoAtual.porteiro : ''}
+📥 ENTRADAS NO TURNO: *${totalEntradas}*
+━━━━━━━━━━━━━━━━━━━━━━━
+🟨 NO PÁTIO: ${emPatio.length} 
+${resumoPatio}${detalhePatioStr}
+
+🟩 CARREGADOS/SAÍDOS: ${saidos.length} 
+${resumoSaida}${detalheCargaStr}
+
+⚠️ AGUARDANDO HÁ +4H:
+${criticosStr}
+
+🔄 TROCAS DE TURNO:
+${trocasStr}
+━━━━━━━━━━━━━━━━━━━━━━━`;
+
+    document.getElementById('relatorioTexto').innerText = texto;
+  }
+
+  async function copiarRelatorio() {
+    const txt = document.getElementById('relatorioTexto').innerText;
+    const btn = document.getElementById('btnCopiar');
+
+    let copiado = false;
+
+    // Método 1: Clipboard API moderna (HTTPS / browsers modernos)
+    if (!copiado && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      try {
+        await navigator.clipboard.writeText(txt);
+        copiado = true;
+      } catch(e) {}
+    }
+
+    // Método 2: execCommand via textarea (Android WebView, iOS UIWebView, fallback universal)
+    if (!copiado) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = txt;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:0;left:0;width:2em;height:2em;padding:0;border:none;outline:none;boxShadow:none;background:transparent;opacity:0;';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, 999999);
+        copiado = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch(e) {}
+    }
+
+    if (copiado) {
+      btn.innerText = '✅ Copiado! Cole no WhatsApp';
+      btn.classList.add('copiado');
+      vibrar(60);
+      mostrarToast('📋 Relatório copiado! Cole no WhatsApp', 'success', 3500);
+    } else {
+      // Último recurso: seleciona o texto visualmente para o usuário copiar manualmente
+      const relBox = document.getElementById('relatorioTexto');
+      const range = document.createRange();
+      range.selectNodeContents(relBox);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      mostrarToast('📌 Texto selecionado — use Copiar do seu celular', 'warn', 5000);
+    }
+  }
+
+  /* ===================== OBSERVAÇÕES ===================== */
+  function abrirModalObs(placa, obsAtual) {
+    obsEditandoPlaca = placa;
+    document.getElementById('modalObsPlaca').innerText = `Veículo: ${placa}`;
+    document.getElementById('input_obs').value = obsAtual || '';
+    document.getElementById('modalObs').classList.add('ativo');
+    setTimeout(() => document.getElementById('input_obs').focus(), 200);
+  }
+
+  function salvarObs() {
+    const obs = document.getElementById('input_obs').value.trim().toUpperCase();
+    observacoesMap[obsEditandoPlaca] = obs;
+    salvarObs_local();
+    fecharModal('modalObs');
+    carregarEstado();
+  }
+
+  /* ===================== MODAIS ===================== */
+  function fecharModal(id) { document.getElementById(id).classList.remove('ativo'); }
+
+  /* ===================== TEMPO NO PÁTIO ===================== */
+  function calcularTempo(chegadaTimestamp) {
+    if (!chegadaTimestamp) return null;
+    const mins = Math.floor((Date.now() - chegadaTimestamp) / 60000);
+    if (mins < 60) return { texto: `${mins}min`, classe: 'tempo-ok' };
+    const horas = Math.floor(mins / 60);
+    const m = mins % 60;
+    const texto = `${horas}h${m > 0 ? ('0'+m).slice(-2) : ''}`;
+    if (horas < 3) return { texto, classe: 'tempo-ok' };
+    if (horas < 4) return { texto, classe: 'tempo-alerta' };
+    return { texto, classe: 'tempo-critico' };
+  }
+
+  /* ===================== PREVIEW SAÍDA ===================== */
+  function previewSaida(val) {
+    const placa = val.toUpperCase().trim();
+    const veiculo = veiculosPatio.find(v => v.placa === placa);
+    const preview = document.getElementById('preview_saida');
+    if (veiculo) {
+      preview.style.display = 'block';
+      preview.innerHTML = `✅ <b>${veiculo.placa}</b> encontrado no pátio<br><span style="color:var(--accent);font-size:0.78rem;">Motorista: ${veiculo.motorista||'---'} | ${veiculo.produto||'---'} | ${veiculo.transportadora||'---'}</span>`;
+    } else if (placa.length >= 7) {
+      preview.style.display = 'block';
+      preview.style.background = 'var(--danger-light)';
+      preview.style.borderColor = '#fca5a5';
+      preview.style.color = '#991b1b';
+      preview.innerHTML = `⚠️ Placa <b>${placa}</b> não encontrada no pátio.`;
+    } else {
+      preview.style.display = 'none';
+      preview.style.background = '';
+      preview.style.borderColor = '';
+      preview.style.color = '';
+    }
+  }
+
+  /* ===================== PS4 CARD PULSE ===================== */
+  function pulsarCard(tipo) {
+    const card = document.querySelector(`.mini-card[data-tipo="${tipo}"]`);
+    if (!card) return;
+    // Remove antes de re-adicionar (força restart da animação)
+    card.classList.remove('ps4-sweep');
+    void card.offsetWidth; // reflow
+    card.classList.add('ps4-sweep');
+    // Pop no número
+    const num = card.querySelector('b');
+    if (num) { num.classList.remove('num-pop'); void num.offsetWidth; num.classList.add('num-pop'); }
+    setTimeout(() => card.classList.remove('ps4-sweep'), 1000);
+  }
+
+  /* ===================== CONTAGENS ===================== */
+  function atualizarDetalhesProdutos(tipoPulsado) {
+    const anteriorPatio = parseInt(document.getElementById('contPatio').innerText) || 0;
+    const anteriorCarga = parseInt(document.getElementById('contCarga').innerText) || 0;
+
     document.getElementById('contPatio').innerText = veiculosPatio.length;
     document.getElementById('contCarga').innerText = veiculosCarregados.length;
-    
-    /* ---- PÁTIO: agrupar por produto ---- */
+
+    // Pátio — pills de produto
     const patioPorProd = {};
-    veiculosPatio.forEach(v => {
-      if (!patioPorProd[v.produto]) patioPorProd[v.produto] = 0;
-      patioPorProd[v.produto]++;
-    });
+    veiculosPatio.forEach(v => { patioPorProd[v.produto] = (patioPorProd[v.produto]||0)+1; });
+    const pillsP = Object.entries(patioPorProd).sort((a,b)=>b[1]-a[1])
+      .map(([p,q]) => `<span class="prod-pill">${q} ${p}</span>`).join('');
+    document.getElementById('resumoPatio').innerHTML = pillsP || '';
 
-    /* Linha de resumo compacta: "10-SOJA / 5-MILHO" */
-    const resumoPatioArr = Object.entries(patioPorProd)
-      .sort((a,b) => b[1]-a[1])
-      .map(([p,q]) => `${q}-${p}`);
-    document.getElementById('resumoPatio').innerText = resumoPatioArr.join(' / ') || '';
-
-    /* Detalhes por produto + transportadora */
-    const patioPorProdTrans = {};
+    const patioPT = {};
     veiculosPatio.forEach(v => {
       const k = `${v.produto}-${v.transportadora}`;
-      if (!patioPorProdTrans[k]) patioPorProdTrans[k] = { p: v.produto, t: v.transportadora, q: 0 };
-      patioPorProdTrans[k].q++;
+      if (!patioPT[k]) patioPT[k] = { p:v.produto, t:v.transportadora, q:0 };
+      patioPT[k].q++;
     });
     let htmlP = '';
-    Object.values(patioPorProdTrans).sort((a,b)=>a.p.localeCompare(b.p)).forEach(i => {
-      htmlP += `<div>${i.q} ${i.p} - (${i.t})</div>`;
-    });
-    document.getElementById('detalhePatio').innerHTML = htmlP || '<div style="color:#aaa;">—</div>';
+    Object.values(patioPT).sort((a,b)=>a.p.localeCompare(b.p)).forEach(i => { htmlP += `<div>${i.q} ${i.p} — ${i.t}</div>`; });
+    document.getElementById('detalhePatio').innerHTML = htmlP || '<div style="color:var(--text-muted)">—</div>';
 
-    /* ---- CARREGADOS: mesma lógica ---- */
+    // Carregados — pills de produto
     const cargaPorProd = {};
-    veiculosCarregados.forEach(v => {
-      if (!cargaPorProd[v.produto]) cargaPorProd[v.produto] = 0;
-      cargaPorProd[v.produto]++;
-    });
-    const resumoCargaArr = Object.entries(cargaPorProd)
-      .sort((a,b) => b[1]-a[1])
-      .map(([p,q]) => `${q}-${p}`);
-    document.getElementById('resumoCarga').innerText = resumoCargaArr.join(' / ') || '';
+    veiculosCarregados.forEach(v => { cargaPorProd[v.produto] = (cargaPorProd[v.produto]||0)+1; });
+    const pillsC = Object.entries(cargaPorProd).sort((a,b)=>b[1]-a[1])
+      .map(([p,q]) => `<span class="prod-pill">${q} ${p}</span>`).join('');
+    document.getElementById('resumoCarga').innerHTML = pillsC || '';
 
-    const cargaPorProdTrans = {};
+    const cargaPT = {};
     veiculosCarregados.forEach(v => {
       const k = `${v.produto}-${v.transportadora}`;
-      if (!cargaPorProdTrans[k]) cargaPorProdTrans[k] = { p: v.produto, t: v.transportadora, q: 0 };
-      cargaPorProdTrans[k].q++;
+      if (!cargaPT[k]) cargaPT[k] = { p:v.produto, t:v.transportadora, q:0 };
+      cargaPT[k].q++;
     });
     let htmlC = '';
-    Object.values(cargaPorProdTrans).sort((a,b)=>a.p.localeCompare(b.p)).forEach(i => {
-      htmlC += `<div>${i.q} ${i.p} - (${i.t})</div>`;
-    });
-    document.getElementById('detalheCarga').innerHTML = htmlC || '<div style="color:#aaa;">—</div>';
+    Object.values(cargaPT).sort((a,b)=>a.p.localeCompare(b.p)).forEach(i => { htmlC += `<div>${i.q} ${i.p} — ${i.t}</div>`; });
+    document.getElementById('detalheCarga').innerHTML = htmlC || '<div style="color:var(--text-muted)">—</div>';
+
+    // Dispara sweep somente quando o número realmente mudou
+    if (tipoPulsado) {
+      setTimeout(() => pulsarCard(tipoPulsado), 80);
+    } else {
+      if (veiculosPatio.length !== anteriorPatio) setTimeout(() => pulsarCard('patio'), 80);
+      if (veiculosCarregados.length !== anteriorCarga) setTimeout(() => pulsarCard('carga'), 80);
+    }
   }
 
+  /* ===================== CARREGAR ESTADO ===================== */
+  // Cache de dados para evitar re-render completo desnecessário
+  let ultimoDadosHash = '';
+
   async function carregarEstado() {
+    if (!navigator.onLine) {
+      // Usa cache do localStorage
+      try {
+        const cached = JSON.parse(localStorage.getItem(LS_ESTADO_KEY) || 'null');
+        if (cached) processarDados(cached);
+      } catch(e) {}
+      return;
+    }
+
     try {
       const res = await fetch(WEB_APP_URL);
       const json = await res.json();
       const dados = json.dados || [];
-      
-      document.querySelector("#tabDia tbody").innerHTML = "";
-      document.querySelector("#tabNoite tbody").innerHTML = "";
-      veiculosPatio = []; veiculosCarregados = [];
 
-      dados.sort((a, b) => a.chegada - b.chegada);
+      // Salva cache local
+      localStorage.setItem(LS_ESTADO_KEY, JSON.stringify(json));
 
-      dados.forEach(r => {
-        if (r.status === "PÁTIO") veiculosPatio.push(r);
-        else if (r.status === "SAÍDA") veiculosCarregados.push(r);
-        addHist(r, r.status === "SAÍDA" ? 'SAÍDA' : 'ENTRADA', r.dataEntrada);
-      });
+      // Evita re-render se dados não mudaram
+      const hash = JSON.stringify(dados);
+      const novoChamado = json.chamada || '';
 
-      atualizarDetalhesProdutos();
-      if (json.chamada) {
-        document.getElementById('bannerMsg').innerText = json.chamada;
-        document.getElementById('bannerChamada').classList.add('ativo');
-      } else {
-        document.getElementById('bannerChamada').classList.remove('ativo');
-      }
-    } catch(e) { console.error(e); }
+      processarDados(json, hash);
+      ultimoDadosHash = hash + novoChamado;
+
+    } catch(e) {
+      console.error('Erro ao carregar estado:', e);
+      try {
+        const cached = JSON.parse(localStorage.getItem(LS_ESTADO_KEY) || 'null');
+        if (cached) processarDados(cached);
+      } catch(e2) {}
+    }
   }
 
+  function processarDados(json, hash) {
+    const dados = json.dados || [];
+
+    // Se dados não mudaram, não re-renderiza
+    const novoHash = JSON.stringify(dados) + (json.chamada||'');
+    if (hash && novoHash === ultimoDadosHash) return;
+
+    document.querySelector("#tabDia tbody").innerHTML = "";
+    document.querySelector("#tabNoite tbody").innerHTML = "";
+    veiculosPatio = []; veiculosCarregados = [];
+
+    dados.sort((a, b) => a.chegada - b.chegada);
+
+    const seqPorProduto = {};
+    dados.forEach(r => {
+      const prod = r.produto || '---';
+      if (!seqPorProduto[prod]) seqPorProduto[prod] = 0;
+      seqPorProduto[prod]++;
+      r.seqProduto = seqPorProduto[prod];
+    });
+
+    dados.forEach(r => {
+      if (r.dataEntrada && !r.chegadaTimestamp) {
+        try {
+          const parts = r.dataEntrada.split(' ');
+          const [d,m,a] = parts[0].split('/');
+          const [h,mi] = parts[1].split(':');
+          r.chegadaTimestamp = new Date(a,m-1,d,h,mi).getTime();
+        } catch(e) {}
+      }
+      if (r.status === "PÁTIO") veiculosPatio.push(r);
+      else if (r.status === "SAÍDA") veiculosCarregados.push(r);
+      addHist(r, r.status === "SAÍDA" ? 'SAÍDA' : 'ENTRADA', r.dataEntrada);
+    });
+
+    atualizarDetalhesProdutos();
+    atualizarBarraTurno();
+
+    if (json.chamada) {
+      document.getElementById('bannerMsg').innerText = json.chamada;
+      document.getElementById('bannerChamada').classList.add('ativo');
+    } else {
+      document.getElementById('bannerChamada').classList.remove('ativo');
+    }
+  }
+
+  /* ===================== ADD HISTÓRICO ===================== */
   function addHist(d, tipo, dataManual = null) {
     const agora = new Date();
-    const hStr = dataManual ? dataManual.split(" ")[1] : agora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    const dStr = dataManual ? dataManual.split(" ")[0] : agora.toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'});
-    
+    const hStr = dataManual ? dataManual.split(" ")[1] : agora.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const dStr = dataManual ? dataManual.split(" ")[0] : agora.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'});
     let hInt = dataManual ? parseInt(hStr.split(":")[0]) : agora.getHours();
     const tabID = (hInt >= 6 && hInt < 18) ? "#tabDia" : "#tabNoite";
     const tbody = document.querySelector(tabID + " tbody");
 
+    const obsLocal = observacoesMap[d.placa] || d.observacao || '';
+    const tempo = tipo === 'ENTRADA' ? calcularTempo(d.chegadaTimestamp) : null;
+    const tempoBadge = tempo ? `<span class="tempo-badge ${tempo.classe}">⏱ ${tempo.texto}</span>` : '';
+
     const tr = document.createElement("tr");
+    tr.dataset.busca = `${d.placa} ${d.motorista||''} ${d.transportadora||''} ${d.produto||''}`.toUpperCase();
+
+    const chamadaInfo = historicoChamadas.find(c => c.placa === d.placa);
+    const chamadaBadge = chamadaInfo
+      ? `<div class="chamada-inline" id="chamada-inline-${d.placa}">📢 <b>${chamadaInfo.count}x</b> chamado — última: ${chamadaInfo.ultimaHora}</div>`
+      : `<div class="chamada-inline chamada-inline-vazia" id="chamada-inline-${d.placa}"></div>`;
+
     tr.innerHTML = `
-        <td class="container-info">
-          <span style="font-size: 0.6rem; color: #aaa; font-weight: bold;">N°${String(d.chegada).padStart(2,'0')}</span><br>
-          <b style="font-size: 1rem;">${d.placa}</b>
-          <div class="detalhe-linha"><b>MOT:</b> ${d.motorista || '---'}</div>
-          ${tipo === 'ENTRADA' ? `<button class="btn-chamar" onclick="chamarVeiculo('${d.placa}','${d.motorista}', this)">📢 Chamar</button>` : ''}
-        </td>
-        <td style="width:30%; text-align:center;">
-          <div class="detalhe-linha">${d.transportadora || '---'}</div>
-          <div class="detalhe-linha"><b>${d.produto || (d.nfe ? 'NFE: '+d.nfe : '---')}</b></div>
-        </td>
-        <td class="container-status">
-          <span class="data-hora-canto">${dStr} - ${hStr}</span>
-          ${tipo === 'ENTRADA' ? `
-            <button class="st-badge" style="background:${d.ordem==='SIM'?'#27ae60':'#e74c3c'}" onclick="toggleOrdem(this,'${d.placa}')">${d.ordem}</button>
+      <td class="container-info" style="vertical-align:top;padding-top:12px;padding-bottom:12px;">
+        <span style="font-size:0.55rem;color:var(--text-muted);font-weight:700;">N°${String(d.chegada).padStart(2,'0')}${d.seqProduto ? ` <span style="color:var(--accent);margin-left:4px;">${d.produto||''} #${d.seqProduto}</span>` : ''}</span>
+        <div style="font-size:1rem;font-weight:700;color:var(--text-main);font-family:'JetBrains Mono',monospace;letter-spacing:1px;margin:2px 0 1px;">${d.placa}</div>
+        <div class="detalhe-linha"><b>MOT:</b> ${d.motorista||'---'}</div>
+        ${obsLocal ? `<div class="obs-linha">📝 ${obsLocal}</div>` : ''}
+        ${tempoBadge}
+        ${tipo==='ENTRADA' ? `
+          <div class="row-btns">
+            <button class="btn-chamar" onclick="chamarVeiculo('${d.placa}','${d.motorista}',this)">📢 Chamar</button>
+            <button class="btn-obs" onclick="abrirModalObs('${d.placa}','${(obsLocal||'').replace(/'/g,"\\'")}')">📝 Obs</button>
+          </div>` : ''}
+        ${chamadaBadge}
+      </td>
+      <td style="width:26%;text-align:center;vertical-align:middle;">
+        <div class="detalhe-linha">${d.transportadora||'---'}</div>
+        <div class="detalhe-linha"><b>${d.produto||(d.nfe?'NFE: '+d.nfe:'---')}</b></div>
+      </td>
+      <td class="container-status" style="vertical-align:top;padding-top:12px;padding-bottom:12px;">
+        <span class="data-hora-canto">${dStr} ${hStr}</span>
+        ${tipo==='ENTRADA' ? `
+          <div class="row-btns" style="justify-content:flex-end;margin-top:10px;">
+            <button class="st-badge" style="background:${d.ordem==='SIM'?'var(--success)':'var(--danger)'}" onclick="toggleOrdem(this,'${d.placa}')">${d.ordem}</button>
             <button class="btn-edit" title="Editar" onclick="prepararEdicao('${d.placa}','${d.motorista}','${d.transportadora}','${d.produto}','${d.ordem}')">${EDIT_ICON_SVG}</button>
-          ` : '<span style="color:var(--success); font-weight:bold; font-size:0.6rem">SAÍDA ✅</span>'}
-        </td>`;
+          </div>
+        ` : `<div style="margin-top:10px;"><span style="color:var(--success);font-weight:700;font-size:0.62rem;">SAÍDA ✅</span></div>`}
+      </td>`;
     tbody.appendChild(tr);
   }
 
+  /* ===================== BUSCA HISTÓRICO ===================== */
+  function filtrarHistorico(val) {
+    const q = val.toUpperCase().trim();
+    document.querySelectorAll('#tabDia tbody tr, #tabNoite tbody tr').forEach(tr => {
+      tr.classList.toggle('tr-hidden', q.length > 0 && !tr.dataset.busca?.includes(q));
+    });
+  }
+
+  /* ===================== CHAMADAS ===================== */
   async function chamarVeiculo(placa, motorista, btn) {
     const nome = motorista || placa;
     const msg = `🚛 VEÍCULO ${placa} — SR(A). ${nome}, FAVOR DIRIGIR-SE À BALANÇA!`;
     const original = btn.innerText;
-    btn.innerText = "⏳ ENVIANDO..."; btn.style.background = "#aaa"; btn.disabled = true;
+    btn.innerText = "⏳"; btn.style.background = "#aaa"; btn.disabled = true;
+
+    const agora = new Date();
+    const horaStr = agora.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    const idx = historicoChamadas.findIndex(c => c.placa === placa);
+    if (idx >= 0) { historicoChamadas[idx].count++; historicoChamadas[idx].ultimaHora = horaStr; }
+    else { historicoChamadas.unshift({ placa, motorista: motorista||'---', hora: horaStr, ultimaHora: horaStr, count: 1 }); }
+
+    const chamadaAtual = historicoChamadas.find(c => c.placa === placa);
+    const badgeEl = document.getElementById(`chamada-inline-${placa}`);
+    if (badgeEl && chamadaAtual) {
+      badgeEl.className = 'chamada-inline';
+      badgeEl.innerHTML = `📢 <b>${chamadaAtual.count}x</b> chamado — última: ${chamadaAtual.ultimaHora}`;
+    }
+
     try {
-      await fetch(WEB_APP_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ acao: "CHAMAR", mensagem: msg }) });
-      btn.innerText = "✅ CHAMADO!"; btn.style.background = "#27ae60";
-      setTimeout(() => { btn.innerText = original; btn.style.background = "#f39c12"; btn.disabled = false; }, 3000);
-      carregarEstado();
-    } catch(e) { alert("Erro!"); btn.disabled = false; }
+      await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", body: JSON.stringify({ acao:"CHAMAR", mensagem: msg }) });
+    } catch(e) {}
+
+    vibrar([50, 30, 50]);
+    btn.innerText = "✅"; btn.style.background = "var(--success)";
+    setTimeout(() => { btn.innerText = original; btn.style.background = ''; btn.style.cssText=''; btn.disabled = false; }, 3000);
   }
 
   async function dispensarChamada(btn) {
-    const originalText = btn.innerText;
-    btn.innerText = "⏳ PROCESSANDO..."; btn.disabled = true;
+    btn.innerText = "⏳ Processando..."; btn.disabled = true;
+    document.getElementById('bannerChamada').classList.remove('ativo');
     try {
-      await fetch(WEB_APP_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ acao: "OK_CHAMADA" }) });
-      document.getElementById('bannerChamada').classList.remove('ativo');
-      carregarEstado();
-    } catch(e) { 
-        alert("Erro!"); 
-        btn.innerText = originalText; 
-        btn.disabled = false;
-    }
+      await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", body: JSON.stringify({ acao:"OK_CHAMADA" }) });
+    } catch(e) {}
+    vibrar(60);
+    btn.innerText = "✅ OK — Portaria Ciente"; btn.disabled = false;
   }
 
+  /* ===================== ENTRADA ===================== */
   async function registrarEntrada() {
     const btn = document.getElementById('btnEnt');
     const isEdit = document.getElementById('edit_mode').value === "true";
-    const d = { 
-        placa: document.getElementById('p_ent').value.toUpperCase().trim(), 
-        motorista: document.getElementById('m_ent').value.toUpperCase().trim(), 
-        transportadora: document.getElementById('t_ent').value.toUpperCase().trim(), 
-        produto: document.getElementById('prod_ent').value, 
-        ordem: document.getElementById('o_ent').value, 
-        acao: isEdit ? "EDITAR" : "ENTRADA" 
+    const d = {
+      placa: document.getElementById('p_ent').value.toUpperCase().trim(),
+      motorista: document.getElementById('m_ent').value.toUpperCase().trim(),
+      transportadora: document.getElementById('t_ent').value.toUpperCase().trim(),
+      produto: document.getElementById('prod_ent').value,
+      ordem: document.getElementById('o_ent').value,
+      observacao: document.getElementById('obs_ent').value.toUpperCase().trim(),
+      acao: isEdit ? "EDITAR" : "ENTRADA"
     };
-    if(!d.placa) return alert("Placa obrigatória!");
-    btn.disabled = true; btn.innerText = "⏳ ENVIANDO...";
+    if (!d.placa) {
+      await mostrarDialog({ icone: '🚛', titulo: 'Placa obrigatória', msg: 'Informe a placa do veículo antes de salvar.', botoes: [{ texto: 'OK', tipo: 'ok' }] });
+      return;
+    }
+    if (d.observacao) { observacoesMap[d.placa] = d.observacao; salvarObs_local(); }
+
+    // Botão vivo
+    const btnOriginalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "⏳ Enviando...";
+    btn.style.opacity = '0.7';
+
+    setStatusEnt('validando', '🔍 Validando placa...');
+    await new Promise(r => setTimeout(r, 300));
+    setStatusEnt('enviando', '📡 Dados subindo...');
+
+    const enviar = async () => {
+      await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", body: JSON.stringify(d) });
+    };
+
     try {
-      await fetch(WEB_APP_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(d) });
-      document.getElementById('p_ent').value = ""; document.getElementById('m_ent').value = "";
-      document.getElementById('t_ent').value = ""; document.getElementById('edit_mode').value = "false";
-      document.getElementById('tituloEntrada').innerText = "Nova Entrada";
+      if (!navigator.onLine) { await idbAdicionarPendente(d); throw new Error('offline'); }
+      await enviar();
+      vibrar(60);
+      pulsarCard('patio');
+      setStatusEnt('sucesso', '✅ Salvo com sucesso!');
+      setTimeout(() => setStatusEnt(null), 2500);
+      document.getElementById('p_ent').value = "";
+      document.getElementById('m_ent').value = "";
+      document.getElementById('t_ent').value = "";
+      document.getElementById('obs_ent').value = "";
+      document.getElementById('edit_mode').value = "false";
+      document.getElementById('tituloEntradaTexto').innerText = "Nova Entrada";
       carregarEstado();
-    } catch (e) { alert("Erro!"); } finally { btn.disabled = false; btn.innerText = "✓ Salvar Entrada"; }
+    } catch(e) {
+      if (e.message !== 'offline') { await idbAdicionarPendente(d); }
+      setStatusEnt('erro', e.message === 'offline' ? '📴 Sem conexão — salvo no IndexedDB' : '⚠️ Erro — salvo localmente');
+      setTimeout(() => setStatusEnt(null), 4000);
+      atualizarContadorIDB();
+    } finally {
+      btn.disabled = false;
+      btn.innerText = btnOriginalText;
+      btn.style.opacity = '';
+    }
   }
 
+  /* ===================== SAÍDA ===================== */
   async function registrarSaida() {
     const btn = document.getElementById('btnSai');
-    const d = { placa: document.getElementById('p_sai').value.toUpperCase().trim(), nfe: document.getElementById('nfe_sai').value.toUpperCase().trim(), acao: "SAIDA" };
-    if(!d.placa || !d.nfe) return alert("Preencha Placa e NFE!");
-    btn.disabled = true; btn.innerText = "⏳ PROCESSANDO...";
+    const placa = document.getElementById('p_sai').value.toUpperCase().trim();
+    const nfe = document.getElementById('nfe_sai').value.toUpperCase().trim();
+    if (!placa || !nfe) {
+      await mostrarDialog({ icone: '⇥', titulo: 'Campos incompletos', msg: 'Preencha a Placa e o Número da NFE para registrar a saída.', botoes: [{ texto: 'OK', tipo: 'ok' }] });
+      return;
+    }
+    const btnOriginalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "⏳ Processando...";
+    btn.style.opacity = '0.7';
+    const veiculo = veiculosPatio.find(v => v.placa === placa);
+    const payload = { placa, nfe, acao:"SAIDA" };
     try {
-      await fetch(WEB_APP_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(d) });
-      document.getElementById('p_sai').value = ""; document.getElementById('nfe_sai').value = "";
+      if (!navigator.onLine) { await idbAdicionarPendente(payload); throw new Error('offline'); }
+      await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", body: JSON.stringify(payload) });
+      document.getElementById('p_sai').value = "";
+      document.getElementById('nfe_sai').value = "";
+      document.getElementById('preview_saida').style.display = 'none';
+      const fb = document.getElementById('feedbackSaida');
+      fb.style.display = 'block';
+      fb.innerHTML = `✅ Saída registrada: <b>${placa}</b>${veiculo ? ` — ${veiculo.motorista||''} — ${veiculo.produto||''}` : ''}`;
+      vibrar([50, 30, 100]);
+      pulsarCard('carga');
+      setTimeout(() => { fb.style.display = 'none'; }, 5000);
       carregarEstado();
-    } catch (e) { alert("Erro!"); } finally { btn.disabled = false; btn.innerText = "⇥ Registrar Saída"; }
+    } catch(e) {
+      if (e.message !== 'offline') { await idbAdicionarPendente(payload); }
+      mostrarToast(e.message === 'offline' ? '📴 Sem conexão — salvo no IndexedDB' : '⚠️ Erro — salvo localmente', 'warn', 4000);
+      atualizarContadorIDB();
+    } finally {
+      btn.disabled = false;
+      btn.innerText = btnOriginalText;
+      btn.style.opacity = '';
+    }
   }
 
+  /* ===================== OUTROS ===================== */
   async function toggleOrdem(btn, placa) {
     const novo = btn.innerText === 'SIM' ? 'NÃO' : 'SIM';
     btn.innerText = "⏳";
     try {
-      await fetch(WEB_APP_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ placa, ordem: novo, acao: "EDITAR_ORDEM" }) });
+      await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", body: JSON.stringify({ placa, ordem: novo, acao:"EDITAR_ORDEM" }) });
+      vibrar(40);
       carregarEstado();
-    } catch(e) { alert("Erro!"); }
+    } catch(e) { mostrarToast('⚠️ Erro ao alterar ordem', 'error'); }
   }
 
   function prepararEdicao(p, m, t, pr, ord) {
-    document.getElementById('p_ent').value = p; document.getElementById('m_ent').value = m;
-    document.getElementById('t_ent').value = t; document.getElementById('prod_ent').value = pr;
-    document.getElementById('o_ent').value = ord; document.getElementById('edit_mode').value = "true";
-    document.getElementById('tituloEntrada').innerText = "✏️ EDITANDO: " + p;
+    document.getElementById('p_ent').value = p;
+    document.getElementById('m_ent').value = m;
+    document.getElementById('t_ent').value = t;
+    document.getElementById('prod_ent').value = pr;
+    document.getElementById('o_ent').value = ord;
+    document.getElementById('obs_ent').value = observacoesMap[p] || '';
+    document.getElementById('edit_mode').value = "true";
+    document.getElementById('tituloEntradaTexto').innerText = "Editando: " + p;
     switchTab('abaEntrada', document.getElementById('tabBtnEnt'));
   }
 
   function switchTab(id, btn) {
     document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(id).classList.add('active'); btn.classList.add('active');
+    document.getElementById(id).classList.add('active');
+    if (btn) btn.classList.add('active');
+    // Scroll to top suavemente
+    window.scrollTo({ top: document.getElementById('stickyHeader').offsetHeight - 10, behavior: 'smooth' });
   }
 
-  function limparTabela(id) { if(confirm("Limpar visualização?")) document.querySelector(`#${id} tbody`).innerHTML = ""; }
+  async function limparTabela(id) {
+    const ok = await mostrarDialog({ icone: '🗑️', titulo: 'Limpar visualização?', msg: 'Isso vai remover os registros desta tabela da tela (apenas visual, não apaga do banco).', botoes: [{ texto: 'Cancelar', tipo: 'cancel' }, { texto: 'Limpar', tipo: 'ok' }] });
+    if (ok) document.querySelector(`#${id} tbody`).innerHTML = "";
+  }
 
-  window.addEventListener('DOMContentLoaded', () => { carregarEstado(); setInterval(carregarEstado, 10000); });
+  async function abrirPlanilha() {
+    const senha = await mostrarDialog({ icone: '🔒', titulo: 'Acesso Restrito', msg: 'Informe a senha para acessar a planilha:', input: true, inputPlaceholder: '••••••••', botoes: [{ texto: 'Cancelar', tipo: 'cancel' }, { texto: 'Acessar', tipo: 'ok' }] });
+    if (!senha) return;
+    const hash = await hashSenha(senha.toLowerCase());
+    if (hash === SENHA_HASH) { window.open('https://docs.google.com/spreadsheets/d/1ld0si9PW5xHkHWM5h-4J1mvnqoRrEgQ961aEgMI9_ik/edit', '_blank'); }
+    else { mostrarToast('❌ Senha incorreta!', 'error'); }
+  }
+
+  // fecha modal ao clicar fora
+  document.querySelectorAll('.modal-overlay').forEach(m => {
+    m.addEventListener('click', e => { if (e.target === m) fecharModal(m.id); });
+  });
+
+  // Altura do sticky header no container
+  function ajustarContainerTop() {
+    const h = document.getElementById('stickyHeader').offsetHeight;
+    document.querySelector('.container').style.marginTop = (h + 12) + 'px';
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    carregarTurno();
+    carregarObs();
+    atualizarBarraTurno();
+    atualizarRelogio();
+    atualizarStatusRede();
+    carregarEstado();
+    ajustarContainerTop();
+    atualizarContadorIDB(); // mostra pendentes do IndexedDB ao abrir
+    setInterval(carregarEstado, 10000);
+    setInterval(atualizarBarraTurno, 60000);
+    setInterval(atualizarRelogio, 30000);
+    setInterval(atualizarContadorIDB, 30000); // atualiza badge a cada 30s
+  });
+
+  window.addEventListener('resize', ajustarContainerTop);
 </script>
+  <!-- Registro do Service Worker PWA -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => {
+            console.log('[PWA] SW registrado:', reg.scope);
+            reg.addEventListener('updatefound', () => {
+              const newSW = reg.installing;
+              newSW.addEventListener('statechange', () => {
+                if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+                  if (confirm('Nova versão disponível! Atualizar agora?')) {
+                    newSW.postMessage('skipWaiting');
+                    window.location.reload();
+                  }
+                }
+              });
+            });
+          })
+          .catch(err => console.warn('[PWA] Falha ao registrar SW:', err));
+      });
+    }
+  </script>
 </body>
 </html>
