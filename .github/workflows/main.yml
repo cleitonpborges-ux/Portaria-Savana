@@ -23,11 +23,52 @@ jobs:
       - name: Instalar Bubblewrap
         run: npm install -g @bubblewrap/cli
 
-      - name: Construir APK
-        env:
-          JAVA_HOME: ${{ env.JAVA_HOME }}
+      - name: Criar twa-manifest.json manualmente
         run: |
-          # Cria o arquivo de configuração do Bubblewrap para evitar perguntas interativas
+          cat > twa-manifest.json << 'EOF'
+          {
+            "packageId": "io.github.cleitonpborges_ux.portaria_savana",
+            "host": "cleitonpborges-ux.github.io",
+            "name": "Portaria Savana",
+            "launcherName": "Portaria Savana",
+            "display": "standalone",
+            "themeColor": "#FFFFFF",
+            "navigationColor": "#000000",
+            "navigationColorDark": "#000000",
+            "navigationDividerColor": "#000000",
+            "navigationDividerColorDark": "#000000",
+            "backgroundColor": "#FFFFFF",
+            "enableNotifications": false,
+            "startUrl": "/Portaria-Savana/",
+            "iconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icons/icon-512x512.png",
+            "maskableIconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icons/icon-512x512.png",
+            "monochromeIconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icons/icon-512x512.png",
+            "appVersion": "1",
+            "appVersionCode": 1,
+            "signingKey": {
+              "path": "./android.keystore",
+              "alias": "android"
+            },
+            "splashScreenFadeOutDuration": 300,
+            "enableSiteSettingsShortcut": true,
+            "isChromeOSOnly": false,
+            "isMetaQuest": false,
+            "fullScopeUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/",
+            "minSdkVersion": 19,
+            "orientation": "default",
+            "fingerprints": [],
+            "alphaDependencies": {
+              "enabled": false
+            },
+            "generatorApp": "bubblewrap-cli",
+            "webManifestUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/manifest.json",
+            "serviceWorkerUrl": null,
+            "shortcuts": []
+          }
+          EOF
+
+      - name: Configurar Bubblewrap (JDK e SDK)
+        run: |
           mkdir -p ~/.bubblewrap
           cat > ~/.bubblewrap/config.json << EOF
           {
@@ -36,16 +77,11 @@ jobs:
           }
           EOF
 
-          # Inicializa sem interação
-          bubblewrap init \
-            --manifest=https://cleitonpborges-ux.github.io/Portaria-Savana/manifest.json \
-            --yes
+      - name: Aceitar licenças Android SDK
+        run: yes | sdkmanager --licenses || true
 
-          # Aceita licenças do Android SDK
-          yes | sdkmanager --licenses || true
-
-          # Builda sem assinar
-          bubblewrap build --skipSigning
+      - name: Construir APK
+        run: bubblewrap build --skipSigning
 
       - name: Salvar APK para Download
         uses: actions/upload-artifact@v4
