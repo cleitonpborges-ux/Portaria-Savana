@@ -11,18 +11,27 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v4
 
+      - name: Configurar Java (JDK 17)
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
       - name: Configurar Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Instalar Bubblewrap
-        run: npm install -g @bubblewrap/cli
+      - name: Instalar Bubblewrap e Android SDK
+        run: |
+          npm install -g @bubblewrap/cli
+          # Isso aceita as licenças do Android automaticamente
+          yes | sdkmanager --licenses || true
 
       - name: Construir APK
-        # Link atualizado para o repositório Portaria-Savana
         run: |
-          bubblewrap init --manifest=https://cleitonpborges-ux.github.io/Portaria-Savana/manifest.json --yes
+          # O comando 'yes' responde "sim" para todas as perguntas do terminal
+          yes | bubblewrap init --manifest=https://cleitonpborges-ux.github.io/Portaria-Savana/manifest.json --yes
           bubblewrap build --skipSigning
 
       - name: Salvar APK para Download
