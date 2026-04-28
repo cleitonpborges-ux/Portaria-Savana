@@ -21,43 +21,15 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Instalar Bubblewrap
         run: npm install -g @bubblewrap/cli
 
-      - name: Instalar Android SDK + Configurar + Build
+      - name: Criar twa-manifest.json
         run: |
-          set -e
-
-          # 1. Instala o Android SDK em caminho fixo
-          SDK_ROOT="$HOME/android-sdk"
-          mkdir -p "$SDK_ROOT/cmdline-tools"
-
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
-          unzip -q cmdtools.zip -d "$SDK_ROOT/cmdline-tools"
-          mv "$SDK_ROOT/cmdline-tools/cmdline-tools" "$SDK_ROOT/cmdline-tools/latest"
-
-          export PATH="$SDK_ROOT/cmdline-tools/latest/bin:$SDK_ROOT/platform-tools:$PATH"
-          export ANDROID_HOME="$SDK_ROOT"
-          export ANDROID_SDK_ROOT="$SDK_ROOT"
-
-          # 2. Aceita licenças e instala componentes
-          yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses || true
-          sdkmanager --sdk_root="$SDK_ROOT" \
-            "platform-tools" \
-            "platforms;android-34" \
-            "build-tools;34.0.0"
-
-          # 3. Configura o Bubblewrap apontando para os caminhos corretos
-          mkdir -p ~/.bubblewrap
-          cat > ~/.bubblewrap/config.json << EOF
-          {
-            "jdkPath": "$JAVA_HOME",
-            "androidSdkPath": "$SDK_ROOT"
-          }
-          EOF
-
-          # 4. Cria o twa-manifest.json
-          cat > twa-manifest.json << 'MANIFEST'
+          cat > twa-manifest.json << 'EOF'
           {
             "packageId": "io.github.cleitonpborges_ux.portaria_savana",
             "host": "cleitonpborges-ux.github.io",
@@ -95,10 +67,22 @@ jobs:
             "serviceWorkerUrl": null,
             "shortcuts": []
           }
-          MANIFEST
+          EOF
 
-          # 5. Build!
-          bubblewrap build --skipSigning
+      - name: Configurar Bubblewrap com SDK do Actions
+        run: |
+          mkdir -p ~/.bubblewrap
+          cat > ~/.bubblewrap/config.json << EOF
+          {
+            "jdkPath": "$JAVA_HOME",
+            "androidSdkPath": "$ANDROID_SDK_ROOT"
+          }
+          EOF
+          echo "SDK configurado em: $ANDROID_SDK_ROOT"
+          ls "$ANDROID_SDK_ROOT"
+
+      - name: Construir APK
+        run: bubblewrap build --skipSigning
 
       - name: Salvar APK para Download
         uses: actions/upload-artifact@v4
