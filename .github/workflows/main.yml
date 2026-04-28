@@ -78,11 +78,17 @@ jobs:
             "androidSdkPath": "$ANDROID_SDK_ROOT"
           }
           EOF
-          echo "SDK configurado em: $ANDROID_SDK_ROOT"
-          ls "$ANDROID_SDK_ROOT"
 
       - name: Construir APK
-        run: bubblewrap build --skipSigning
+        run: |
+          node -e "
+            const crypto = require('crypto');
+            const fs = require('fs');
+            const content = fs.readFileSync('twa-manifest.json');
+            const hash = crypto.createHash('sha256').update(content).digest('hex');
+            fs.writeFileSync('.checksum', hash);
+          "
+          bubblewrap build --skipSigning
 
       - name: Salvar APK para Download
         uses: actions/upload-artifact@v4
