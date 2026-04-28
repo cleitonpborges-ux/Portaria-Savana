@@ -80,8 +80,12 @@ jobs:
           EOF
 
       - name: Construir APK
-        run: printf "n\n" | bubblewrap build --skipSigning
+        run: |
+          # Gera o projeto Android (cria o gradlew)
+          printf "y\n" | bubblewrap update
 
+          # Builda o APK
+          printf "n\n" | bubblewrap build --skipSigning
       - name: Salvar APK para Download
         uses: actions/upload-artifact@v4
         with:
