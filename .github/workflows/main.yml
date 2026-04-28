@@ -22,7 +22,7 @@ jobs:
           node-version: '24'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@v3
 
       - name: Instalar Bubblewrap
         run: npm install -g @bubblewrap/cli
@@ -50,8 +50,8 @@ jobs:
             "appVersion": "1",
             "appVersionCode": 1,
             "signingKey": {
-              "path": "./android.keystore",
-              "alias": "android"
+              "path": "./portaria-savana.keystore",
+              "alias": "portaria"
             },
             "splashScreenFadeOutDuration": 300,
             "enableSiteSettingsShortcut": true,
@@ -79,13 +79,18 @@ jobs:
           }
           EOF
 
-      - name: Construir APK
+      - name: Restaurar Keystore
         run: |
-          # Gera o projeto Android (cria o gradlew)
-          printf "y\n" | bubblewrap update
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > portaria-savana.keystore
 
-          # Builda o APK
-          printf "n\n" | bubblewrap build --skipSigning
+      - name: Construir APK assinado
+        run: |
+          printf "n\n" | bubblewrap build \
+            --keystore ./portaria-savana.keystore \
+            --keystorePassword "${{ secrets.KEYSTORE_PASSWORD }}" \
+            --keyAlias "${{ secrets.KEY_ALIAS }}" \
+            --keyPassword "${{ secrets.KEY_PASSWORD }}"
+
       - name: Salvar APK para Download
         uses: actions/upload-artifact@v4.6.0
         with:
