@@ -8,10 +8,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout do código
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Configurar Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -19,13 +19,13 @@ jobs:
       - name: Instalar Bubblewrap
         run: npm install -g @bubblewrap/cli
 
-      - name: Criar APK
-        # O comando abaixo inicializa e compila o APK baseado no seu link
+      - name: Construir APK
+        # Link atualizado para o repositório Portaria-Savana
         run: |
-          bubblewrap init --manifest=https://cleitonpborges-ux.github.io/COTTON-24-25---SAVANA/manifest.json --yes
+          bubblewrap init --manifest=https://cleitonpborges-ux.github.io/Portaria-Savana/manifest.json --yes
           bubblewrap build --skipSigning
 
-      - name: Disponibilizar APK
+      - name: Salvar APK para Download
         uses: actions/upload-artifact@v4
         with:
           name: App-Portaria-Savana
