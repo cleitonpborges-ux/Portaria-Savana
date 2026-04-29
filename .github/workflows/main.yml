@@ -92,27 +92,28 @@ jobs:
           expect eof
           EOF
 
-      - name: Construir APK assinado
+      - name: Construir APK não assinado
+        run: printf "n\n" | bubblewrap build --skipSigning
+
+      - name: Assinar APK com apksigner
         env:
           KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASS: ${{ secrets.KEY_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          sudo apt-get install -y expect
-          expect -c "
-            spawn bubblewrap build \
-              --keystore ./portaria-savana.keystore \
-              --keystorePassword {$env(KS_PASS)} \
-              --keyAlias {$env(KEY_ALIAS)} \
-              --keyPassword {$env(KEY_PASS)}
-            expect -re {Y/n}
-            send \"n\r\"
-            expect -re {Password for the Key Store}
-            send \"\$env(KS_PASS)\r\"
-            expect -re {Password for the Key}
-            send \"\$env(KEY_PASS)\r\"
-            expect eof
-          "
+          # Encontra o APK gerado
+          APK=$(find . -name "*.apk" | head -1)
+          echo "APK encontrado: $APK"
+
+          # Assina com apksigner (sem interação)
+          $ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner sign \
+            --ks ./portaria-savana.keystore \
+            --ks-pass env:KS_PASS \
+            --key-pass env:KEY_PASS \
+            --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
+            "$APK"
+
+          echo "APK assinado com sucesso!"
+          find . -name "*.apk"
 
       - name: Encontrar APK
         run: find . -name "*.apk" 2>/dev/null || echo "Nenhum APK encontrado"
