@@ -58,6 +58,8 @@ self.addEventListener('fetch', event => {
 
   // Firebase (Firestore/RTDB): sempre Network — nunca cachear dados ao vivo
   if (
+    url.hostname.includes('script.google.com') ||
+    url.hostname.includes('script.googleusercontent.com') ||
     url.hostname.includes('firebaseio.com') ||
     url.hostname.includes('firestore.googleapis.com') ||
     url.hostname.includes('firebase.googleapis.com') ||
