@@ -87,6 +87,19 @@ jobs:
         run: |
           sudo apt-get install -y expect
 
+          # Gera o projeto Android
+          expect << EOF
+          spawn bubblewrap update
+          expect "*(Y/n)*"
+          send "y\r"
+          expect "*Password*"
+          send "${{ secrets.KEYSTORE_PASSWORD }}\r"
+          expect "*Password*"
+          send "${{ secrets.KEY_PASSWORD }}\r"
+          expect eof
+          EOF
+
+          # Builda o APK assinado
           expect << EOF
           spawn bubblewrap build \
             --keystore ./portaria-savana.keystore \
