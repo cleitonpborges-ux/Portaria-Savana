@@ -83,23 +83,18 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > portaria-savana.keystore
 
-      - name: Construir APK assinado
+     - name: Gerar projeto Android
         run: |
           sudo apt-get install -y expect
-
-          # Gera o projeto Android
           expect << EOF
           spawn bubblewrap update
           expect "*(Y/n)*"
           send "y\r"
-          expect "*Password*"
-          send "${{ secrets.KEYSTORE_PASSWORD }}\r"
-          expect "*Password*"
-          send "${{ secrets.KEY_PASSWORD }}\r"
           expect eof
           EOF
 
-          # Builda o APK assinado
+      - name: Construir APK assinado
+        run: |
           expect << EOF
           spawn bubblewrap build \
             --keystore ./portaria-savana.keystore \
