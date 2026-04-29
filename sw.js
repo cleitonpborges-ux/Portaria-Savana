@@ -4,7 +4,7 @@
 //  para o index.html (garante atualização automática)
 // =====================================================
 
-const CACHE_NAME = 'portaria-savana-v1';
+const CACHE_NAME = 'portaria-savana-v2';
 
 // Arquivos que ficam em cache para funcionar offline
 const ASSETS_CACHE = [
