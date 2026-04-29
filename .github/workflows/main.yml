@@ -109,8 +109,11 @@ jobs:
           expect eof
           EOF
 
+      - name: Encontrar APK
+        run: find . -name "*.apk" 2>/dev/null || echo "Nenhum APK encontrado"
+
       - name: Salvar APK para Download
         uses: actions/upload-artifact@v4.6.0
         with:
           name: App-Portaria-Savana
-          path: ./*.apk
+          path: ./**/*.apk
