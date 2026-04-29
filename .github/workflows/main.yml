@@ -82,10 +82,10 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > portaria-savana.keystore
 
-      - name: Gerar projeto Android
+      -- name: Gerar projeto Android
         run: |
           sudo apt-get install -y expect
-          expect << EOF
+          expect << EOF || true
           spawn bubblewrap update
           expect "*(Y/n)*"
           send "y\r"
