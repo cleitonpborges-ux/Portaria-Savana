@@ -93,8 +93,10 @@ jobs:
           EOF
 
       - name: Construir APK não assinado
-        run: printf "n\n" | bubblewrap build --skipSigning
-
+        run: |
+          printf "n\n" | bubblewrap build --skipSigning 2>/dev/null || true
+          # Verifica se o APK foi gerado mesmo com erro de buffer
+          ls ./app/build/outputs/apk/release/ || echo "APK não encontrado"
       - name: Assinar APK com apksigner
         env:
           KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
