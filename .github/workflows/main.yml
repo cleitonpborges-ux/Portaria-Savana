@@ -93,21 +93,26 @@ jobs:
           EOF
 
       - name: Construir APK assinado
+        env:
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          expect << EOF
-          spawn bubblewrap build \
-            --keystore ./portaria-savana.keystore \
-            --keystorePassword "${{ secrets.KEYSTORE_PASSWORD }}" \
-            --keyAlias "${{ secrets.KEY_ALIAS }}" \
-            --keyPassword "${{ secrets.KEY_PASSWORD }}"
-          expect "*(Y/n)*"
-          send "n\r"
-          expect "*Password*"
-          send "${{ secrets.KEYSTORE_PASSWORD }}\r"
-          expect "*Password*"
-          send "${{ secrets.KEY_PASSWORD }}\r"
-          expect eof
-          EOF
+          sudo apt-get install -y expect
+          expect -c "
+            spawn bubblewrap build \
+              --keystore ./portaria-savana.keystore \
+              --keystorePassword {$env(KS_PASS)} \
+              --keyAlias {$env(KEY_ALIAS)} \
+              --keyPassword {$env(KEY_PASS)}
+            expect -re {Y/n}
+            send \"n\r\"
+            expect -re {Password for the Key Store}
+            send \"\$env(KS_PASS)\r\"
+            expect -re {Password for the Key}
+            send \"\$env(KEY_PASS)\r\"
+            expect eof
+          "
 
       - name: Encontrar APK
         run: find . -name "*.apk" 2>/dev/null || echo "Nenhum APK encontrado"
