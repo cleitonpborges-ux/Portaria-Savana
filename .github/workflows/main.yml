@@ -85,7 +85,7 @@ jobs:
 
       - name: Construir APK assinado
         run: |
-          printf "n\n" | bubblewrap build \
+          printf "n\n${{ secrets.KEYSTORE_PASSWORD }}\n${{ secrets.KEY_PASSWORD }}\n" | bubblewrap build \
             --keystore ./portaria-savana.keystore \
             --keystorePassword "${{ secrets.KEYSTORE_PASSWORD }}" \
             --keyAlias "${{ secrets.KEY_ALIAS }}" \
