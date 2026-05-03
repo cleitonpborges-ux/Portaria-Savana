@@ -1,0 +1,120 @@
+name: Gerar APK Portaria Savana
+on:
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4.2.2
+
+      - name: Configurar Java (JDK 17)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4.2.0
+        with:
+          node-version: '24'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar Bubblewrap
+        run: npm install -g @bubblewrap/cli
+
+      - name: Criar twa-manifest.json
+        run: |
+          cat > twa-manifest.json << 'EOF'
+          {
+            "packageId": "io.github.cleitonpborges_ux.portaria_savana",
+            "host": "cleitonpborges-ux.github.io",
+            "name": "Portaria Savana",
+            "launcherName": "Portaria",
+            "display": "standalone",
+            "themeColor": "#0f2040",
+            "navigationColor": "#0f2040",
+            "navigationColorDark": "#0f2040",
+            "navigationDividerColor": "#0f2040",
+            "navigationDividerColorDark": "#0f2040",
+            "backgroundColor": "#0f2040",
+            "enableNotifications": false,
+            "startUrl": "/Portaria-Savana/index.html",
+            "iconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icons/icon-512.png",
+            "maskableIconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icons/icon-512.png",
+            "monochromeIconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icons/icon-192.png",
+            "appVersion": "1",
+            "appVersionCode": 1,
+            "signingKey": {
+              "path": "./portaria-savana.keystore",
+              "alias": "portaria"
+            },
+            "splashScreenFadeOutDuration": 300,
+            "enableSiteSettingsShortcut": true,
+            "isChromeOSOnly": false,
+            "isMetaQuest": false,
+            "fullScopeUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/",
+            "minSdkVersion": 21,
+            "orientation": "portrait",
+            "fingerprints": [],
+            "alphaDependencies": { "enabled": false },
+            "generatorApp": "bubblewrap-cli",
+            "webManifestUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/manifest.json",
+            "serviceWorkerUrl": null,
+            "shortcuts": []
+          }
+          EOF
+      - name: Configurar Bubblewrap com SDK do Actions
+        run: |
+          mkdir -p ~/.bubblewrap
+          cat > ~/.bubblewrap/config.json << EOF
+          {
+            "jdkPath": "$JAVA_HOME",
+            "androidSdkPath": "$ANDROID_SDK_ROOT"
+          }
+          EOF
+      - name: Restaurar Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > portaria-savana.keystore
+      - name: Gerar projeto Android
+        run: |
+          sudo apt-get install -y expect
+          expect << EOF || true
+          spawn bubblewrap update
+          expect "*(Y/n)*"
+          send "y\r"
+          expect eof
+          EOF
+      - name: Construir APK não assinado
+        run: |
+          printf "n\n" | bubblewrap build --skipSigning 2>/dev/null || true
+          # Verifica se o APK foi gerado mesmo com erro de buffer
+          ls ./app/build/outputs/apk/release/ || echo "APK não encontrado"
+      - name: Assinar APK com apksigner
+        env:
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          # Encontra o APK gerado
+          APK=$(find . -name "*.apk" | head -1)
+          echo "APK encontrado: $APK"
+          # Assina com apksigner (sem interação)
+          $ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner sign \
+            --ks ./portaria-savana.keystore \
+            --ks-pass env:KS_PASS \
+            --key-pass env:KEY_PASS \
+            --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
+            "$APK"
+          echo "APK assinado com sucesso!"
+          find . -name "*.apk"
+      - name: Encontrar APK
+        run: find . -name "*.apk" 2>/dev/null || echo "Nenhum APK encontrado"
+
+      - name: Salvar APK para Download
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: App-Portaria-Savana
+          path: ./app/build/outputs/apk/release/app-release-unsigned.apk
