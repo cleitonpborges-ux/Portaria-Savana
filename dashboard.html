@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Savana — Dashboard Gestor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,400;0,500;0,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════
+   SAVANA DASHBOARD — Design System
+═══════════════════════════════════════════════════ */
+:root {
+  --bg:        #07090f;
+  --surface:   #0d1117;
+  --surface2:  #131923;
+  --surface3:  #1a2335;
+  --border:    rgba(255,255,255,0.06);
+  --border2:   rgba(255,255,255,0.11);
+  --text:      #dce6f5;
+  --text2:     #8a9ab5;
+  --muted:     #4a5a72;
+  --amber:     #f59e0b;
+  --amber2:    #fbbf24;
+  --amber-dim: rgba(245,158,11,0.1);
+  --green:     #10b981;
+  --green-dim: rgba(16,185,129,0.1);
+  --red:       #ef4444;
+  --red-dim:   rgba(239,68,68,0.1);
+  --blue:      #60a5fa;
+  --blue-dim:  rgba(96,165,250,0.1);
+  --purple:    #a78bfa;
+  --r:         10px;
+  --r-sm:      7px;
+  --font-d:    'Bebas Neue', sans-serif;
+  --font-m:    'DM Mono', monospace;
+  --font-b:    'Plus Jakarta Sans', sans-serif;
+  --shadow:    0 4px 24px rgba(0,0,0,0.5);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-b);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+/* Grid texture */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background-image:
+    linear-gradient(rgba(245,158,11,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(245,158,11,0.025) 1px, transparent 1px);
+  background-size: 52px 52px;
+  pointer-events: none;
+}
+
+/* Ambient glow top */
+body::after {
+  content: '';
+  position: fixed; top: -200px; left: 50%;
+  transform: translateX(-50%);
+  width: 800px; height: 400px;
+  background: radial-gradient(ellipse, rgba(245,158,11,0.07) 0%, transparent 70%);
+  pointer-events: none; z-index: 0;
+}
+
+/* ═══ SCROLLBAR ═══ */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 4px; }
+
+/* ═══ TELA DE LOGIN ═══ */
+#loginScreen {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
+  flex-direction: column; gap: 0;
+}
+.login-box {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 16px;
+  padding: 40px 36px 36px;
+  width: 360px;
+  box-shadow: var(--shadow);
+  position: relative; z-index: 1;
+}
+.login-logo {
+  font-family: var(--font-d);
+  font-size: 2.8rem;
+  letter-spacing: 4px;
+  color: var(--amber);
+  text-align: center;
+  margin-bottom: 4px;
+}
+.login-sub {
+  text-align: center;
+  font-size: 0.62rem;
+  letter-spacing: 3px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 32px;
+}
+.login-field { margin-bottom: 14px; }
+.login-label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: block;
+}
+.login-input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-family: var(--font-m);
+  font-size: 0.88rem;
+  padding: 11px 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.login-input:focus { border-color: var(--amber); }
+.login-error {
+  color: var(--red);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-align: center;
+  min-height: 20px;
+  margin-bottom: 8px;
+}
+.btn-login {
+  width: 100%;
+  background: var(--amber);
+  color: #000;
+  border: none;
+  border-radius: var(--r-sm);
+  font-family: var(--font-b);
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 13px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: opacity 0.15s, transform 0.1s;
+  text-transform: uppercase;
+}
+.btn-login:hover { opacity: 0.9; }
+.btn-login:active { transform: scale(0.98); }
+
+/* ═══ HEADER ═══ */
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(7,9,15,0.9);
+  backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 24px; height: 58px; gap: 16px;
+}
+.header-logo {
+  font-family: var(--font-d);
+  font-size: 1.6rem;
+  letter-spacing: 3px;
+  color: var(--amber);
+  line-height: 1;
+}
+.header-tag {
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 2.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+.h-sep { flex: 1; }
+.live-badge {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--green-dim);
+  border: 1px solid rgba(16,185,129,0.2);
+  border-radius: 20px;
+  padding: 4px 11px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--green);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.live-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: blink 2s ease-in-out infinite;
+}
+@keyframes blink {
+  0%,100% { opacity:1; transform:scale(1); }
+  50% { opacity:0.3; transform:scale(0.6); }
+}
+.header-clock {
+  font-family: var(--font-m);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.btn-hdr {
+  height: 34px; padding: 0 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  color: var(--text2);
+  font-family: var(--font-b);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn-hdr:hover { background: var(--surface3); color: var(--text); }
+.btn-hdr.primary { background: var(--amber); color: #000; border-color: var(--amber); font-weight: 800; }
+.btn-hdr.primary:hover { opacity: 0.88; }
+
+/* ═══ MAIN ═══ */
+.main {
+  position: relative; z-index: 1;
+  padding: 22px 24px 48px;
+  max-width: 1560px;
+  margin: 0 auto;
+}
+
+/* ═══ TOOLBAR ═══ */
+.toolbar {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.toolbar-label {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.date-input {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-family: var(--font-m);
+  font-size: 0.78rem;
+  padding: 6px 11px;
+  outline: none;
+  transition: border-color 0.15s;
+  cursor: pointer;
+}
+.date-input:focus { border-color: var(--amber); }
+.t-sep { flex: 1; }
+
+/* ═══ KPIs ═══ */
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 16px 18px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.15s;
+  cursor: default;
+}
+.kpi::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--kpi-c, var(--amber));
+  border-radius: 2px 2px 0 0;
+}
+.kpi:hover { border-color: var(--border2); transform: translateY(-1px); }
+.kpi-icon { font-size: 1.1rem; margin-bottom: 8px; }
+.kpi-val {
+  font-family: var(--font-d);
+  font-size: 2.6rem;
+  line-height: 1;
+  color: var(--kpi-c, var(--amber));
+  letter-spacing: 1px;
+  transition: all 0.4s;
+}
+.kpi-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-top: 5px;
+}
+.kpi-sub {
+  font-size: 0.65rem;
+  color: var(--text2);
+  margin-top: 3px;
+  font-weight: 500;
+}
+
+/* ═══ SECTION GRID ═══ */
+.g2 { display: grid; grid-template-columns: 1fr 340px; gap: 14px; margin-bottom: 14px; }
+.g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
+@media (max-width: 1200px) { .g2 { grid-template-columns: 1fr; } }
+@media (max-width: 900px)  { .g3 { grid-template-columns: 1fr; } }
+
+/* ═══ CARDS ═══ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+.card-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px 13px;
+  border-bottom: 1px solid var(--border);
+}
+.card-title {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ch-sep { flex: 1; }
+.card-action {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--amber);
+  cursor: pointer;
+  background: none; border: none;
+  padding: 3px 8px;
+  border-radius: 5px;
+  transition: background 0.15s;
+}
+.card-action:hover { background: var(--amber-dim); }
+.card-body { padding: 16px 18px; }
+
+/* ═══ PORTARIAS GRID ═══ */
+.portarias-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  padding: 16px 18px;
+}
+.p-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.p-card.online { border-color: rgba(16,185,129,0.25); }
+.p-card-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.p-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+.p-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.p-name {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.p-time {
+  font-size: 0.58rem;
+  color: var(--muted);
+  font-family: var(--font-m);
+  margin-left: auto;
+}
+.p-stats {
+  display: flex;
+  padding: 12px 14px;
+}
+.p-stat { flex: 1; text-align: center; }
+.p-stat + .p-stat { border-left: 1px solid var(--border); }
+.p-stat-val {
+  font-family: var(--font-d);
+  font-size: 1.8rem;
+  line-height: 1;
+  color: var(--text);
+}
+.p-stat-lbl {
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.p-tags {
+  padding: 8px 14px 12px;
+  display: flex; flex-wrap: wrap; gap: 5px;
+}
+.p-tag {
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: var(--amber-dim);
+  color: var(--amber2);
+  border: 1px solid rgba(245,158,11,0.15);
+}
+.p-tag.vazio {
+  background: none; color: var(--muted);
+  border: 1px dashed var(--border2);
+}
+
+/* ═══ TABELA VEÍCULOS ═══ */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+th {
+  text-align: left;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+td {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  vertical-align: middle;
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(255,255,255,0.02); }
+.td-placa {
+  font-family: var(--font-m);
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--text);
+  letter-spacing: 1px;
+}
+.td-portaria {
+  display: inline-block;
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--blue-dim);
+  color: var(--blue);
+  letter-spacing: 1px;
+}
+.pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.58rem; font-weight: 800;
+  padding: 2px 8px; border-radius: 20px;
+  letter-spacing: 1px; text-transform: uppercase;
+}
+.pill.patio  { background: var(--amber-dim); color: var(--amber2); border: 1px solid rgba(245,158,11,0.2); }
+.pill.saida  { background: var(--green-dim); color: var(--green);  border: 1px solid rgba(16,185,129,0.2); }
+.td-tempo {
+  font-family: var(--font-m);
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.td-tempo.warn   { color: var(--amber); font-weight: 700; }
+.td-tempo.alert  { color: var(--red);   font-weight: 700; }
+.empty-row td {
+  text-align: center;
+  color: var(--muted);
+  padding: 32px;
+  font-size: 0.78rem;
+}
+
+/* ═══ BARRA PRODUTO ═══ */
+.bars { display: flex; flex-direction: column; gap: 9px; padding: 14px 18px; }
+.bar-row { display: flex; align-items: center; gap: 10px; }
+.bar-lbl {
+  font-size: 0.68rem; font-weight: 600;
+  color: var(--text2);
+  width: 88px; text-align: right; flex-shrink: 0;
+}
+.bar-wrap {
+  flex: 1; height: 22px;
+  background: var(--surface2);
+  border-radius: 4px; overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--amber) 0%, var(--amber2) 100%);
+  transition: width 0.9s cubic-bezier(0.34,1.2,0.64,1);
+  min-width: 4px;
+}
+.bar-fill.saida-fill {
+  background: linear-gradient(90deg, var(--green) 0%, #34d399 100%);
+}
+.bar-n {
+  font-family: var(--font-m);
+  font-size: 0.68rem;
+  color: var(--muted);
+  width: 24px; text-align: right; flex-shrink: 0;
+}
+
+/* ═══ FEED TEMPO REAL ═══ */
+.feed {
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+.feed-item {
+  display: flex; align-items: flex-start; gap: 11px;
+  padding: 11px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  animation: slide-in 0.35s ease;
+}
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.feed-item:last-child { border-bottom: none; }
+.feed-ico {
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem;
+  flex-shrink: 0; margin-top: 1px;
+}
+.feed-ico.e { background: var(--amber-dim); }
+.feed-ico.s { background: var(--green-dim); }
+.feed-ico.w { background: var(--blue-dim); }
+.feed-text { flex: 1; }
+.feed-main {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+.feed-meta {
+  font-size: 0.62rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.feed-time {
+  font-family: var(--font-m);
+  font-size: 0.6rem;
+  color: var(--muted);
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.feed-empty {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.78rem;
+  padding: 32px;
+}
+
+/* ═══ WHATSAPP MODAL ═══ */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+}
+.modal-overlay.ativo { opacity: 1; pointer-events: all; }
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  padding: 28px 28px 24px;
+  width: 480px; max-width: 95vw;
+  box-shadow: var(--shadow);
+  transform: scale(0.95) translateY(10px);
+  transition: transform 0.25s cubic-bezier(0.34,1.2,0.64,1);
+}
+.modal-overlay.ativo .modal-box { transform: scale(1) translateY(0); }
+.modal-title {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.modal-textarea {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-family: var(--font-m);
+  font-size: 0.76rem;
+  padding: 12px 14px;
+  resize: vertical;
+  min-height: 180px;
+  outline: none;
+  line-height: 1.6;
+  transition: border-color 0.15s;
+}
+.modal-textarea:focus { border-color: var(--amber); }
+.modal-actions {
+  display: flex; gap: 10px; margin-top: 14px;
+  justify-content: flex-end;
+}
+.btn-modal {
+  padding: 8px 18px;
+  border-radius: var(--r-sm);
+  font-family: var(--font-b);
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+}
+.btn-modal.cancel { background: var(--surface2); color: var(--text2); }
+.btn-modal.cancel:hover { background: var(--surface3); }
+.btn-modal.whats {
+  background: #25d366;
+  color: #fff;
+  display: flex; align-items: center; gap: 7px;
+}
+.btn-modal.whats:hover { opacity: 0.88; }
+.btn-modal.copy { background: var(--surface3); color: var(--text); }
+.btn-modal.copy:hover { background: var(--border2); }
+
+/* ═══ TOAST ═══ */
+#toastBox {
+  position: fixed; bottom: 24px; right: 24px;
+  z-index: 9000;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.toast {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  padding: 11px 16px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text);
+  box-shadow: var(--shadow);
+  animation: toast-in 0.3s ease;
+  max-width: 320px;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.toast.ok   { border-color: rgba(16,185,129,0.4); }
+.toast.err  { border-color: rgba(239,68,68,0.4); }
+.toast.info { border-color: rgba(96,165,250,0.4); }
+
+/* ═══ LOADING ═══ */
+#loadingScreen {
+  position: fixed; inset: 0; z-index: 900;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 16px;
+  transition: opacity 0.4s;
+}
+.loading-logo {
+  font-family: var(--font-d);
+  font-size: 3rem;
+  letter-spacing: 6px;
+  color: var(--amber);
+  animation: pulse-load 1.5s ease-in-out infinite;
+}
+@keyframes pulse-load {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.loading-text {
+  font-size: 0.65rem;
+  letter-spacing: 3px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* ═══ MISC ═══ */
+.section-gap { margin-bottom: 14px; }
+.text-center { text-align: center; }
+.no-data {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.78rem;
+  padding: 28px;
+}
+
+/* ═══ RESPONSIVO ═══ */
+@media (max-width: 768px) {
+  .main { padding: 14px 14px 40px; }
+  .header { padding: 0 14px; }
+  .header-tag { display: none; }
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loadingScreen">
+  <div class="loading-logo">SAVANA</div>
+  <div class="loading-text">Conectando ao Firebase...</div>
+</div>
+
+<!-- Login -->
+<div id="loginScreen" style="display:none">
+  <div class="login-box">
+    <div class="login-logo">SAVANA</div>
+    <div class="login-sub">Dashboard Gestor</div>
+    <div class="login-field">
+      <label class="login-label">Senha</label>
+      <input type="password" class="login-input" id="loginSenha" placeholder="••••••••"
+        onkeydown="if(event.key==='Enter') tentarLogin()">
+    </div>
+    <div class="login-error" id="loginErro"></div>
+    <button class="btn-login" onclick="tentarLogin()">Entrar</button>
+  </div>
+</div>
+
+<!-- Header -->
+<header class="header" id="appHeader" style="display:none">
+  <div>
+    <div class="header-logo">SAVANA</div>
+  </div>
+  <div class="header-tag">GESTOR</div>
+  <div class="h-sep"></div>
+  <div class="live-badge" id="liveBadge">
+    <div class="live-dot"></div>
+    TEMPO REAL
+  </div>
+  <div class="header-clock" id="relogio">--:--:--</div>
+  <button class="btn-hdr" onclick="abrirModalWhats()" title="Enviar relatório por WhatsApp">
+    💬 WhatsApp
+  </button>
+  <button class="btn-hdr primary" onclick="exportarSheets()" title="Exportar para Google Sheets">
+    📊 Exportar
+  </button>
+</header>
+
+<!-- Main -->
+<main class="main" id="appMain" style="display:none">
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <span class="toolbar-label">Período</span>
+    <input type="date" class="date-input" id="inputData">
+    <button class="btn-hdr" onclick="filtrarData()">Filtrar</button>
+    <button class="btn-hdr" onclick="voltarHoje()">Hoje</button>
+    <div class="t-sep"></div>
+    <span style="font-size:0.65rem;color:var(--muted);font-weight:600" id="ultimaAtualizacao">–</span>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpis">
+    <div class="kpi" style="--kpi-c: var(--amber)">
+      <div class="kpi-icon">🚛</div>
+      <div class="kpi-val" id="kpiTotal">–</div>
+      <div class="kpi-label">Total Entradas</div>
+      <div class="kpi-sub" id="kpiTotalSub">hoje</div>
+    </div>
+    <div class="kpi" style="--kpi-c: var(--amber2)">
+      <div class="kpi-icon">⏳</div>
+      <div class="kpi-val" id="kpiPatio">–</div>
+      <div class="kpi-label">No Pátio</div>
+      <div class="kpi-sub" id="kpiPatioSub">aguardando</div>
+    </div>
+    <div class="kpi" style="--kpi-c: var(--green)">
+      <div class="kpi-icon">✅</div>
+      <div class="kpi-val" id="kpiSaiu">–</div>
+      <div class="kpi-label">Já Saíram</div>
+      <div class="kpi-sub" id="kpiSaiuSub">carregados</div>
+    </div>
+    <div class="kpi" style="--kpi-c: var(--red)">
+      <div class="kpi-icon">🔴</div>
+      <div class="kpi-val" id="kpiCriticos">–</div>
+      <div class="kpi-label">Críticos +4h</div>
+      <div class="kpi-sub">aguardando +4 horas</div>
+    </div>
+    <div class="kpi" style="--kpi-c: var(--blue)">
+      <div class="kpi-icon">🏗️</div>
+      <div class="kpi-val" id="kpiPortarias">–</div>
+      <div class="kpi-label">Portarias Ativas</div>
+      <div class="kpi-sub" id="kpiPortariasSub">online agora</div>
+    </div>
+    <div class="kpi" style="--kpi-c: var(--purple)">
+      <div class="kpi-icon">📋</div>
+      <div class="kpi-val" id="kpiOC">–</div>
+      <div class="kpi-label">Com Ordem Coleta</div>
+      <div class="kpi-sub">O.C confirmada</div>
+    </div>
+  </div>
+
+  <!-- Portarias em tempo real -->
+  <div class="card section-gap">
+    <div class="card-head">
+      <span style="font-size:1rem">🏗️</span>
+      <span class="card-title">Portarias — Status Tempo Real</span>
+    </div>
+    <div class="portarias-grid" id="portariasGrid">
+      <div class="no-data">Carregando portarias...</div>
+    </div>
+  </div>
+
+  <!-- Tabela + Feed -->
+  <div class="g2 section-gap">
+    <!-- Tabela de veículos -->
+    <div class="card">
+      <div class="card-head">
+        <span style="font-size:1rem">📋</span>
+        <span class="card-title">Todos os Veículos</span>
+        <div class="ch-sep"></div>
+        <input type="text" id="buscaVeiculo"
+          placeholder="Buscar placa, motorista..."
+          style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r-sm);color:var(--text);font-size:0.72rem;padding:5px 10px;outline:none;width:180px;"
+          oninput="filtrarTabela(this.value)">
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Placa</th>
+              <th>Motorista</th>
+              <th>Produto</th>
+              <th>Status</th>
+              <th>Portaria</th>
+              <th>Tempo</th>
+              <th>NFE</th>
+            </tr>
+          </thead>
+          <tbody id="tabelaVeiculos">
+            <tr class="empty-row"><td colspan="7">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Feed de eventos -->
+    <div class="card">
+      <div class="card-head">
+        <span style="font-size:1rem">⚡</span>
+        <span class="card-title">Eventos Recentes</span>
+        <div class="ch-sep"></div>
+        <button class="card-action" onclick="limparFeed()">Limpar</button>
+      </div>
+      <div class="feed" id="feedEventos">
+        <div class="feed-empty">Aguardando eventos...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gráficos -->
+  <div class="g3 section-gap">
+    <!-- Produto — Pátio -->
+    <div class="card">
+      <div class="card-head">
+        <span style="font-size:1rem">📦</span>
+        <span class="card-title">Produtos no Pátio</span>
+      </div>
+      <div class="bars" id="barrasPatio">
+        <div class="no-data">Sem dados</div>
+      </div>
+    </div>
+    <!-- Produto — Saída -->
+    <div class="card">
+      <div class="card-head">
+        <span style="font-size:1rem">🚚</span>
+        <span class="card-title">Produtos Carregados</span>
+      </div>
+      <div class="bars" id="barrasSaida">
+        <div class="no-data">Sem dados</div>
+      </div>
+    </div>
+    <!-- Transportadoras -->
+    <div class="card">
+      <div class="card-head">
+        <span style="font-size:1rem">🏢</span>
+        <span class="card-title">Top Transportadoras</span>
+      </div>
+      <div class="bars" id="barrasTransp">
+        <div class="no-data">Sem dados</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Modal WhatsApp -->
+<div class="modal-overlay" id="modalWhats">
+  <div class="modal-box">
+    <div class="modal-title">📲 Enviar Relatório — WhatsApp</div>
+    <textarea class="modal-textarea" id="textoWhats" readonly></textarea>
+    <div class="modal-actions">
+      <button class="btn-modal cancel" onclick="fecharModal('modalWhats')">Fechar</button>
+      <button class="btn-modal copy" onclick="copiarTexto()">📋 Copiar</button>
+      <button class="btn-modal whats" onclick="abrirWhatsApp()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+        </svg>
+        Abrir WhatsApp
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="toastBox"></div>
+
+<!-- ══════════════════════════════════════════════
+     FIREBASE + LÓGICA DO DASHBOARD
+══════════════════════════════════════════════ -->
+<script type="module">
+import { initializeApp }     from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
+import {
+  getFirestore, collection, query, where,
+  orderBy, onSnapshot, getDocs, Timestamp
+} from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+
+/* ── CONFIG ── */
+const FB_CONFIG = {
+  apiKey:            "AIzaSyCkD415LbF4S97BqRNXHBxnuGUDwzcUAd4",
+  authDomain:        "portaria-savana.firebaseapp.com",
+  projectId:         "portaria-savana",
+  storageBucket:     "portaria-savana.firebasestorage.app",
+  messagingSenderId: "983062289504",
+  appId:             "1:983062289504:web:38ececbd6ec52fafc4f705",
+  measurementId:     "G-NSS1P12DJH"
+};
+const SENHA_GESTOR   = 'savana2026';          // ← mude para sua senha
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwCMcDylEoZF0u19tTD_6xJHN5NG6EV_6BsPZyO3BxwAlw6hK32SNokg6lwaLJkENiiEw/exec?dados=true";
+const WHATS_NUMERO   = '5575999142851';       // ← seu número ou do gestor (DDI+DDD+número)
+const PORTARIAS_CONHECIDAS = ['PORTARIA', 'BALANÇA']; // nomes que você usa
+
+const app = initializeApp(FB_CONFIG);
+const db  = getFirestore(app);
+
+/* ── ESTADO ── */
+let dados          = [];
+let feedItems      = [];
+let _unsubscribe   = null;
+let dataFiltro     = null; // null = hoje
+let tabelaFiltro   = '';
+
+/* ══════════════════════════════════════════════
+   AUTH SIMPLES
+══════════════════════════════════════════════ */
+async function hashStr(str) {
+  const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+const GESTOR_HASH = await hashStr(SENHA_GESTOR);
+
+function checkLogin() {
+  return sessionStorage.getItem('savana_dash_ok') === '1';
+}
+
+window.tentarLogin = async function() {
+  const val = document.getElementById('loginSenha').value;
+  const h   = await hashStr(val);
+  if (h === GESTOR_HASH) {
+    sessionStorage.setItem('savana_dash_ok', '1');
+    document.getElementById('loginScreen').style.display = 'none';
+    iniciarApp();
+  } else {
+    document.getElementById('loginErro').textContent = 'Senha incorreta.';
+    setTimeout(() => document.getElementById('loginErro').textContent = '', 2500);
+  }
+};
+
+/* ══════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════ */
+function iniciarApp() {
+  document.getElementById('appHeader').style.display = 'flex';
+  document.getElementById('appMain').style.display   = 'block';
+  document.getElementById('loadingScreen').style.display = 'none';
+
+  // Data padrão = hoje
+  const hoje = new Date();
+  document.getElementById('inputData').value = hoje.toISOString().slice(0,10);
+
+  // Relógio
+  atualizarRelogio();
+  setInterval(atualizarRelogio, 1000);
+
+  // Inicia listener
+  iniciarListener();
+}
+
+function atualizarRelogio() {
+  const n = new Date();
+  document.getElementById('relogio').textContent =
+    n.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+
+/* ══════════════════════════════════════════════
+   FIRESTORE — LISTENER TEMPO REAL
+══════════════════════════════════════════════ */
+function turnoId(data) {
+  const d = data || new Date();
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function iniciarListener(data) {
+  if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
+
+  const tid = turnoId(data);
+  const q = query(
+    collection(db, 'veiculos'),
+    where('turnoId', '==', tid),
+    orderBy('criadoEm', 'asc')
+  );
+
+  _unsubscribe = onSnapshot(q,
+    (snap) => {
+      const novos = snap.docs.map(d => normalizar(d.id, d.data()));
+      detectarEventos(dados, novos);
+      dados = novos;
+      renderTudo();
+      atualizarUltimaAtt();
+    },
+    (err) => {
+      console.error('[Firestore]', err);
+      toast('⚠️ Erro de conexão com Firebase', 'err');
+    }
+  );
+}
+
+function normalizar(id, v) {
+  const chegada = v.criadoEm instanceof Timestamp
+    ? v.criadoEm.toDate() : (v.criadoEm ? new Date(v.criadoEm) : new Date());
+  return {
+    _id:           id,
+    placa:         v.placa         || '',
+    motorista:     v.motorista     || '',
+    transportadora:v.transportadora|| '',
+    produto:       v.produto       || '',
+    quantidade:    v.quantidade    || '',
+    nfe:           v.nfe           || '',
+    observacao:    v.observacao    || '',
+    ordem:         v.ordem         || 'NÃO',
+    status:        v.status        || 'PÁTIO',
+    portaria:      v.portaria      || v.perfil || 'PORTARIA',
+    chegada,
+    saida: v.saida instanceof Timestamp ? v.saida.toDate() : null,
+    turnoId: v.turnoId || '',
+  };
+}
+
+/* ══════════════════════════════════════════════
+   DETECTAR EVENTOS (para o Feed)
+══════════════════════════════════════════════ */
+function detectarEventos(antigos, novos) {
+  if (!antigos.length) return; // primeira carga, não gera eventos
+
+  const antigoMap = new Map(antigos.map(v => [v._id, v]));
+  const novoMap   = new Map(novos.map(v => [v._id, v]));
+
+  // Novas entradas
+  novos.forEach(v => {
+    if (!antigoMap.has(v._id)) {
+      adicionarFeed('e', `🚛 Entrada: <b>${v.placa}</b>`,
+        `${v.produto} · ${v.transportadora || '—'} · ${v.portaria}`);
+    }
+  });
+
+  // Saídas
+  novos.forEach(v => {
+    const ant = antigoMap.get(v._id);
+    if (ant && ant.status === 'PÁTIO' && v.status === 'SAÍDA') {
+      adicionarFeed('s', `✅ Saída: <b>${v.placa}</b>`,
+        `${v.produto} · NFE: ${v.nfe || '—'} · ${v.portaria}`);
+    }
+  });
+
+  // Removidos (raro)
+  antigos.forEach(v => {
+    if (!novoMap.has(v._id)) {
+      adicionarFeed('w', `ℹ️ Registro removido: <b>${v.placa}</b>`, 'Ação administrativa');
+    }
+  });
+}
+
+function adicionarFeed(tipo, main, meta) {
+  const hora = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+  feedItems.unshift({ tipo, main, meta, hora });
+  if (feedItems.length > 60) feedItems.pop();
+  renderFeed();
+}
+
+/* ══════════════════════════════════════════════
+   RENDER COMPLETO
+══════════════════════════════════════════════ */
+function renderTudo() {
+  renderKPIs();
+  renderPortarias();
+  renderTabela();
+  renderBarras();
+}
+
+/* ── KPIs ── */
+function renderKPIs() {
+  const patio    = dados.filter(v => v.status === 'PÁTIO');
+  const saiu     = dados.filter(v => v.status === 'SAÍDA');
+  const agora    = Date.now();
+  const criticos = patio.filter(v => (agora - v.chegada.getTime()) > 4 * 3600000);
+  const comOC    = patio.filter(v => (v.ordem||'').toUpperCase() === 'SIM');
+
+  const portariasAtivas = new Set(dados.map(v => v.portaria)).size;
+
+  anim('kpiTotal',    dados.length);
+  anim('kpiPatio',    patio.length);
+  anim('kpiSaiu',     saiu.length);
+  anim('kpiCriticos', criticos.length);
+  anim('kpiPortarias',portariasAtivas);
+  anim('kpiOC',       comOC.length);
+
+  document.getElementById('kpiPatioSub').textContent  = `${patio.length} veículo(s) aguardando`;
+  document.getElementById('kpiSaiuSub').textContent   = `${saiu.length} veículo(s) carregados`;
+  document.getElementById('kpiPortariasSub').textContent = `${portariasAtivas} portaria(s)`;
+}
+
+function anim(id, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const prev = parseInt(el.textContent) || 0;
+  if (prev === val) return;
+  el.style.transform = 'scale(1.15)';
+  el.textContent = val;
+  setTimeout(() => el.style.transform = '', 300);
+}
+
+/* ── PORTARIAS ── */
+function renderPortarias() {
+  const grid = document.getElementById('portariasGrid');
+
+  // Agrupa por portaria
+  const map = {};
+  dados.forEach(v => {
+    const p = v.portaria || 'PORTARIA';
+    if (!map[p]) map[p] = { patio: 0, saiu: 0, produtos: new Set(), ultimaAtt: null };
+    if (v.status === 'PÁTIO') map[p].patio++;
+    else map[p].saiu++;
+    if (v.produto) map[p].produtos.add(v.produto);
+    const t = v.chegada.getTime();
+    if (!map[p].ultimaAtt || t > map[p].ultimaAtt) map[p].ultimaAtt = t;
+  });
+
+  // Adiciona portarias conhecidas sem atividade
+  PORTARIAS_CONHECIDAS.forEach(p => {
+    if (!map[p]) map[p] = { patio: 0, saiu: 0, produtos: new Set(), ultimaAtt: null };
+  });
+
+  const agora = Date.now();
+  const cards = Object.entries(map).map(([nome, info]) => {
+    const online = info.ultimaAtt && (agora - info.ultimaAtt) < 30 * 60000; // ativa nos últimos 30min
+    const tempoStr = info.ultimaAtt
+      ? new Date(info.ultimaAtt).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })
+      : '—';
+    const tags = [...info.produtos].length
+      ? [...info.produtos].map(p => `<span class="p-tag">${p}</span>`).join('')
+      : '<span class="p-tag vazio">sem veículos</span>';
+    return `
+      <div class="p-card ${online ? 'online' : ''}">
+        <div class="p-card-head">
+          <div class="p-dot ${online ? 'online' : ''}"></div>
+          <div class="p-name">${nome}</div>
+          <div class="p-time">${online ? '⚡ ' : ''}${tempoStr}</div>
+        </div>
+        <div class="p-stats">
+          <div class="p-stat">
+            <div class="p-stat-val">${info.patio}</div>
+            <div class="p-stat-lbl">Pátio</div>
+          </div>
+          <div class="p-stat">
+            <div class="p-stat-val">${info.saiu}</div>
+            <div class="p-stat-lbl">Saíram</div>
+          </div>
+          <div class="p-stat">
+            <div class="p-stat-val">${info.patio + info.saiu}</div>
+            <div class="p-stat-lbl">Total</div>
+          </div>
+        </div>
+        <div class="p-tags">${tags}</div>
+      </div>`;
+  });
+
+  grid.innerHTML = cards.length ? cards.join('') : '<div class="no-data">Nenhuma portaria com dados hoje.</div>';
+}
+
+/* ── TABELA ── */
+function renderTabela() {
+  const tbody  = document.getElementById('tabelaVeiculos');
+  const agora  = Date.now();
+  const busca  = tabelaFiltro.toUpperCase();
+
+  let lista = [...dados].sort((a, b) => b.chegada - a.chegada);
+  if (busca) {
+    lista = lista.filter(v =>
+      (v.placa + v.motorista + v.transportadora + v.produto + v.portaria).toUpperCase().includes(busca)
+    );
+  }
+
+  if (!lista.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Nenhum veículo encontrado.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = lista.map(v => {
+    const ms       = agora - v.chegada.getTime();
+    const h        = Math.floor(ms / 3600000);
+    const m        = Math.floor((ms % 3600000) / 60000);
+    const tempoStr = v.status === 'PÁTIO' ? `${h}h ${m}m` : '—';
+    const tempoClass= h >= 4 ? 'alert' : h >= 2 ? 'warn' : '';
+    const statusPill = v.status === 'PÁTIO'
+      ? '<span class="pill patio">⏳ Pátio</span>'
+      : '<span class="pill saida">✅ Saída</span>';
+    return `
+      <tr>
+        <td class="td-placa">${v.placa}</td>
+        <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;color:var(--text2)">${v.motorista || '—'}</td>
+        <td style="color:var(--amber2);font-weight:600">${v.produto || '—'}</td>
+        <td>${statusPill}</td>
+        <td><span class="td-portaria">${v.portaria}</span></td>
+        <td class="td-tempo ${tempoClass}">${tempoStr}</td>
+        <td style="font-family:var(--font-m);font-size:0.7rem;color:var(--muted)">${v.nfe || '—'}</td>
+      </tr>`;
+  }).join('');
+}
+
+/* ── BARRAS ── */
+function renderBarras() {
+  const patio = dados.filter(v => v.status === 'PÁTIO');
+  const saiu  = dados.filter(v => v.status === 'SAÍDA');
+
+  renderBarGroup('barrasPatio', contarPor(patio, 'produto'), false);
+  renderBarGroup('barrasSaida', contarPor(saiu,  'produto'), true);
+  renderBarGroup('barrasTransp', contarPor(dados, 'transportadora'), false);
+}
+
+function contarPor(arr, campo) {
+  const m = {};
+  arr.forEach(v => { const k = v[campo] || '—'; m[k] = (m[k]||0) + 1; });
+  return Object.entries(m).sort((a,b) => b[1]-a[1]).slice(0, 7);
+}
+
+function renderBarGroup(id, entries, isSaida) {
+  const el  = document.getElementById(id);
+  if (!entries.length) { el.innerHTML = '<div class="no-data">Sem dados</div>'; return; }
+  const max = entries[0][1];
+  el.innerHTML = entries.map(([k, n]) => `
+    <div class="bar-row">
+      <div class="bar-lbl">${k}</div>
+      <div class="bar-wrap">
+        <div class="bar-fill ${isSaida ? 'saida-fill' : ''}"
+          style="width:${Math.round((n/max)*100)}%"></div>
+      </div>
+      <div class="bar-n">${n}</div>
+    </div>`).join('');
+}
+
+/* ── FEED ── */
+function renderFeed() {
+  const feed = document.getElementById('feedEventos');
+  if (!feedItems.length) {
+    feed.innerHTML = '<div class="feed-empty">Aguardando eventos...</div>';
+    return;
+  }
+  feed.innerHTML = feedItems.map(f => `
+    <div class="feed-item">
+      <div class="feed-ico ${f.tipo}">${f.tipo==='e'?'🚛':f.tipo==='s'?'✅':'ℹ️'}</div>
+      <div class="feed-text">
+        <div class="feed-main">${f.main}</div>
+        <div class="feed-meta">${f.meta}</div>
+      </div>
+      <div class="feed-time">${f.hora}</div>
+    </div>`).join('');
+}
+
+/* ══════════════════════════════════════════════
+   FILTROS
+══════════════════════════════════════════════ */
+window.filtrarData = function() {
+  const val = document.getElementById('inputData').value;
+  if (!val) return;
+  const [y, m, d] = val.split('-').map(Number);
+  const data = new Date(y, m-1, d);
+  dataFiltro = data;
+  dados = [];
+  renderTabela();
+  iniciarListener(data);
+};
+
+window.voltarHoje = function() {
+  const hoje = new Date();
+  document.getElementById('inputData').value = hoje.toISOString().slice(0,10);
+  dataFiltro = null;
+  dados = [];
+  iniciarListener();
+};
+
+window.filtrarTabela = function(val) {
+  tabelaFiltro = val;
+  renderTabela();
+};
+
+/* ══════════════════════════════════════════════
+   WHATSAPP
+══════════════════════════════════════════════ */
+function gerarRelatorio() {
+  const agora   = new Date();
+  const dataStr = agora.toLocaleDateString('pt-BR');
+  const horaStr = agora.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+  const patio   = dados.filter(v => v.status === 'PÁTIO').sort((a,b) => a.chegada-b.chegada);
+  const saiu    = dados.filter(v => v.status === 'SAÍDA').sort((a,b) => a.chegada-b.chegada);
+
+  // Agrupa por produto
+  const grpPatio = {};
+  patio.forEach(v => { const p = v.produto||'---'; if(!grpPatio[p]) grpPatio[p]=[]; grpPatio[p].push(v); });
+
+  const grpSaiu = {};
+  saiu.forEach(v => { const p = v.produto||'---'; if(!grpSaiu[p]) grpSaiu[p]=[]; grpSaiu[p].push(v); });
+
+  // Críticos
+  const agora_ms = Date.now();
+  const criticos = patio.filter(v => (agora_ms - v.chegada.getTime()) > 4*3600000);
+
+  let txt = `🌾 *SAVANA — RELATÓRIO GESTOR*\n`;
+  txt += `📅 ${dataStr} · ${horaStr}\n\n`;
+  txt += `📊 *RESUMO*\n`;
+  txt += `• Total entradas: ${dados.length}\n`;
+  txt += `• No pátio: ${patio.length}\n`;
+  txt += `• Já saíram: ${saiu.length}\n`;
+  if (criticos.length) txt += `• ⚠️ Críticos +4h: ${criticos.length}\n`;
+  txt += `\n`;
+
+  if (patio.length) {
+    txt += `🚛 *PÁTIO (${patio.length})*\n`;
+    Object.entries(grpPatio).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([prod, lista]) => {
+      txt += `\n  *${prod}: ${lista.length}*\n`;
+      lista.forEach((v, i) => {
+        const oc  = (v.ordem||'').toUpperCase() === 'SIM' ? ' ✅O.C' : '';
+        const obs = v.observacao ? ` · ${v.observacao}` : '';
+        const ms  = agora_ms - v.chegada.getTime();
+        const h   = Math.floor(ms/3600000);
+        const mi  = Math.floor((ms%3600000)/60000);
+        const alerta = h >= 4 ? ' ⚠️' : '';
+        txt += `  ${i+1}° ${v.placa} (${v.transportadora||'---'})${oc}${obs} — ${h}h${mi}m${alerta}\n`;
+      });
+    });
+    txt += `\n`;
+  }
+
+  if (saiu.length) {
+    txt += `✅ *SAÍRAM (${saiu.length})*\n`;
+    Object.entries(grpSaiu).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([prod, lista]) => {
+      txt += `\n  *${prod}: ${lista.length}*\n`;
+      lista.forEach((v, i) => {
+        txt += `  ${i+1}° ${v.placa} (${v.transportadora||'---'}) NFE:${v.nfe||'—'}\n`;
+      });
+    });
+    txt += `\n`;
+  }
+
+  txt += `_Gerado pelo sistema Savana Dashboard_`;
+  return txt;
+}
+
+window.abrirModalWhats = function() {
+  document.getElementById('textoWhats').value = gerarRelatorio();
+  document.getElementById('modalWhats').classList.add('ativo');
+};
+
+window.abrirWhatsApp = function() {
+  const texto = document.getElementById('textoWhats').value;
+  const url   = `https://api.whatsapp.com/send?phone=${WHATS_NUMERO}&text=${encodeURIComponent(texto)}`;
+  window.open(url, '_blank');
+};
+
+window.copiarTexto = function() {
+  const texto = document.getElementById('textoWhats').value;
+  navigator.clipboard.writeText(texto).then(() => toast('📋 Copiado!', 'ok'));
+};
+
+window.fecharModal = function(id) {
+  document.getElementById(id).classList.remove('ativo');
+};
+
+/* ══════════════════════════════════════════════
+   EXPORTAR GOOGLE SHEETS (via Apps Script)
+══════════════════════════════════════════════ */
+window.exportarSheets = async function() {
+  if (!dados.length) { toast('Sem dados para exportar.', 'err'); return; }
+  toast('📊 Exportando para Google Sheets...', 'info');
+  try {
+    await fetch(WEB_APP_URL, {
+      method: 'POST', mode: 'no-cors',
+      body: JSON.stringify({ acao: 'EXPORTAR_DASHBOARD', dados })
+    });
+    toast('✅ Dados enviados para o Sheets!', 'ok');
+  } catch(e) {
+    toast('⚠️ Falha ao conectar com Sheets.', 'err');
+  }
+};
+
+/* ══════════════════════════════════════════════
+   UTILITÁRIOS
+══════════════════════════════════════════════ */
+function atualizarUltimaAtt() {
+  document.getElementById('ultimaAtualizacao').textContent =
+    'Atualizado: ' + new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+
+function toast(msg, tipo = 'ok') {
+  const box  = document.getElementById('toastBox');
+  const el   = document.createElement('div');
+  el.className = `toast ${tipo}`;
+  el.textContent = msg;
+  box.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+window.limparFeed = function() {
+  feedItems = [];
+  renderFeed();
+};
+
+/* ══════════════════════════════════════════════
+   ARRANQUE
+══════════════════════════════════════════════ */
+// Fecha modal clicando fora
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => {
+    if (e.target === m) m.classList.remove('ativo');
+  });
+});
+
+// Verifica login
+setTimeout(() => {
+  document.getElementById('loadingScreen').style.display = 'none';
+  if (checkLogin()) {
+    iniciarApp();
+  } else {
+    document.getElementById('loginScreen').style.display = 'flex';
+  }
+}, 1200);
+
+</script>
+</body>
+</html>

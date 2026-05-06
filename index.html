@@ -2067,8 +2067,85 @@
 
 </div>
 
-<script>
+<script type="module">
   const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwCMcDylEoZF0u19tTD_6xJHN5NG6EV_6BsPZyO3BxwAlw6hK32SNokg6lwaLJkENiiEw/exec?dados=true";
+
+  /* ===================== FIREBASE ===================== */
+  import { initializeApp }       from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
+  import {
+    getFirestore, collection, doc, addDoc, updateDoc,
+    getDocs, query, where, orderBy, serverTimestamp,
+    enableIndexedDbPersistence
+  } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+
+  const _fbApp = initializeApp({
+    apiKey:            "AIzaSyCkD415LbF4S97BqRNXHBxnuGUDwzcUAd4",
+    authDomain:        "portaria-savana.firebaseapp.com",
+    projectId:         "portaria-savana",
+    storageBucket:     "portaria-savana.firebasestorage.app",
+    messagingSenderId: "983062289504",
+    appId:             "1:983062289504:web:38ececbd6ec52fafc4f705"
+  });
+  const _db = getFirestore(_fbApp);
+
+  // Persistência offline nativa
+  enableIndexedDbPersistence(_db).catch(() => {});
+
+  // Gera turnoId = YYYYMMDD
+  function _turnoId() {
+    const d = new Date();
+    return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  // Salva entrada no Firestore (não bloqueia o fluxo principal)
+  async function _fbEntrada(d) {
+    try {
+      await addDoc(collection(_db, 'veiculos'), {
+        ...d,
+        portaria:    perfilAtual || 'portaria',
+        status:      'PÁTIO',
+        turnoId:     _turnoId(),
+        criadoEm:    serverTimestamp(),
+        atualizadoEm: serverTimestamp()
+      });
+    } catch(e) { console.warn('[Firebase] Entrada falhou:', e); }
+  }
+
+  // Atualiza saída no Firestore
+  async function _fbSaida(placa, nfe) {
+    try {
+      const q = query(
+        collection(_db, 'veiculos'),
+        where('placa', '==', placa),
+        where('status', '==', 'PÁTIO'),
+        orderBy('criadoEm', 'desc')
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        await updateDoc(snap.docs[0].ref, {
+          status: 'SAÍDA', nfe,
+          saida: serverTimestamp(),
+          atualizadoEm: serverTimestamp()
+        });
+      }
+    } catch(e) { console.warn('[Firebase] Saída falhou:', e); }
+  }
+
+  // Atualiza ordem no Firestore
+  async function _fbOrdem(placa, ordem) {
+    try {
+      const q = query(
+        collection(_db, 'veiculos'),
+        where('placa', '==', placa),
+        where('status', '==', 'PÁTIO'),
+        orderBy('criadoEm', 'desc')
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        await updateDoc(snap.docs[0].ref, { ordem, atualizadoEm: serverTimestamp() });
+      }
+    } catch(e) { console.warn('[Firebase] Ordem falhou:', e); }
+  }
 
   /* ===================== LOGIN / PERFIL ===================== */
   const PERFIS = {
@@ -2148,7 +2225,7 @@
    * não conseguirá descobrir a senha original facilmente.
    * Hash gerado de: "123mudar"
    */
-  const SENHA_HASH = "ef92b778bafe771207fec105bf7a9abf8a5decd9b97668ab5c0b50d8df00cb5e";
+  const SENHA_HASH = "ae3784314f375645157903c0ce188a2b0bef88b5e9476f4c72513c1015f0b875";
 
   async function hashSenha(senha) {
     const enc = new TextEncoder().encode(senha);
@@ -3326,7 +3403,10 @@ ${trocasStr}
     setStatusEnt('enviando', '📡 Dados subindo...');
 
     const enviar = async () => {
+      // Apps Script (planilha) — mantém igual
       await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", body: JSON.stringify(d) });
+      // Firebase (dashboard tempo real) — em paralelo
+      _fbEntrada(d);
     };
 
     try {
@@ -3373,6 +3453,8 @@ ${trocasStr}
     try {
       if (!navigator.onLine) { await idbAdicionarPendente(payload); throw new Error('offline'); }
       await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", body: JSON.stringify(payload) });
+      // Firebase (dashboard tempo real)
+      _fbSaida(placa, nfe);
       document.getElementById('p_sai').value = "";
       document.getElementById('nfe_sai').value = "";
       document.getElementById('preview_saida').style.display = 'none';
@@ -3400,6 +3482,8 @@ ${trocasStr}
     btn.innerText = "⏳";
     try {
       await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", body: JSON.stringify({ placa, ordem: novo, acao:"EDITAR_ORDEM" }) });
+      // Firebase
+      _fbOrdem(placa, novo);
       vibrar(40);
       carregarEstado();
     } catch(e) { mostrarToast('⚠️ Erro ao alterar ordem', 'error'); }
@@ -3773,27 +3857,45 @@ ${trocasStr}
     _renderListaPerfis();
   }
 
+  /* ── Expõe funções ao escopo global (type=module isola o escopo) ── */
+  Object.assign(window, {
+    fazerLogin, trocarPerfil, aplicarPerfil, switchTab,
+    registrarEntrada, registrarSaida, toggleOrdem,
+    toggleModoNoite, toggleGear, fecharGear,
+    fecharModal, fecharCustomDialog, fecharGerenciarPerfis,
+    abrirRelatorio, abrirPlanilha, abrirModalTurno, abrirModalObs,
+    abrirOCR, abrirGerenciarPerfis,
+    copiarRelatorio, salvarTurno, confirmarTrocarTurno, salvarObs,
+    chamarVeiculo, dispensarChamada,
+    prepararEdicao, previewSaida,
+    filtrarHistorico, limparTabela,
+    ocrConfirmar, ocrFechar, ocrReler,
+    mostrarDialog, mostrarToast,
+    perfilEditar, perfilApagar, perfilEditarNovo, perfilVoltarLista, perfilSalvar,
+  });
+
 </script>
   <!-- Registro do Service Worker PWA -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
+        navigator.serviceWorker.register('./service-worker.js')
           .then(reg => {
             console.log('[PWA] SW registrado:', reg.scope);
             reg.addEventListener('updatefound', () => {
               const newSW = reg.installing;
               newSW.addEventListener('statechange', () => {
                 if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-                  if (confirm('Nova versão disponível! Atualizar agora?')) {
-                    newSW.postMessage('skipWaiting');
-                    window.location.reload();
-                  }
+                  const banner = document.createElement('div');
+                  banner.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#2563eb;color:#fff;padding:14px 20px;border-radius:12px;font-size:0.82rem;font-weight:700;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.3);display:flex;align-items:center;gap:12px;white-space:nowrap;';
+                  banner.innerHTML = '<span>\ud83d\ude80 Nova vers\u00e3o dispon\u00edvel!</span><button onclick="navigator.serviceWorker.ready.then(r=>{r.waiting&&r.waiting.postMessage(\'SKIP_WAITING\')});window.location.reload()" style="background:#fff;color:#2563eb;border:none;padding:6px 14px;border-radius:8px;font-weight:800;cursor:pointer;">Atualizar</button><button onclick="this.parentElement.remove()" style="background:none;border:none;color:#fff;cursor:pointer;font-size:1.1rem">\u00d7</button>';
+                  document.body.appendChild(banner);
                 }
               });
             });
           })
           .catch(err => console.warn('[PWA] Falha ao registrar SW:', err));
+        navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
       });
     }
   </script>
