@@ -10,9 +10,9 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Portaria Savana">
+  <meta name="apple-mobile-web-app-title" content="Portaria">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Portaria Savana</title>
+  <title>Portaria LEM - v1</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
@@ -1770,6 +1770,15 @@
           </svg>
           <span class="gear-item-label">Planilha</span>
         </button>
+        <button class="gear-item" id="btnLimparDados" onclick="limparTodosDados(); fecharGear()" title="Limpar Dados" style="color: var(--danger, #dc2626); display:none">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+            <polyline points="3 6 5 6 21 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="gear-item-label">Limpar</span>
+        </button>
       </div>
 
       <!-- Botão engrenagem principal -->
@@ -2218,6 +2227,17 @@
   const LS_PENDING_KEY = 'portaria_pending';
   const LS_ESTADO_KEY  = 'portaria_estado';
   const LS_OBS_KEY     = 'portaria_obs';
+
+  /* ===================== INVALIDAÇÃO DE CACHE DE DADOS =====================
+   * Sempre que você apagar registros manualmente da planilha/Firebase,
+   * incremente DADOS_CACHE_VER (ex: '1' → '2').
+   * Isso faz o APK descartar o snapshot antigo do localStorage na próxima abertura.
+   */
+  const DADOS_CACHE_VER = '1';
+  if (localStorage.getItem('portaria_dados_cache_ver') !== DADOS_CACHE_VER) {
+    localStorage.removeItem(LS_ESTADO_KEY);
+    localStorage.setItem('portaria_dados_cache_ver', DADOS_CACHE_VER);
+  }
 
   /* ===================== HASH SENHA (SHA-256) =====================
    * A senha "123mudar" foi substituída pelo seu hash SHA-256.
@@ -3197,7 +3217,7 @@ ${trocasStr}
 
   async function carregarEstado() {
     if (!navigator.onLine) {
-      // Usa cache do localStorage
+      // Offline: usa cache do localStorage, mas avisa que pode estar desatualizado
       try {
         const cached = JSON.parse(localStorage.getItem(LS_ESTADO_KEY) || 'null');
         if (cached) processarDados(cached);
@@ -3206,14 +3226,14 @@ ${trocasStr}
     }
 
     try {
-      const res = await fetch(WEB_APP_URL);
+      // Sempre busca da rede com cache-busting para evitar resposta cacheada pelo SW
+      const res = await fetch(WEB_APP_URL + '&_t=' + Date.now());
       const json = await res.json();
       const dados = json.dados || [];
 
-      // Salva cache local
+      // Atualiza cache local com dados frescos da rede
       localStorage.setItem(LS_ESTADO_KEY, JSON.stringify(json));
 
-      // Evita re-render se dados não mudaram
       const hash = JSON.stringify(dados);
       const novoChamado = json.chamada || '';
 
@@ -3222,6 +3242,7 @@ ${trocasStr}
 
     } catch(e) {
       console.error('Erro ao carregar estado:', e);
+      // Só cai no cache se a rede falhou de verdade
       try {
         const cached = JSON.parse(localStorage.getItem(LS_ESTADO_KEY) || 'null');
         if (cached) processarDados(cached);
@@ -3250,6 +3271,10 @@ ${trocasStr}
       r.seqProduto = seqPorProduto[prod];
     });
 
+    // Após 19h: registros com SAÍDA são ignorados na renderização da tela
+    // (continuam salvos no Firebase e na planilha)
+    const ocultarSaidas = new Date().getHours() >= 19;
+
     dados.forEach(r => {
       if (r.dataEntrada && !r.chegadaTimestamp) {
         try {
@@ -3259,9 +3284,16 @@ ${trocasStr}
           r.chegadaTimestamp = new Date(a,m-1,d,h,mi).getTime();
         } catch(e) {}
       }
-      if (r.status === "PÁTIO") veiculosPatio.push(r);
-      else if (r.status === "SAÍDA") veiculosCarregados.push(r);
-      addHist(r, r.status === "SAÍDA" ? 'SAÍDA' : 'ENTRADA', r.dataEntrada);
+      if (r.status === "PÁTIO") {
+        veiculosPatio.push(r);
+        addHist(r, 'ENTRADA', r.dataEntrada);
+      } else if (r.status === "SAÍDA") {
+        if (!ocultarSaidas) {
+          veiculosCarregados.push(r);
+          addHist(r, 'SAÍDA', r.dataEntrada);
+        }
+        // após 19h: não exibe na tela, mas permanece no Firebase/planilha
+      }
     });
 
     atualizarDetalhesProdutos();
@@ -3562,6 +3594,52 @@ ${trocasStr}
   // ResizeObserver REMOVIDO — causava loop infinito:
   // header compacta → margin-top aumenta → conteúdo desce → scrollY sobe → header expande → loop
 
+  /* ===================== LIMPEZA AUTOMÁTICA ÀS 19H =====================
+   * Às 19:00 o app limpa a tela (cards + histórico + cache local).
+   * Os dados continuam salvos no Firebase e na planilha Google.
+   * A flag do dia é salva em localStorage para não limpar duas vezes no mesmo dia.
+   */
+  const LS_LIMPEZA_KEY = 'portaria_limpeza_dia';
+
+  function _deveExecutarLimpeza() {
+    const agora = new Date();
+    const h = agora.getHours();
+    const diaHoje = agora.toLocaleDateString('pt-BR'); // "DD/MM/YYYY"
+    const diaUltimaLimpeza = localStorage.getItem(LS_LIMPEZA_KEY);
+    // Executa se for >= 19h E ainda não limpou hoje
+    return h >= 19 && diaUltimaLimpeza !== diaHoje;
+  }
+
+  function executarLimpezaNoturna(exibirToast = false) {
+    const diaHoje = new Date().toLocaleDateString('pt-BR');
+
+    // Remove APENAS os caminhões com SAÍDA registrada da memória
+    // veiculosPatio é preservado — quem ainda está no pátio continua visível
+    veiculosCarregados = [];
+    ultimoDadosHash = '';
+
+    // Re-renderiza o histórico mostrando APENAS quem ainda está no pátio
+    document.querySelector('#tabDia tbody').innerHTML = '';
+    document.querySelector('#tabNoite tbody').innerHTML = '';
+    veiculosPatio.forEach(r => addHist(r, 'ENTRADA', r.dataEntrada));
+
+    // Atualiza cards: carregados vai a zero, pátio mantém contagem real
+    atualizarDetalhesProdutos();
+
+    // Marca que a limpeza do dia já foi feita
+    localStorage.setItem(LS_LIMPEZA_KEY, diaHoje);
+
+    if (exibirToast) {
+      mostrarToast('🌙 19h — Cargas concluídas removidas da tela!', 'success', 5000);
+    }
+  }
+
+  function verificarLimpezaAgendada() {
+    if (_deveExecutarLimpeza()) {
+      executarLimpezaNoturna(true);
+    }
+  }
+
   window.addEventListener('DOMContentLoaded', () => {
     verificarLoginSalvo();
     carregarTurno();
@@ -3569,6 +3647,7 @@ ${trocasStr}
     atualizarBarraTurno();
     atualizarRelogio();
     atualizarStatusRede();
+    // Sempre carrega o estado — processarDados já sabe filtrar SAÍDA após 19h
     carregarEstado();
     atualizarContadorIDB();
     // Mede em múltiplos momentos para garantir que fontes e layout já renderizaram
@@ -3580,6 +3659,8 @@ ${trocasStr}
     setInterval(atualizarBarraTurno, 60000);
     setInterval(atualizarRelogio, 30000);
     setInterval(atualizarContadorIDB, 30000);
+    // Verifica limpeza a cada minuto (detecta quando bater 19h com o app aberto)
+    setInterval(verificarLimpezaAgendada, 60000);
   });
 
   // ResizeObserver: atualiza paddingTop apenas quando o HEADER muda de tamanho
@@ -3698,6 +3779,10 @@ ${trocasStr}
     // Botão gerenciar perfis (só admin)
     const btnGP = document.getElementById('btnGerenciarPerfis');
     if (btnGP) btnGP.style.display = perm.gerenciar_perfis ? '' : 'none';
+
+    // Botão limpar dados (só admin)
+    const btnLD = document.getElementById('btnLimparDados');
+    if (btnLD) btnLD.style.display = perm.gerenciar_perfis ? '' : 'none';
   }
 
   // Estado do editor
@@ -3857,6 +3942,60 @@ ${trocasStr}
     _renderListaPerfis();
   }
 
+  async function limparTodosDados() {
+    // Pede confirmação com senha
+    const inp = document.getElementById('dialogInput');
+    if (inp) { inp.style.textTransform = 'none'; inp.type = 'password'; }
+    const senha = await mostrarDialog({
+      icone: '🗑️',
+      titulo: 'Limpar Todos os Dados',
+      msg: 'Esta ação apaga TODOS os registros do dia — planilha e Firebase. Informe a senha para confirmar:',
+      input: true,
+      inputPlaceholder: '••••••••',
+      botoes: [{ texto: 'Cancelar', tipo: 'cancel' }, { texto: 'Limpar Tudo', tipo: 'ok' }]
+    });
+    if (inp) { inp.type = 'text'; inp.style.textTransform = ''; }
+    if (!senha) return;
+
+    const hash = await hashSenha(senha.toLowerCase());
+    if (hash !== SENHA_HASH) {
+      mostrarToast('❌ Senha incorreta!', 'error');
+      return;
+    }
+
+    mostrarToast('🗑️ Limpando dados...', 'info', 3000);
+
+    // 1. Limpa planilha via Apps Script
+    try {
+      await fetch(WEB_APP_URL, {
+        method: 'POST', mode: 'no-cors',
+        body: JSON.stringify({ acao: 'LIMPAR_TUDO' })
+      });
+    } catch(e) { console.warn('[Limpar] Planilha:', e); }
+
+    // 2. Limpa Firebase — apaga todos os docs do turno atual
+    try {
+      const { getDocs, query, collection, where, deleteDoc } =
+        await import("https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js");
+      const d = new Date();
+      const turnoId = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+      const q = query(collection(_db, 'veiculos'), where('turnoId', '==', turnoId));
+      const snap = await getDocs(q);
+      const deletes = snap.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletes);
+      mostrarToast(`✅ ${snap.docs.length} registro(s) removido(s)!`, 'success', 3000);
+    } catch(e) {
+      console.warn('[Limpar] Firebase:', e);
+      mostrarToast('⚠️ Erro ao limpar Firebase', 'error');
+    }
+
+    // 3. Limpa cache local para não reaparecer na próxima abertura
+    localStorage.removeItem(LS_ESTADO_KEY);
+
+    // 4. Atualiza tela
+    setTimeout(() => carregarEstado(), 1000);
+  }
+
   /* ── Expõe funções ao escopo global (type=module isola o escopo) ── */
   Object.assign(window, {
     fazerLogin, trocarPerfil, aplicarPerfil, switchTab,
@@ -3864,7 +4003,7 @@ ${trocasStr}
     toggleModoNoite, toggleGear, fecharGear,
     fecharModal, fecharCustomDialog, fecharGerenciarPerfis,
     abrirRelatorio, abrirPlanilha, abrirModalTurno, abrirModalObs,
-    abrirOCR, abrirGerenciarPerfis,
+    abrirOCR, abrirGerenciarPerfis, limparTodosDados,
     copiarRelatorio, salvarTurno, confirmarTrocarTurno, salvarObs,
     chamarVeiculo, dispensarChamada,
     prepararEdicao, previewSaida,
