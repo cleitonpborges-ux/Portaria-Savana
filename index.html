@@ -2078,6 +2078,7 @@
 
 <script type="module">
   const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwCMcDylEoZF0u19tTD_6xJHN5NG6EV_6BsPZyO3BxwAlw6hK32SNokg6lwaLJkENiiEw/exec?dados=true";
+  const WEB_APP_POST_URL = "https://script.google.com/macros/s/AKfycbwCMcDylEoZF0u19tTD_6xJHN5NG6EV_6BsPZyO3BxwAlw6hK32SNokg6lwaLJkENiiEw/exec";
 
   /* ===================== FIREBASE ===================== */
   import { initializeApp }       from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
@@ -2327,7 +2328,7 @@
     let sincronizados = 0;
     for (const item of pendentes) {
       try {
-        await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(item.payload) });
+        await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(item.payload) });
         await idbRemoverPendente(item.id);
         sincronizados++;
       } catch(e) { /* mantém na fila */ }
@@ -2882,7 +2883,7 @@
     const restante = [];
     for (const item of fila) {
       try {
-        await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(item.payload) });
+        await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(item.payload) });
       } catch(e) { restante.push(item); }
     }
     localStorage.setItem(LS_PENDING_KEY, JSON.stringify(restante));
@@ -3387,7 +3388,7 @@ ${trocasStr}
     }
 
     try {
-      await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ acao:"CHAMAR", mensagem: msg }) });
+      await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ acao:"CHAMAR", mensagem: msg }) });
     } catch(e) {}
 
     vibrar([50, 30, 50]);
@@ -3399,7 +3400,7 @@ ${trocasStr}
     btn.innerText = "⏳ Processando..."; btn.disabled = true;
     document.getElementById('bannerChamada').classList.remove('ativo');
     try {
-      await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ acao:"OK_CHAMADA" }) });
+      await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ acao:"OK_CHAMADA" }) });
     } catch(e) {}
     vibrar(60);
     btn.innerText = "✅ OK — Portaria Ciente"; btn.disabled = false;
@@ -3436,7 +3437,7 @@ ${trocasStr}
 
     const enviar = async () => {
       // Apps Script (planilha) — mantém igual
-      await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(d) });
+      await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(d) });
       // Firebase (dashboard tempo real) — em paralelo
       _fbEntrada(d);
     };
@@ -3484,7 +3485,7 @@ ${trocasStr}
     const payload = { placa, nfe, acao:"SAIDA" };
     try {
       if (!navigator.onLine) { await idbAdicionarPendente(payload); throw new Error('offline'); }
-      await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(payload) });
+      await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(payload) });
       // Firebase (dashboard tempo real)
       _fbSaida(placa, nfe);
       document.getElementById('p_sai').value = "";
@@ -3513,7 +3514,7 @@ ${trocasStr}
     const novo = btn.innerText === 'SIM' ? 'NÃO' : 'SIM';
     btn.innerText = "⏳";
     try {
-      await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ placa, ordem: novo, acao:"EDITAR_ORDEM" }) });
+      await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ placa, ordem: novo, acao:"EDITAR_ORDEM" }) });
       // Firebase
       _fbOrdem(placa, novo);
       vibrar(40);
@@ -3967,9 +3968,8 @@ ${trocasStr}
 
     // 1. Limpa planilha via Apps Script
     try {
-      await fetch(WEB_APP_URL, {
-        method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
+      await fetch(WEB_APP_POST_URL, {
+        method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'text/plain'},
         body: JSON.stringify({ acao: 'LIMPAR_TUDO' })
       });
     } catch(e) { console.warn('[Limpar] Planilha:', e); }
