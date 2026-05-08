@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sistema-descargas-v29';
+const CACHE_NAME = 'sistema-descargas-v30';
 
 // Assets do app que devem funcionar offline
 const ASSETS = [
