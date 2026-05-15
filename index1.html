@@ -2077,8 +2077,7 @@
 </div>
 
 <script type="module">
-  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyjxrCNfrASZiox6VNzYY2J8_480qrcTH-sPeBEAonfSvar08z8Jr2O-Gzfd5iPALUQzw/exec?dados=true";
-  const WEB_APP_POST_URL = "https://script.google.com/macros/s/AKfycbyjxrCNfrASZiox6VNzYY2J8_480qrcTH-sPeBEAonfSvar08z8Jr2O-Gzfd5iPALUQzw/exec";
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwCMcDylEoZF0u19tTD_6xJHN5NG6EV_6BsPZyO3BxwAlw6hK32SNokg6lwaLJkENiiEw/exec?dados=true";
 
   /* ===================== FIREBASE ===================== */
   import { initializeApp }       from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
@@ -2328,7 +2327,7 @@
     let sincronizados = 0;
     for (const item of pendentes) {
       try {
-        await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(item.payload) });
+        await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(item.payload) });
         await idbRemoverPendente(item.id);
         sincronizados++;
       } catch(e) { /* mantém na fila */ }
@@ -2883,7 +2882,7 @@
     const restante = [];
     for (const item of fila) {
       try {
-        await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(item.payload) });
+        await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(item.payload) });
       } catch(e) { restante.push(item); }
     }
     localStorage.setItem(LS_PENDING_KEY, JSON.stringify(restante));
@@ -3388,7 +3387,7 @@ ${trocasStr}
     }
 
     try {
-      await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ acao:"CHAMAR", mensagem: msg }) });
+      await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ acao:"CHAMAR", mensagem: msg }) });
     } catch(e) {}
 
     vibrar([50, 30, 50]);
@@ -3400,7 +3399,7 @@ ${trocasStr}
     btn.innerText = "⏳ Processando..."; btn.disabled = true;
     document.getElementById('bannerChamada').classList.remove('ativo');
     try {
-      await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ acao:"OK_CHAMADA" }) });
+      await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ acao:"OK_CHAMADA" }) });
     } catch(e) {}
     vibrar(60);
     btn.innerText = "✅ OK — Portaria Ciente"; btn.disabled = false;
@@ -3437,7 +3436,7 @@ ${trocasStr}
 
     const enviar = async () => {
       // Apps Script (planilha) — mantém igual
-      await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(d) });
+      await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(d) });
       // Firebase (dashboard tempo real) — em paralelo
       _fbEntrada(d);
     };
@@ -3485,7 +3484,7 @@ ${trocasStr}
     const payload = { placa, nfe, acao:"SAIDA" };
     try {
       if (!navigator.onLine) { await idbAdicionarPendente(payload); throw new Error('offline'); }
-      await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(payload) });
+      await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(payload) });
       // Firebase (dashboard tempo real)
       _fbSaida(placa, nfe);
       document.getElementById('p_sai').value = "";
@@ -3514,7 +3513,7 @@ ${trocasStr}
     const novo = btn.innerText === 'SIM' ? 'NÃO' : 'SIM';
     btn.innerText = "⏳";
     try {
-      await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ placa, ordem: novo, acao:"EDITAR_ORDEM" }) });
+      await fetch(WEB_APP_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ placa, ordem: novo, acao:"EDITAR_ORDEM" }) });
       // Firebase
       _fbOrdem(placa, novo);
       vibrar(40);
@@ -3964,13 +3963,18 @@ ${trocasStr}
       return;
     }
 
-    mostrarToast('🗑️ Limpando dados...', 'info', 5000);
+    mostrarToast('🗑️ Limpando dados...', 'info', 3000);
 
-    let errosPlanilha = 0;
-    let errosFirebase = 0;
-    let removidosFirebase = 0;
+    // 1. Limpa planilha via Apps Script
+    try {
+      await fetch(WEB_APP_URL, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ acao: 'LIMPAR_TUDO' })
+      });
+    } catch(e) { console.warn('[Limpar] Planilha:', e); }
 
-    // 1. Limpa Firebase — apaga todos os docs do turno atual
+    // 2. Limpa Firebase — apaga todos os docs do turno atual
     try {
       const { getDocs, query, collection, where, deleteDoc } =
         await import("https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js");
@@ -3980,41 +3984,17 @@ ${trocasStr}
       const snap = await getDocs(q);
       const deletes = snap.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(deletes);
-      removidosFirebase = snap.docs.length;
+      mostrarToast(`✅ ${snap.docs.length} registro(s) removido(s)!`, 'success', 3000);
     } catch(e) {
       console.warn('[Limpar] Firebase:', e);
-      errosFirebase++;
-    }
-
-    // 2. Limpa planilha via Apps Script
-    // Usa GET com parâmetro — garante chegada correta com mode:no-cors
-    // (POST com no-cors às vezes não entrega o body ao Apps Script)
-    try {
-      await fetch(WEB_APP_POST_URL + '?acao=LIMPAR_TUDO&_t=' + Date.now(), {
-        method: 'GET',
-        mode: 'no-cors'
-      });
-    } catch(e) {
-      console.warn('[Limpar] Planilha:', e);
-      errosPlanilha++;
+      mostrarToast('⚠️ Erro ao limpar Firebase', 'error');
     }
 
     // 3. Limpa cache local para não reaparecer na próxima abertura
     localStorage.removeItem(LS_ESTADO_KEY);
 
-    // 4. Feedback ao usuário
-    if (errosFirebase === 0 && errosPlanilha === 0) {
-      mostrarToast(`✅ ${removidosFirebase} registro(s) removido(s) do Firebase e planilha!`, 'success', 4000);
-    } else if (errosFirebase > 0 && errosPlanilha === 0) {
-      mostrarToast(`⚠️ Planilha limpa, mas erro no Firebase. Verifique a conexão.`, 'warn', 5000);
-    } else if (errosFirebase === 0 && errosPlanilha > 0) {
-      mostrarToast(`⚠️ Firebase limpo (${removidosFirebase} registros), mas pode ter falhado na planilha. Verifique o Apps Script.`, 'warn', 5000);
-    } else {
-      mostrarToast('❌ Erro ao limpar. Verifique a conexão e tente novamente.', 'error', 5000);
-    }
-
-    // 5. Atualiza tela
-    setTimeout(() => carregarEstado(), 2000);
+    // 4. Atualiza tela
+    setTimeout(() => carregarEstado(), 1000);
   }
 
   /* ── Expõe funções ao escopo global (type=module isola o escopo) ── */
