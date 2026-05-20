@@ -3568,6 +3568,22 @@ ${trocasStr}
     }
   }
 
+  // ===================== NORMALIZAR STATUS DA PLANILHA =====================
+  // Garante que variações de digitação (acento, espaço, maiúscula) não causam sumiço
+  function normalizarStatus(raw) {
+    if (!raw) return '';
+    // Remove espaços, coloca maiúsculo, tira acentos para comparação
+    const s = String(raw).trim().toUpperCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    // Mapeia para o valor canônico com acento correto
+    if (s === 'PATIO')       return 'PÁTIO';
+    if (s === 'CARREGANDO')  return 'CARREGANDO';
+    if (s === 'SAIDA')       return 'SAÍDA';
+    if (s === 'CONCLUIDO' || s === 'CONCLUÍDO') return 'CONCLUIDO';
+    // Retorna o original normalizado caso seja outro valor
+    return String(raw).trim().toUpperCase();
+  }
+
   function processarDados(json, hash) {
     const dados = json.dados || [];
 
@@ -3581,8 +3597,15 @@ ${trocasStr}
 
     dados.sort((a, b) => a.chegada - b.chegada);
 
-    // Após 19h: registros com SAÍDA são ignorados na renderização da tela
-    // (continuam salvos no Firebase e na planilha)
+    // ── NORMALIZA STATUS DE TODOS OS REGISTROS ──────────────────────────────
+    // Evita sumiço por variações de digitação na planilha (ex: "Pátio", "patio", "CARREGANDO ")
+    dados.forEach(r => { r.status = normalizarStatus(r.status); });
+
+    // Regras de visibilidade:
+    // • PÁTIO      → ativo no pátio, aparece no histórico (linha normal)
+    // • CARREGANDO → ativo no pátio (fundo amarelo), aparece no histórico
+    // • SAÍDA      → saiu, aparece no histórico; some após 19h
+    // • CONCLUIDO  → encerrado/teste confirmado, NÃO aparece em nada (só no final do dia)
     const ocultarSaidas = new Date().getHours() >= 19;
 
     // 1º PASSO: pré-processa timestamps e determina quem vai aparecer na tela
@@ -3595,9 +3618,11 @@ ${trocasStr}
           r.chegadaTimestamp = new Date(a,m-1,d,h,mi).getTime();
         } catch(e) {}
       }
-      // Marca quem vai ser exibido (antes de numerar)
-      r._visivel = (r.status === "PÁTIO" || r.status === "CARREGANDO")
-                || (r.status === "SAÍDA" && !ocultarSaidas);
+      // CONCLUIDO nunca aparece na tela (removido do histórico no final do dia)
+      if (r.status === 'CONCLUIDO') { r._visivel = false; return; }
+
+      r._visivel = (r.status === 'PÁTIO' || r.status === 'CARREGANDO')
+                || (r.status === 'SAÍDA' && !ocultarSaidas);
     });
 
     // 2º PASSO: gera seqGeral (N°) e seqProduto (#) APENAS para os veículos visíveis
@@ -3615,17 +3640,21 @@ ${trocasStr}
     });
 
     // 3º PASSO: popula arrays e histórico apenas com quem é visível
+    // • PÁTIO / CARREGANDO → pátio ativo + histórico aguardando
+    // • SAÍDA              → carregados + histórico (antes das 19h)
+    // • CONCLUIDO          → ignorado completamente (some do histórico)
     dados.forEach(r => {
-      if (r.status === "PÁTIO" || r.status === "CARREGANDO") {
+      if (r.status === 'PÁTIO' || r.status === 'CARREGANDO') {
         veiculosPatio.push(r);
         addHist(r, 'ENTRADA', r.dataEntrada);
-      } else if (r.status === "SAÍDA") {
+      } else if (r.status === 'SAÍDA') {
         if (!ocultarSaidas) {
           veiculosCarregados.push(r);
           addHist(r, 'SAÍDA', r.dataEntrada);
         }
         // após 19h: não exibe na tela, mas permanece no Firebase/planilha
       }
+      // CONCLUIDO: não entra em nenhum array nem no histórico
     });
 
     atualizarDetalhesProdutos();
@@ -3774,11 +3803,16 @@ ${trocasStr}
         headers:{"Content-Type":"text/plain"},
         body: JSON.stringify({ acao:"OK_CHAMADA", placa })
       });
-      // Atualiza Firebase também
+      // Atualiza Firebase também (sem filtrar por status para não perder variações de digitação)
       try {
-        const q = query(collection(_db,'veiculos'), where('placa','==',placa), where('status','==','PÁTIO'), orderBy('criadoEm','desc'));
+        const q = query(collection(_db,'veiculos'), where('placa','==',placa), orderBy('criadoEm','desc'));
         const snap = await getDocs(q);
-        if (!snap.empty) await updateDoc(snap.docs[0].ref, { status:'CARREGANDO', atualizadoEm: serverTimestamp() });
+        if (!snap.empty) {
+          const statusAtual = normalizarStatus(snap.docs[0].data().status);
+          if (statusAtual === 'PÁTIO' || statusAtual === 'CARREGANDO') {
+            await updateDoc(snap.docs[0].ref, { status:'CARREGANDO', atualizadoEm: serverTimestamp() });
+          }
+        }
       } catch(e) {}
     } catch(e) {}
     // Remove o card com animação
