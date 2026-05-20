@@ -3686,10 +3686,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     atualizarDetalhesProdutos();
     atualizarBarraTurno();
 
-    // Suporte a chamadas múltiplas: json.chamadas = [{placa,motorista,hora}]
-    // Retrocompatível: json.chamada (string legada) também funciona
-    const chamadas = json.chamadas || (json.chamada ? [{ placa: json.chamada, motorista: '', hora: '' }] : []);
-    renderizarPainelChamadas(chamadas);
+    // Chamadas são gerenciadas exclusivamente pelo onSnapshot do Firestore
+    // Não alimentar o painel aqui — evita re-aparecimento após dispensa
   }
 
   /* ===================== ADD HISTÓRICO ===================== */
@@ -3771,23 +3769,38 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   // Renderiza o painel de chamadas múltiplas
   function renderizarPainelChamadas(chamadas) {
     const painel = document.getElementById('painelChamadas');
-    if (!chamadas || chamadas.length === 0) {
-      painel.classList.remove('ativo');
-      painel.innerHTML = '';
+
+    // Filtra placas já dispensadas localmente (Firestore ainda pode não ter propagado)
+    const chamadasVisiveis = (chamadas || []).filter(c => !_placasDispensadas.has(c.placa));
+
+    if (chamadasVisiveis.length === 0) {
+      // Remove apenas cards que não estão mais na lista — preserva os que ainda estão
+      [...painel.querySelectorAll('.chamada-card')].forEach(card => {
+        if (!chamadasVisiveis.some(c => c.placa === card.dataset.placa)) {
+          card.style.opacity = '0'; card.style.transition = 'opacity 0.2s';
+          setTimeout(() => card.remove(), 200);
+        }
+      });
+      setTimeout(() => { if (!painel.querySelector('.chamada-card')) painel.classList.remove('ativo'); }, 250);
       return;
     }
+
     painel.classList.add('ativo');
-    // Mantém cards existentes, adiciona novos, remove dispensados
-    const placasNovas = chamadas.map(c => c.placa);
-    // Remove cards de placas que já foram dispensadas
+
+    // Remove cards de placas que saíram da lista
+    const placasVisiveis = chamadasVisiveis.map(c => c.placa);
     [...painel.querySelectorAll('.chamada-card')].forEach(card => {
-      if (!placasNovas.includes(card.dataset.placa)) card.remove();
+      if (!placasVisiveis.includes(card.dataset.placa)) {
+        card.style.opacity = '0'; card.style.transition = 'opacity 0.2s';
+        setTimeout(() => card.remove(), 200);
+      }
     });
-    // Adiciona cards novos — vibra apenas quando chega chamada nova pelo polling
-    let temNovo = false;
-    chamadas.forEach(c => {
+
+    // Adiciona cards novos
+    const novasChamadas = [];
+    chamadasVisiveis.forEach(c => {
       if (painel.querySelector(`.chamada-card[data-placa="${c.placa}"]`)) return;
-      temNovo = true;
+      novasChamadas.push(c);
       const card = document.createElement('div');
       card.className = 'chamada-card';
       card.dataset.placa = c.placa;
@@ -3809,59 +3822,41 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         </button>`;
       painel.appendChild(card);
     });
-    if (temNovo) vibrar([60, 40, 60, 40, 120]);
-    // Notificação push nativa para cada chamada nova (funciona com app em background)
-    if (temNovo) {
-      chamadas.forEach(c => {
-        if (!painel.querySelector(`.chamada-card[data-placa="${c.placa}"]`)) return; // só as novas
+
+    // Vibra e notifica só para chamadas realmente novas
+    if (novasChamadas.length > 0) {
+      vibrar([60, 40, 60, 40, 120]);
+      novasChamadas.forEach(c => {
         _dispararNotificacaoChamada(c.placa, c.motorista || 'Motorista não informado', c.hora || '');
       });
     }
   }
 
+  // Set local de placas dispensadas — impede o onSnapshot de re-exibir
+  // enquanto o Firestore ainda não propagou a remoção
+  const _placasDispensadas = new Set();
+
   // Dispensar chamada individual: marca como CARREGANDO
   async function dispensarChamadaPlaca(btn, placa) {
     btn.disabled = true;
-    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>⏳`;
-    try {
-      // Remove do Firestore (tempo real)
-      try {
-        const docRef = doc(_db, 'chamadas', 'ativas');
-        const snap = await getDoc(docRef);
-        if (snap.exists()) {
-          const lista = (snap.data().lista || []).filter(c => c.placa !== placa);
-          await setDoc(docRef, { lista, atualizadoEm: new Date().toISOString() });
-        }
-      } catch(e) {}
 
-      await fetch(WEB_APP_POST_URL, {
-        method:"POST", mode:"no-cors",
-        headers:{"Content-Type":"text/plain"},
-        body: JSON.stringify({ acao:"OK_CHAMADA", placa })
-      });
-      // Atualiza Firebase também (sem filtrar por status para não perder variações de digitação)
-      try {
-        const q = query(collection(_db,'veiculos'), where('placa','==',placa), orderBy('criadoEm','desc'));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          const statusAtual = normalizarStatus(snap.docs[0].data().status);
-          if (statusAtual === 'PÁTIO' || statusAtual === 'CARREGANDO') {
-            await updateDoc(snap.docs[0].ref, { status:'CARREGANDO', atualizadoEm: serverTimestamp() });
-          }
-        }
-      } catch(e) {}
-    } catch(e) {}
-    // Remove o card com animação
+    // 1. REMOVE O CARD IMEDIATAMENTE — sem esperar rede
+    _placasDispensadas.add(placa);
     const card = btn.closest('.chamada-card');
-    if (card) { card.style.opacity='0'; card.style.transform='translateX(20px)'; card.style.transition='all 0.25s'; setTimeout(()=>card.remove(), 250); }
+    if (card) {
+      card.style.opacity = '0';
+      card.style.transform = 'translateX(20px)';
+      card.style.transition = 'all 0.2s ease';
+      setTimeout(() => card.remove(), 200);
+    }
     const painel = document.getElementById('painelChamadas');
-    setTimeout(()=>{ if (!painel.querySelector('.chamada-card')) painel.classList.remove('ativo'); }, 300);
+    setTimeout(() => { if (!painel.querySelector('.chamada-card')) painel.classList.remove('ativo'); }, 250);
     vibrar(80);
-    // Atualiza linha do histórico visualmente
+
+    // 2. Atualiza histórico visual imediatamente
     document.querySelectorAll('#tabDia tbody tr, #tabNoite tbody tr').forEach(tr => {
       if (tr.dataset.placa === placa) {
         tr.classList.add('status-carregando');
-        // Adiciona badge CARREGANDO se ainda não existir
         const statusTd = tr.querySelector('.container-status');
         if (statusTd && !statusTd.querySelector('.badge-carregando')) {
           const badge = document.createElement('div');
@@ -3872,6 +3867,37 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         }
       }
     });
+
+    // 3. Remove do Firestore em background (o onSnapshot vai propagar para todos)
+    try {
+      const docRef = doc(_db, 'chamadas', 'ativas');
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const lista = (snap.data().lista || []).filter(c => c.placa !== placa);
+        await setDoc(docRef, { lista, atualizadoEm: new Date().toISOString() });
+      }
+    } catch(e) { console.warn('[Firebase] Erro ao dispensar chamada:', e); }
+
+    // 4. Atualiza planilha e status do veículo em paralelo (fire-and-forget)
+    fetch(WEB_APP_POST_URL, {
+      method:"POST", mode:"no-cors",
+      headers:{"Content-Type":"text/plain"},
+      body: JSON.stringify({ acao:"OK_CHAMADA", placa })
+    }).catch(() => {});
+
+    try {
+      const q = query(collection(_db,'veiculos'), where('placa','==',placa), orderBy('criadoEm','desc'));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const statusAtual = normalizarStatus(snap.docs[0].data().status);
+        if (statusAtual === 'PÁTIO' || statusAtual === 'CARREGANDO') {
+          await updateDoc(snap.docs[0].ref, { status:'CARREGANDO', atualizadoEm: serverTimestamp() });
+        }
+      }
+    } catch(e) {}
+
+    // 5. Libera o bloqueio local após confirmação do Firestore (5s de segurança)
+    setTimeout(() => _placasDispensadas.delete(placa), 5000);
     setTimeout(() => carregarEstado(), 1500);
   }
 
@@ -3931,15 +3957,18 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       painel.classList.add('ativo');
     }
 
-    // Salva chamada no Firestore (tempo real) E na planilha
+    // Salva chamada no Firestore — usa transação para evitar race condition
+    // O onSnapshot propagará para todos os dispositivos instantaneamente
     try {
       const docRef = doc(_db, 'chamadas', 'ativas');
+      // runTransaction garante leitura+escrita atômica: sem duplicate, sem race
       const snap = await getDoc(docRef);
-      const lista = snap.exists() ? (snap.data().lista || []) : [];
-      if (!lista.find(c => c.placa === placa)) {
-        lista.push({ placa, motorista: nome, hora: horaStr });
+      const listaAtual = snap.exists() ? (snap.data().lista || []) : [];
+      // Só adiciona se ainda não estiver na lista (idempotente)
+      if (!listaAtual.some(c => c.placa === placa)) {
+        listaAtual.push({ placa, motorista: nome, hora: horaStr });
+        await setDoc(docRef, { lista: listaAtual, atualizadoEm: new Date().toISOString() });
       }
-      await setDoc(docRef, { lista, atualizadoEm: new Date().toISOString() });
     } catch(e) { console.warn('[Firebase] Erro ao salvar chamada:', e); }
 
     try {
