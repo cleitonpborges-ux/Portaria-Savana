@@ -131,6 +131,138 @@
       --shadow-lg: 0 12px 40px rgba(0,0,0,0.5);
     }
 
+    /* ===================== ALTO CONTRASTE ===================== */
+    body.modo-contraste {
+      --bg: #ffffff;
+      --card-bg: #ffffff;
+      --text-main: #000000;
+      --text-muted: #333333;
+      --border: #000000;
+      --primary: #000000;
+      --primary-light: #111111;
+      --accent: #0000cc;
+      --accent-light: #ddeeff;
+      --success: #006600;
+      --success-light: #ccffcc;
+      --danger: #cc0000;
+      --danger-light: #ffcccc;
+      --shadow-sm: 0 2px 4px rgba(0,0,0,0.4);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.6);
+    }
+    /* Header e strip */
+    body.modo-contraste .header-topo {
+      background: #ffffff;
+      border: 2px solid #000;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+    }
+    body.modo-contraste .turno-strip {
+      background: #000;
+      border: 2px solid #000;
+    }
+    body.modo-contraste .btn-troca-turno {
+      background: rgba(255,255,255,0.15);
+      border: 1.5px solid rgba(255,255,255,0.6);
+      color: #fff;
+      font-weight: 800;
+    }
+
+    /* Tabs */
+    body.modo-contraste .tab-btn {
+      background: #fff;
+      border: 2px solid #ccc;
+      color: #333;
+    }
+    body.modo-contraste .tab-btn.active {
+      border-color: #000;
+      color: #000;
+      font-weight: 900;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    /* Mini-cards (pátio / carregados) */
+    body.modo-contraste .mini-card {
+      background: #fff;
+      border: 2px solid #000;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+    body.modo-contraste .mini-card b { color: #000; }
+    body.modo-contraste .mini-card span { color: #333; }
+    body.modo-contraste .mini-card[data-tipo="patio"] { border-bottom: 4px solid #000; }
+    body.modo-contraste .mini-card[data-tipo="carga"] { border-bottom: 4px solid #006600; }
+    body.modo-contraste .resumo-produto .prod-pill {
+      background: #ddeeff;
+      color: #000;
+      border: 1px solid #0000cc;
+      font-weight: 800;
+    }
+
+    /* Card do formulário */
+    body.modo-contraste .card {
+      background: #fff;
+      border: 2px solid #000;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+    }
+    body.modo-contraste .card-header { border-bottom: 2px solid #000; }
+    body.modo-contraste .card-header-title.azul { color: #0000cc; }
+    body.modo-contraste .card-header-title.verde { color: #006600; }
+
+    /* Inputs / selects / textareas */
+    body.modo-contraste input,
+    body.modo-contraste select,
+    body.modo-contraste textarea {
+      border-width: 2px;
+      border-color: #000;
+      font-weight: 600;
+      background: #fff;
+      color: #000;
+    }
+    body.modo-contraste input:focus,
+    body.modo-contraste select:focus,
+    body.modo-contraste textarea:focus {
+      border-color: #0000cc;
+      box-shadow: 0 0 0 4px rgba(0,0,200,0.2);
+    }
+    body.modo-contraste input::placeholder,
+    body.modo-contraste textarea::placeholder { color: #666; }
+
+    /* Labels e rótulos */
+    body.modo-contraste label,
+    body.modo-contraste .campo-label,
+    body.modo-contraste .input-label { color: #000; font-weight: 700; }
+
+    /* Botões de ação principais */
+    body.modo-contraste .btn-entrar {
+      background: #000;
+      color: #fff;
+      border: 2px solid #000;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    }
+    body.modo-contraste .btn-sair {
+      background: #006600;
+      color: #fff;
+      border: 2px solid #004400;
+      box-shadow: 0 4px 10px rgba(0,100,0,0.4);
+    }
+    body.modo-contraste .btn-acao {
+      font-weight: 900;
+      letter-spacing: 0.5px;
+    }
+
+    /* Ícone de back / seta no form */
+    body.modo-contraste .card-header .back-btn,
+    body.modo-contraste .card-header svg { color: #000; stroke: #000; }
+
+    /* Gear menu */
+    body.modo-contraste .gear-panel {
+      background: #fff;
+      border: 2px solid #000;
+    }
+    body.modo-contraste .gear-item {
+      background: #f0f0f0;
+      border: 1.5px solid #000;
+    }
+
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
     body {
@@ -856,7 +988,7 @@
       align-items: center;
       gap: 5px;
       margin-top: 8px;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
     }
 
     /* Base comum para st-badge, btn-edit, btn-chamar, btn-obs */
@@ -868,17 +1000,18 @@
       align-items: center;
       justify-content: center;
       height: 26px;           /* altura fixa = tudo alinhado */
-      padding: 0 10px;
-      border-radius: 13px;    /* pílula perfeita */
-      font-size: 0.58rem;
+      padding: 0 9px;
+      border-radius: 13px;
+      font-size: 0.57rem;
       font-weight: 700;
       font-family: inherit;
       text-transform: uppercase;
       white-space: nowrap;
       cursor: pointer;
       border: none;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.2px;
       transition: all 0.15s;
+      flex-shrink: 0;
     }
 
     .st-badge:active,
@@ -909,36 +1042,118 @@
     }
 
     /* ===================== BANNER CHAMADA ===================== */
-    .banner-chamada {
+    /* ===================== PAINEL DE CHAMADAS ===================== */
+    #painelChamadas {
       display: none;
-      background: var(--warn-light);
-      border: 2px solid var(--warn);
-      border-radius: var(--radius-md);
-      padding: 16px;
+      flex-direction: column;
+      gap: 10px;
       margin-bottom: 16px;
     }
+    #painelChamadas.ativo { display: flex; }
 
-    .banner-chamada.ativo { display: block; animation: pulsar 1.5s infinite; }
-    .banner-titulo { font-size: 0.65rem; font-weight: 700; color: #92400e; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.3px; }
-    .banner-msg { font-size: 1rem; font-weight: 700; color: var(--primary); margin-bottom: 12px; }
+    .chamada-card {
+      background: var(--primary);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: var(--shadow-md);
+      animation: slideInChamada 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .chamada-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 4px;
+      background: var(--warn);
+      border-radius: 4px 0 0 4px;
+      animation: pulsarBorda 1.4s infinite;
+    }
+    @keyframes pulsarBorda {
+      0%,100% { background: var(--warn); }
+      50% { background: #f97316; }
+    }
+    @keyframes slideInChamada {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .chamada-icone {
+      flex-shrink: 0;
+      width: 38px;
+      height: 38px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: sinoBalanco 0.5s infinite alternate ease-in-out;
+    }
+    .chamada-icone svg {
+      filter: drop-shadow(0 0 6px rgba(251,191,36,0.7));
+    }
+    @keyframes sinoBalanco {
+      from { transform: rotate(-12deg); }
+      to   { transform: rotate(12deg); }
+    }
+
+    .chamada-info { flex: 1; min-width: 0; }
+    .chamada-placa {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 2px;
+      line-height: 1;
+    }
+    .chamada-motorista {
+      font-size: 0.68rem;
+      color: rgba(255,255,255,0.65);
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .chamada-hora {
+      font-size: 0.6rem;
+      color: var(--warn);
+      font-weight: 700;
+      margin-top: 2px;
+      letter-spacing: 0.5px;
+    }
 
     .btn-ok-chamada {
-      background: linear-gradient(135deg, var(--success), #15803d);
+      background: linear-gradient(135deg, #16a34a, #15803d);
       border: none;
       color: white;
       font-weight: 700;
-      padding: 14px 20px;
+      padding: 12px 16px;
       border-radius: var(--radius-sm);
       cursor: pointer;
-      font-size: 0.85rem;
+      font-size: 0.72rem;
       text-transform: uppercase;
-      width: 100%;
       font-family: inherit;
       transition: all 0.15s;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      min-width: 68px;
+      letter-spacing: 0.3px;
     }
-    .btn-ok-chamada:active { transform: scale(0.97); }
+    .btn-ok-chamada svg { display: block; }
+    .btn-ok-chamada:active { transform: scale(0.95); }
+    .btn-ok-chamada:disabled { background: #4b5563; cursor: not-allowed; }
 
-    @keyframes pulsar { 0%,100%{border-color:var(--warn);} 50%{border-color:var(--danger);} }
+    /* Linha do histórico com status CARREGANDO */
+    tr.status-carregando { background: rgba(234,179,8,0.08) !important; }
+    tr.status-carregando td:first-child { border-left: 3px solid #ca8a04; }
+
+    @keyframes pulsar { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
 
     /* ===================== MODAL ===================== */
     .modal-overlay {
@@ -1770,6 +1985,14 @@
           </svg>
           <span class="gear-item-label">Planilha</span>
         </button>
+        <!-- Gerenciar Produtos (admin) -->
+        <button class="gear-item" id="btnGerenciarProdutos" onclick="abrirGerenciarProdutos(); fecharGear()" title="Gerenciar Produtos" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+            <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M16 3H8l-2 4h12l-2-4z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="gear-item-label">Produtos</span>
+        </button>
         <button class="gear-item" id="btnLimparDados" onclick="limparTodosDados(); fecharGear()" title="Limpar Dados" style="color: var(--danger, #dc2626); display:none">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
             <polyline points="3 6 5 6 21 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1801,7 +2024,7 @@
   <div class="turno-strip" id="turnoStrip">
     <div class="turno-strip-left">
       <div class="turno-strip-name" id="turnoNomeAtual">TURNO EM ANDAMENTO</div>
-      <div class="turno-strip-sub" id="turnoPorteiroAtual">Nenhuma troca registrada</div>
+      <div class="turno-strip-sub" id="turnoPorteiroAtual">Nenhum porteiro informado</div>
     </div>
     <button class="btn-troca-turno" onclick="abrirModalTurno()">🔄 Trocar Turno</button>
   </div>
@@ -1863,7 +2086,10 @@
     <div class="hist-barra-inner">
       <input type="text" class="input-busca" id="campoBusca" placeholder="🔍 Buscar placa ou motorista..." oninput="filtrarHistorico(this.value)">
       <div class="turno-header label-dia" id="turnoHeaderDia">
-        <span>☀️ Turno Dia</span>
+        <span style="display:flex;align-items:center;gap:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          Turno Dia
+        </span>
         <button class="btn-limpar" onclick="limparTabela('tabDia')">Zerar</button>
       </div>
     </div>
@@ -1977,11 +2203,8 @@
 
   <!-- ABA ENTRADA -->
   <div id="abaEntrada" class="card active">
-    <div id="bannerChamada" class="banner-chamada">
-      <div class="banner-titulo">📢 Chamada Ativa</div>
-      <div class="banner-msg" id="bannerMsg"></div>
-      <button class="btn-ok-chamada" onclick="dispensarChamada(this)">✅ OK — Portaria Ciente</button>
-    </div>
+    <!-- PAINEL DE CHAMADAS MÚLTIPLAS -->
+    <div id="painelChamadas"></div>
     <div class="card-header" id="headerEntrada">
       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
         <polyline points="10,12 3,12" stroke="#1565c0" stroke-width="2.5" stroke-linecap="round"/>
@@ -1990,6 +2213,7 @@
       <div class="card-header-title azul" id="tituloEntradaTexto">Nova Entrada</div>
     </div>
     <input type="hidden" id="edit_mode" value="false">
+    <input type="hidden" id="placa_original" value="">
     <div class="campo">
       <label>Placa <span style="font-size:0.52rem;color:var(--text-muted);font-weight:500;text-transform:none;">(ou use a câmera 📸)</span></label>
       <div class="placa-row">
@@ -2012,10 +2236,12 @@
     <div style="display:flex; gap:10px;">
       <div class="campo" style="flex:2; margin-bottom:10px;">
         <label>Produto</label>
-        <select id="prod_ent">
-          <option>SOJA</option><option>MILHO</option><option>MILHO WAXY</option>
-          <option>ALGODÃO</option><option>TRIGO</option><option>BRIQUETE</option><option>FERTILIZANTE</option>
+        <select id="prod_ent" onchange="onProdutoChange(this)">
+          <!-- opções geradas dinamicamente por renderProdutosSelect() -->
         </select>
+        <input type="text" id="prod_ent_manual" placeholder="DIGITAR PRODUTO..." autocomplete="off" autocorrect="off"
+          style="display:none;margin-top:6px;"
+          oninput="this.value=this.value.toUpperCase()">
       </div>
       <div class="campo" style="flex:1; margin-bottom:10px;">
         <label>Ordem</label>
@@ -2068,7 +2294,10 @@
   <div id="abaHist" class="card" style="border-top-color: var(--accent); padding-top: 8px;">
     <table id="tabDia"><tbody></tbody></table>
     <div class="turno-header label-noite">
-      <span>🌙 Turno Noite</span>
+      <span style="display:flex;align-items:center;gap:6px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        Turno Noite
+      </span>
       <button class="btn-limpar" onclick="limparTabela('tabNoite')">Zerar</button>
     </div>
     <table id="tabNoite"><tbody></tbody></table>
@@ -2083,8 +2312,8 @@
   /* ===================== FIREBASE ===================== */
   import { initializeApp }       from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
   import {
-    getFirestore, collection, doc, addDoc, updateDoc,
-    getDocs, query, where, orderBy, serverTimestamp,
+    getFirestore, collection, doc, addDoc, updateDoc, setDoc, getDoc,
+    getDocs, query, where, orderBy, serverTimestamp, onSnapshot,
     enableIndexedDbPersistence
   } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
@@ -2100,6 +2329,21 @@
 
   // Persistência offline nativa
   enableIndexedDbPersistence(_db).catch(() => {});
+
+  // ── LISTENER TEMPO REAL DE CHAMADAS (onSnapshot) ─────────────────────────
+  // Dispara instantaneamente quando qualquer dispositivo salvar uma chamada
+  let _chamadaListenerIniciado = false;
+  function iniciarListenerChamadas() {
+    if (_chamadaListenerIniciado) return;
+    _chamadaListenerIniciado = true;
+    const docRef = doc(_db, 'chamadas', 'ativas');
+    onSnapshot(docRef, (snap) => {
+      const chamadas = snap.exists() ? (snap.data().lista || []) : [];
+      renderizarPainelChamadas(chamadas);
+    }, (err) => {
+      console.warn('[Firebase] onSnapshot chamadas erro:', err);
+    });
+  }
 
   // Gera turnoId = YYYYMMDD
   function _turnoId() {
@@ -2119,6 +2363,31 @@
         atualizadoEm: serverTimestamp()
       });
     } catch(e) { console.warn('[Firebase] Entrada falhou:', e); }
+  }
+
+  // Atualiza registro existente no Firestore (edição via formulário)
+  async function _fbEditar(d) {
+    try {
+      const placaBusca = d.placaOriginal || d.placa;
+      const q = query(
+        collection(_db, 'veiculos'),
+        where('placa', '==', placaBusca),
+        where('status', '==', 'PÁTIO'),
+        orderBy('criadoEm', 'desc')
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        await updateDoc(snap.docs[0].ref, {
+          placa:          d.placa,
+          motorista:      d.motorista,
+          transportadora: d.transportadora,
+          produto:        d.produto,
+          ordem:          d.ordem,
+          observacao:     d.observacao,
+          atualizadoEm:   serverTimestamp()
+        });
+      }
+    } catch(e) { console.warn('[Firebase] Editar falhou:', e); }
   }
 
   // Atualiza saída no Firestore
@@ -2717,10 +2986,38 @@
   }
 
   function toggleModoNoite() {
-    const noite = !document.body.classList.contains('modo-noite');
+    const estavaNoite = document.body.classList.contains('modo-noite');
+    const noite = !estavaNoite;
     modoNoiteForced = noite;
     document.body.classList.toggle('modo-noite', noite);
     _atualizarUITema(noite);
+
+    // Só pergunta sobre alto contraste na transição NOITE → DIA
+    if (estavaNoite && !noite) {
+      mostrarDialog({
+        icone: '☀️',
+        titulo: 'Alto Contraste',
+        msg: 'DESEJA ATIVAR O ALTO CONTRASTE?',
+        botoes: [
+          { texto: 'SIM', tipo: 'ok' },
+          { texto: 'NÃO', tipo: 'cancel' }
+        ]
+      }).then(resposta => {
+        if (resposta === true) {
+          // Ativa contraste (se não estiver ativo)
+          if (!document.body.classList.contains('modo-contraste')) {
+            toggleAltoContraste();
+          } else {
+            mostrarToast('☀️ Alto Contraste já ativado', 'info', 2000);
+          }
+        } else {
+          // Garante que o contraste está desativado
+          if (document.body.classList.contains('modo-contraste')) {
+            toggleAltoContraste();
+          }
+        }
+      });
+    }
   }
 
   /* ===================== GEAR MENU ===================== */
@@ -2839,20 +3136,42 @@
   };
 
   /* ===================== TURNO — PERSISTÊNCIA ===================== */
-  function salvarTurno() {
-    const salvo = { porteiro: turnoAtual.porteiro, inicio: turnoAtual.inicio ? turnoAtual.inicio.toISOString() : null, trocas: turnoAtual.trocas };
+  // Salva no localStorage (fallback offline) E no Firestore (sync entre dispositivos)
+  async function salvarTurno() {
+    const salvo = {
+      porteiro: turnoAtual.porteiro,
+      inicio:   turnoAtual.inicio ? turnoAtual.inicio.toISOString() : null,
+      trocas:   turnoAtual.trocas
+    };
     localStorage.setItem(LS_TURNO_KEY, JSON.stringify(salvo));
+    try {
+      await setDoc(doc(_db, 'turno', 'atual'), { ...salvo, atualizadoEm: new Date().toISOString() });
+    } catch(e) { console.warn('[Firebase] Falha ao salvar turno:', e); }
   }
 
-  function carregarTurno() {
+  // Carrega do Firestore (sync); fallback para localStorage se offline
+  async function carregarTurno() {
+    try {
+      const snap = await getDoc(doc(_db, 'turno', 'atual'));
+      if (snap.exists()) {
+        const salvo = snap.data();
+        turnoAtual.porteiro = salvo.porteiro || '';
+        turnoAtual.inicio   = salvo.inicio ? new Date(salvo.inicio) : null;
+        turnoAtual.trocas   = salvo.trocas || [];
+        localStorage.setItem(LS_TURNO_KEY, JSON.stringify(salvo));
+        atualizarBarraTurno();
+        return;
+      }
+    } catch(e) { console.warn('[Firebase] Turno offline, usando localStorage:', e); }
     try {
       const salvo = JSON.parse(localStorage.getItem(LS_TURNO_KEY) || 'null');
       if (salvo) {
         turnoAtual.porteiro = salvo.porteiro || '';
-        turnoAtual.inicio = salvo.inicio ? new Date(salvo.inicio) : null;
-        turnoAtual.trocas = salvo.trocas || [];
+        turnoAtual.inicio   = salvo.inicio ? new Date(salvo.inicio) : null;
+        turnoAtual.trocas   = salvo.trocas || [];
       }
     } catch(e) {}
+    atualizarBarraTurno();
   }
 
   function carregarObs() {
@@ -3020,27 +3339,25 @@
     const criticos = emPatio.filter(v => v.chegadaTimestamp && (Date.now()-v.chegadaTimestamp) > 4*3600000);
     const criticosStr = criticos.length > 0 ? criticos.map(v=>`  • ${v.placa} (${v.motorista||'---'})`).join('\n') : '  • Nenhum';
 
-    let trocasStr = '  • Nenhuma troca registrada';
+    let trocasStr = '  • Nenhum porteiro informado';
     if (turnoAtual.trocas.length > 0) { trocasStr = turnoAtual.trocas.map(t=>`  • ${t.porteiro} — ${t.data} às ${t.hora}`).join('\n'); }
 
     const texto =
-`📋 Relatório do Turno
-🚛 PORTARIA SAVANA — RELATÓRIO
-📅 ${dataStr} às ${horaStr}${turnoAtual.porteiro ? '\n👤 Porteiro: ' + turnoAtual.porteiro : ''}
-📥 ENTRADAS NO TURNO: *${totalEntradas}*
-━━━━━━━━━━━━━━━━━━━━━━━
-🟨 NO PÁTIO: ${emPatio.length} 
-${resumoPatio}${detalhePatioStr}
+`*RELATÓRIO — PORTARIA SAVANA* 
+${dataStr} às ${horaStr}${turnoAtual.porteiro ? '\n👤 Porteiro: ' + turnoAtual.porteiro : ''}
+━━━━━━━━━━━━━━━━━━━━
+*PÁTIO DE TRIAGEM: ${emPatio.length}* 
+${detalhePatioStr}
 
-🟩 CARREGADOS/SAÍDOS: ${saidos.length} 
+CARREGADOS: ${saidos.length} 
 ${resumoSaida}${detalheCargaStr}
 
-⚠️ AGUARDANDO HÁ +4H:
+AGUARDANDO HÁ +4H:
 ${criticosStr}
 
-🔄 TROCAS DE TURNO:
+Porteiro:
 ${trocasStr}
-━━━━━━━━━━━━━━━━━━━━━━━`;
+`
 
     document.getElementById('relatorioTexto').innerText = texto;
   }
@@ -3264,18 +3581,11 @@ ${trocasStr}
 
     dados.sort((a, b) => a.chegada - b.chegada);
 
-    const seqPorProduto = {};
-    dados.forEach(r => {
-      const prod = r.produto || '---';
-      if (!seqPorProduto[prod]) seqPorProduto[prod] = 0;
-      seqPorProduto[prod]++;
-      r.seqProduto = seqPorProduto[prod];
-    });
-
     // Após 19h: registros com SAÍDA são ignorados na renderização da tela
     // (continuam salvos no Firebase e na planilha)
     const ocultarSaidas = new Date().getHours() >= 19;
 
+    // 1º PASSO: pré-processa timestamps e determina quem vai aparecer na tela
     dados.forEach(r => {
       if (r.dataEntrada && !r.chegadaTimestamp) {
         try {
@@ -3285,7 +3595,28 @@ ${trocasStr}
           r.chegadaTimestamp = new Date(a,m-1,d,h,mi).getTime();
         } catch(e) {}
       }
-      if (r.status === "PÁTIO") {
+      // Marca quem vai ser exibido (antes de numerar)
+      r._visivel = (r.status === "PÁTIO" || r.status === "CARREGANDO")
+                || (r.status === "SAÍDA" && !ocultarSaidas);
+    });
+
+    // 2º PASSO: gera seqGeral (N°) e seqProduto (#) APENAS para os veículos visíveis
+    // Caminhões ocultos após 19h não "gastam" número nem na fila geral nem por produto
+    const seqPorProduto = {};
+    let seqGeral = 0;
+    dados.forEach(r => {
+      if (!r._visivel) { r.seqProduto = 0; r.seqGeral = 0; return; }
+      seqGeral++;
+      r.seqGeral = seqGeral;
+      const prod = r.produto || '---';
+      if (!seqPorProduto[prod]) seqPorProduto[prod] = 0;
+      seqPorProduto[prod]++;
+      r.seqProduto = seqPorProduto[prod];
+    });
+
+    // 3º PASSO: popula arrays e histórico apenas com quem é visível
+    dados.forEach(r => {
+      if (r.status === "PÁTIO" || r.status === "CARREGANDO") {
         veiculosPatio.push(r);
         addHist(r, 'ENTRADA', r.dataEntrada);
       } else if (r.status === "SAÍDA") {
@@ -3300,12 +3631,10 @@ ${trocasStr}
     atualizarDetalhesProdutos();
     atualizarBarraTurno();
 
-    if (json.chamada) {
-      document.getElementById('bannerMsg').innerText = json.chamada;
-      document.getElementById('bannerChamada').classList.add('ativo');
-    } else {
-      document.getElementById('bannerChamada').classList.remove('ativo');
-    }
+    // Suporte a chamadas múltiplas: json.chamadas = [{placa,motorista,hora}]
+    // Retrocompatível: json.chamada (string legada) também funciona
+    const chamadas = json.chamadas || (json.chamada ? [{ placa: json.chamada, motorista: '', hora: '' }] : []);
+    renderizarPainelChamadas(chamadas);
   }
 
   /* ===================== ADD HISTÓRICO ===================== */
@@ -3322,24 +3651,35 @@ ${trocasStr}
     const tempoBadge = tempo ? `<span class="tempo-badge ${tempo.classe}">⏱ ${tempo.texto}</span>` : '';
 
     const tr = document.createElement("tr");
-    tr.dataset.busca = `${d.placa} ${d.motorista||''} ${d.transportadora||''} ${d.produto||''}`.toUpperCase();
+    if (d.status === 'CARREGANDO') tr.classList.add('status-carregando');
+    tr.dataset.busca          = `${d.placa} ${d.motorista||''} ${d.transportadora||''} ${d.produto||''}`.toUpperCase();
+    tr.dataset.placa          = d.placa          || '';
+    tr.dataset.motorista      = d.motorista       || '';
+    tr.dataset.transportadora = d.transportadora  || '';
+    tr.dataset.produto        = d.produto         || '';
+    tr.dataset.ordem          = d.ordem           || '';
+    tr.dataset.obs            = obsLocal          || '';
 
     const chamadaInfo = historicoChamadas.find(c => c.placa === d.placa);
     const chamadaBadge = chamadaInfo
-      ? `<div class="chamada-inline" id="chamada-inline-${d.placa}">📢 <b>${chamadaInfo.count}x</b> chamado — última: ${chamadaInfo.ultimaHora}</div>`
+      ? `<div class="chamada-inline" id="chamada-inline-${d.placa}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.36 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg> <b>${chamadaInfo.count}x</b> chamado — última: ${chamadaInfo.ultimaHora}</div>`
       : `<div class="chamada-inline chamada-inline-vazia" id="chamada-inline-${d.placa}"></div>`;
 
     tr.innerHTML = `
       <td class="container-info" style="vertical-align:top;padding-top:12px;padding-bottom:12px;">
-        <span style="font-size:0.55rem;color:var(--text-muted);font-weight:700;">N°${String(d.chegada).padStart(2,'0')}${d.seqProduto ? ` <span style="color:var(--accent);margin-left:4px;">${d.produto||''} #${d.seqProduto}</span>` : ''}</span>
+        <span style="font-size:0.55rem;color:var(--text-muted);font-weight:700;">N°${String(d.seqGeral).padStart(2,'0')}${d.seqProduto ? ` <span style="color:var(--accent);margin-left:4px;">${d.produto||''} #${d.seqProduto}</span>` : ''}</span>
         <div style="font-size:1rem;font-weight:700;color:var(--text-main);font-family:'JetBrains Mono',monospace;letter-spacing:1px;margin:2px 0 1px;">${d.placa}</div>
         <div class="detalhe-linha"><b>MOT:</b> ${d.motorista||'---'}</div>
-        ${obsLocal ? `<div class="obs-linha">📝 ${obsLocal}</div>` : ''}
+        ${obsLocal ? `<div class="obs-linha"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>${obsLocal}</div>` : ''}
         ${tempoBadge}
         ${tipo==='ENTRADA' ? `
           <div class="row-btns">
-            <button class="btn-chamar" onclick="chamarVeiculo('${d.placa}','${d.motorista}',this)">📢 Chamar</button>
-            <button class="btn-obs" onclick="abrirModalObs('${d.placa}','${(obsLocal||'').replace(/'/g,"\\'")}')">📝 Obs</button>
+            <button class="btn-chamar" onclick="chamarVeiculoEl(this)" style="display:inline-flex;align-items:center;gap:5px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.36 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg>
+              Chamar
+            </button>
+            <button class="btn-obs" onclick="abrirModalObsEl(this)">Obs</button>
+            <button class="st-badge" style="background:${d.ordem==='SIM'?'var(--success)':'var(--danger)'}" onclick="toggleOrdem(this,'${d.placa}')">${d.ordem}</button>
           </div>` : ''}
         ${chamadaBadge}
       </td>
@@ -3351,10 +3691,9 @@ ${trocasStr}
         <span class="data-hora-canto">${dStr} ${hStr}</span>
         ${tipo==='ENTRADA' ? `
           <div class="row-btns" style="justify-content:flex-end;margin-top:10px;">
-            <button class="st-badge" style="background:${d.ordem==='SIM'?'var(--success)':'var(--danger)'}" onclick="toggleOrdem(this,'${d.placa}')">${d.ordem}</button>
-            <button class="btn-edit" title="Editar" onclick="prepararEdicao('${d.placa}','${d.motorista}','${d.transportadora}','${d.produto}','${d.ordem}')">${EDIT_ICON_SVG}</button>
+            <button class="btn-edit" title="Editar" onclick="prepararEdicaoEl(this)">${EDIT_ICON_SVG}</button>
           </div>
-        ` : `<div style="margin-top:10px;"><span style="color:var(--success);font-weight:700;font-size:0.62rem;">SAÍDA ✅</span></div>`}
+        ` : `<div style="margin-top:10px;"><span style="color:var(--success);font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SAÍDA</span></div>`}
       </td>`;
     tbody.appendChild(tr);
   }
@@ -3368,14 +3707,109 @@ ${trocasStr}
   }
 
   /* ===================== CHAMADAS ===================== */
+  const CHAMAR_ICON_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.36 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg> Chamar`;
+  const CHAMAR_OK_SVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Enviado`;
+
+  // Renderiza o painel de chamadas múltiplas
+  function renderizarPainelChamadas(chamadas) {
+    const painel = document.getElementById('painelChamadas');
+    if (!chamadas || chamadas.length === 0) {
+      painel.classList.remove('ativo');
+      painel.innerHTML = '';
+      return;
+    }
+    painel.classList.add('ativo');
+    // Mantém cards existentes, adiciona novos, remove dispensados
+    const placasNovas = chamadas.map(c => c.placa);
+    // Remove cards de placas que já foram dispensadas
+    [...painel.querySelectorAll('.chamada-card')].forEach(card => {
+      if (!placasNovas.includes(card.dataset.placa)) card.remove();
+    });
+    // Adiciona cards novos — vibra apenas quando chega chamada nova pelo polling
+    let temNovo = false;
+    chamadas.forEach(c => {
+      if (painel.querySelector(`.chamada-card[data-placa="${c.placa}"]`)) return;
+      temNovo = true;
+      const card = document.createElement('div');
+      card.className = 'chamada-card';
+      card.dataset.placa = c.placa;
+      card.innerHTML = `
+        <div class="chamada-icone">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+        </div>
+        <div class="chamada-info">
+          <div class="chamada-placa">${c.placa}</div>
+          <div class="chamada-motorista">${c.motorista || 'Motorista não informado'}</div>
+          <div class="chamada-hora">${c.hora && c.hora.length <= 5 ? '⏱ ' + c.hora : 'CHAMADA ATIVA'}</div>
+        </div>
+        <button class="btn-ok-chamada" onclick="dispensarChamadaPlaca(this,'${c.placa}')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          OK
+        </button>`;
+      painel.appendChild(card);
+    });
+    if (temNovo) vibrar([60, 40, 60, 40, 120]);
+  }
+
+  // Dispensar chamada individual: marca como CARREGANDO
+  async function dispensarChamadaPlaca(btn, placa) {
+    btn.disabled = true;
+    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>⏳`;
+    try {
+      // Remove do Firestore (tempo real)
+      try {
+        const docRef = doc(_db, 'chamadas', 'ativas');
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const lista = (snap.data().lista || []).filter(c => c.placa !== placa);
+          await setDoc(docRef, { lista, atualizadoEm: new Date().toISOString() });
+        }
+      } catch(e) {}
+
+      await fetch(WEB_APP_POST_URL, {
+        method:"POST", mode:"no-cors",
+        headers:{"Content-Type":"text/plain"},
+        body: JSON.stringify({ acao:"OK_CHAMADA", placa })
+      });
+      // Atualiza Firebase também
+      try {
+        const q = query(collection(_db,'veiculos'), where('placa','==',placa), where('status','==','PÁTIO'), orderBy('criadoEm','desc'));
+        const snap = await getDocs(q);
+        if (!snap.empty) await updateDoc(snap.docs[0].ref, { status:'CARREGANDO', atualizadoEm: serverTimestamp() });
+      } catch(e) {}
+    } catch(e) {}
+    // Remove o card com animação
+    const card = btn.closest('.chamada-card');
+    if (card) { card.style.opacity='0'; card.style.transform='translateX(20px)'; card.style.transition='all 0.25s'; setTimeout(()=>card.remove(), 250); }
+    const painel = document.getElementById('painelChamadas');
+    setTimeout(()=>{ if (!painel.querySelector('.chamada-card')) painel.classList.remove('ativo'); }, 300);
+    vibrar(80);
+    // Atualiza linha do histórico visualmente
+    document.querySelectorAll('#tabDia tbody tr, #tabNoite tbody tr').forEach(tr => {
+      if (tr.dataset.placa === placa) tr.classList.add('status-carregando');
+    });
+    setTimeout(() => carregarEstado(), 1500);
+  }
+
+  // Retrocompatibilidade — chamada legada (string única)
+  async function dispensarChamada(btn) {
+    btn.disabled = true;
+    document.getElementById('painelChamadas').classList.remove('ativo');
+    try { await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ acao:"OK_CHAMADA" }) }); } catch(e) {}
+    vibrar(60);
+    btn.disabled = false;
+  }
+
   async function chamarVeiculo(placa, motorista, btn) {
     const nome = motorista || placa;
-    const msg = `🚛 VEÍCULO ${placa} — SR(A). ${nome}, FAVOR DIRIGIR-SE À BALANÇA!`;
-    const original = btn.innerText;
-    btn.innerText = "⏳"; btn.style.background = "#aaa"; btn.disabled = true;
-
     const agora = new Date();
     const horaStr = agora.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+    btn.style.background = "#9ca3af"; btn.disabled = true;
+
     const idx = historicoChamadas.findIndex(c => c.placa === placa);
     if (idx >= 0) { historicoChamadas[idx].count++; historicoChamadas[idx].ultimaHora = horaStr; }
     else { historicoChamadas.unshift({ placa, motorista: motorista||'---', hora: horaStr, ultimaHora: horaStr, count: 1 }); }
@@ -3384,40 +3818,75 @@ ${trocasStr}
     const badgeEl = document.getElementById(`chamada-inline-${placa}`);
     if (badgeEl && chamadaAtual) {
       badgeEl.className = 'chamada-inline';
-      badgeEl.innerHTML = `📢 <b>${chamadaAtual.count}x</b> chamado — última: ${chamadaAtual.ultimaHora}`;
+      badgeEl.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.36 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg> <b>${chamadaAtual.count}x</b> chamado — última: ${chamadaAtual.ultimaHora}`;
     }
 
+    // ── EXIBE IMEDIATAMENTE NO PAINEL PRINCIPAL ──────────────────────────────
+    // Não espera o próximo polling — a chamada aparece na tela na hora
+    const painel = document.getElementById('painelChamadas');
+    if (!painel.querySelector(`.chamada-card[data-placa="${placa}"]`)) {
+      const veiculo = veiculosPatio.find(v => v.placa === placa);
+      const motoristaExibir = motorista || (veiculo && veiculo.motorista) || 'Motorista não informado';
+      const card = document.createElement('div');
+      card.className = 'chamada-card';
+      card.dataset.placa = placa;
+      card.innerHTML = `
+        <div class="chamada-icone">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+        </div>
+        <div class="chamada-info">
+          <div class="chamada-placa">${placa}</div>
+          <div class="chamada-motorista">${motoristaExibir}</div>
+          <div class="chamada-hora">⏱ ${horaStr}</div>
+        </div>
+        <button class="btn-ok-chamada" onclick="dispensarChamadaPlaca(this,'${placa}')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          OK
+        </button>`;
+      painel.appendChild(card);
+      painel.classList.add('ativo');
+    }
+
+    // Salva chamada no Firestore (tempo real) E na planilha
     try {
-      await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ acao:"CHAMAR", mensagem: msg }) });
+      const docRef = doc(_db, 'chamadas', 'ativas');
+      const snap = await getDoc(docRef);
+      const lista = snap.exists() ? (snap.data().lista || []) : [];
+      if (!lista.find(c => c.placa === placa)) {
+        lista.push({ placa, motorista: nome, hora: horaStr });
+      }
+      await setDoc(docRef, { lista, atualizadoEm: new Date().toISOString() });
+    } catch(e) { console.warn('[Firebase] Erro ao salvar chamada:', e); }
+
+    try {
+      fetch(WEB_APP_POST_URL, {
+        method:"POST", mode:"no-cors",
+        headers:{"Content-Type":"text/plain"},
+        body: JSON.stringify({ acao:"CHAMAR", placa, motorista: nome, hora: horaStr })
+      });
     } catch(e) {}
 
-    vibrar([50, 30, 50]);
-    btn.innerText = "✅"; btn.style.background = "var(--success)";
-    setTimeout(() => { btn.innerText = original; btn.style.background = ''; btn.style.cssText=''; btn.disabled = false; }, 3000);
-  }
-
-  async function dispensarChamada(btn) {
-    btn.innerText = "⏳ Processando..."; btn.disabled = true;
-    document.getElementById('bannerChamada').classList.remove('ativo');
-    try {
-      await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ acao:"OK_CHAMADA" }) });
-    } catch(e) {}
-    vibrar(60);
-    btn.innerText = "✅ OK — Portaria Ciente"; btn.disabled = false;
+    btn.innerHTML = CHAMAR_OK_SVG; btn.style.background = "var(--success)";
+    setTimeout(() => { btn.innerHTML = CHAMAR_ICON_SVG; btn.style.background = ''; btn.style.cssText='display:inline-flex;align-items:center;gap:5px;'; btn.disabled = false; }, 3000);
   }
 
   /* ===================== ENTRADA ===================== */
   async function registrarEntrada() {
     const btn = document.getElementById('btnEnt');
     const isEdit = document.getElementById('edit_mode').value === "true";
+    const placaOriginal = document.getElementById('placa_original').value || '';
     const d = {
       placa: document.getElementById('p_ent').value.toUpperCase().trim(),
       motorista: document.getElementById('m_ent').value.toUpperCase().trim(),
       transportadora: document.getElementById('t_ent').value.toUpperCase().trim(),
-      produto: document.getElementById('prod_ent').value,
+      produto: getProdutoSelecionado(),
       ordem: document.getElementById('o_ent').value,
       observacao: document.getElementById('obs_ent').value.toUpperCase().trim(),
-      acao: isEdit ? "EDITAR" : "ENTRADA"
+      acao: isEdit ? "EDITAR" : "ENTRADA",
+      placaOriginal: isEdit ? placaOriginal : undefined
     };
     if (!d.placa) {
       await mostrarDialog({ icone: '🚛', titulo: 'Placa obrigatória', msg: 'Informe a placa do veículo antes de salvar.', botoes: [{ texto: 'OK', tipo: 'ok' }] });
@@ -3436,10 +3905,10 @@ ${trocasStr}
     setStatusEnt('enviando', '📡 Dados subindo...');
 
     const enviar = async () => {
-      // Apps Script (planilha) — mantém igual
+      // Apps Script (planilha)
       await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(d) });
-      // Firebase (dashboard tempo real) — em paralelo
-      _fbEntrada(d);
+      // Firebase — edição atualiza doc existente; entrada cria novo
+      if (isEdit) { _fbEditar(d); } else { _fbEntrada(d); }
     };
 
     try {
@@ -3454,6 +3923,7 @@ ${trocasStr}
       document.getElementById('t_ent').value = "";
       document.getElementById('obs_ent').value = "";
       document.getElementById('edit_mode').value = "false";
+      document.getElementById('placa_original').value = "";
       document.getElementById('tituloEntradaTexto').innerText = "Nova Entrada";
       carregarEstado();
     } catch(e) {
@@ -3512,25 +3982,63 @@ ${trocasStr}
   /* ===================== OUTROS ===================== */
   async function toggleOrdem(btn, placa) {
     const novo = btn.innerText === 'SIM' ? 'NÃO' : 'SIM';
-    btn.innerText = "⏳";
+    // Atualiza UI imediatamente (não espera o servidor)
+    btn.style.background = novo === 'SIM' ? 'var(--success)' : 'var(--danger)';
+    btn.innerText = novo;
+    vibrar(40);
+    // Envia para o servidor em background (fire-and-forget)
     try {
-      await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ placa, ordem: novo, acao:"EDITAR_ORDEM" }) });
-      // Firebase
+      fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ placa, ordem: novo, acao:"EDITAR_ORDEM" }) });
       _fbOrdem(placa, novo);
-      vibrar(40);
-      carregarEstado();
     } catch(e) { mostrarToast('⚠️ Erro ao alterar ordem', 'error'); }
   }
 
+  // Lê os dados do dataset do <tr> com segurança (sem quebrar por aspas/caracteres especiais)
+  function prepararEdicaoEl(btn) {
+    const tr = btn.closest('tr');
+    prepararEdicao(
+      tr.dataset.placa,
+      tr.dataset.motorista,
+      tr.dataset.transportadora,
+      tr.dataset.produto,
+      tr.dataset.ordem
+    );
+  }
+
+  function chamarVeiculoEl(btn) {
+    const tr = btn.closest('tr');
+    chamarVeiculo(tr.dataset.placa, tr.dataset.motorista, btn);
+  }
+
+  function abrirModalObsEl(btn) {
+    const tr = btn.closest('tr');
+    abrirModalObs(tr.dataset.placa, observacoesMap[tr.dataset.placa] || tr.dataset.obs || '');
+  }
+
   function prepararEdicao(p, m, t, pr, ord) {
-    document.getElementById('p_ent').value = p;
+    const campPlaca = document.getElementById('p_ent');
+    campPlaca.value = p;
+    // Guarda a placa original para o backend localizar a linha correta,
+    // mesmo que o usuário altere a placa no formulário
+    document.getElementById('placa_original').value = p;
+
     document.getElementById('m_ent').value = m;
     document.getElementById('t_ent').value = t;
-    document.getElementById('prod_ent').value = pr;
+    // Tenta setar no select; se não existir, abre campo manual
+    const sel = document.getElementById('prod_ent');
+    const optExists = [...sel.options].some(o => o.value === pr);
+    if (optExists) {
+      sel.value = pr;
+      onProdutoChange(sel);
+    } else {
+      sel.value = '__OUTROS__';
+      document.getElementById('prod_ent_manual').value = pr;
+      document.getElementById('prod_ent_manual').style.display = 'block';
+    }
     document.getElementById('o_ent').value = ord;
     document.getElementById('obs_ent').value = observacoesMap[p] || '';
     document.getElementById('edit_mode').value = "true";
-    document.getElementById('tituloEntradaTexto').innerText = "Editando: " + p;
+    document.getElementById('tituloEntradaTexto').innerText = "✏️ Editando: " + p;
     switchTab('abaEntrada', document.getElementById('tabBtnEnt'));
   }
 
@@ -3641,23 +4149,53 @@ ${trocasStr}
     }
   }
 
+  /* ===================== ALTO CONTRASTE ===================== */
+  const LS_CONTRASTE = 'portaria_contraste';
+
+  function iniciarAltoContraste() {
+    if (localStorage.getItem(LS_CONTRASTE) === '1') {
+      document.body.classList.add('modo-contraste');
+    }
+  }
+
+  function toggleAltoContraste() {
+    const ativo = document.body.classList.toggle('modo-contraste');
+    localStorage.setItem(LS_CONTRASTE, ativo ? '1' : '0');
+    // Desativa modo noite se ativar contraste
+    if (ativo && document.body.classList.contains('modo-noite')) {
+      document.body.classList.remove('modo-noite');
+      modoNoiteForced = false;
+      _atualizarUITema(false);
+    }
+    mostrarToast(ativo ? '☀️ Alto Contraste ativado' : '🎨 Contraste normal', 'info', 2000);
+  }
+
+  iniciarAltoContraste();
+
   window.addEventListener('DOMContentLoaded', () => {
+    renderProdutosSelect(); // popula o select de produtos
     verificarLoginSalvo();
-    carregarTurno();
+    carregarTurno(); // async — já chama atualizarBarraTurno() internamente
     carregarObs();
-    atualizarBarraTurno();
     atualizarRelogio();
     atualizarStatusRede();
     // Sempre carrega o estado — processarDados já sabe filtrar SAÍDA após 19h
     carregarEstado();
+    iniciarListenerChamadas(); // push em tempo real para chamadas
     atualizarContadorIDB();
     // Mede em múltiplos momentos para garantir que fontes e layout já renderizaram
     ajustarContainerTop();
     setTimeout(ajustarContainerTop, 100);
     setTimeout(ajustarContainerTop, 400);
     setTimeout(ajustarContainerTop, 900);
-    setInterval(carregarEstado, 10000);
-    setInterval(atualizarBarraTurno, 60000);
+    setInterval(carregarEstado, 3000);
+
+    // Polling acelerado: puxa imediatamente ao voltar pro app (tab/tela)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') carregarEstado();
+    });
+
+    setInterval(carregarTurno, 30000); // sincroniza turno entre dispositivos a cada 30s
     setInterval(atualizarRelogio, 30000);
     setInterval(atualizarContadorIDB, 30000);
     // Verifica limpeza a cada minuto (detecta quando bater 19h com o app aberto)
@@ -3784,6 +4322,10 @@ ${trocasStr}
     // Botão limpar dados (só admin)
     const btnLD = document.getElementById('btnLimparDados');
     if (btnLD) btnLD.style.display = perm.gerenciar_perfis ? '' : 'none';
+
+    // Botão gerenciar produtos (só admin)
+    const btnGP2 = document.getElementById('btnGerenciarProdutos');
+    if (btnGP2) btnGP2.style.display = perm.gerenciar_perfis ? '' : 'none';
   }
 
   // Estado do editor
@@ -4017,6 +4559,162 @@ ${trocasStr}
     setTimeout(() => carregarEstado(), 2000);
   }
 
+  /* ===================== GERENCIAR PRODUTOS =====================
+     Admin pode criar, editar e apagar produtos.
+     Lista salva em localStorage; "Outros" sempre aparece por último.
+  ====================================================================== */
+  const LS_PRODUTOS_KEY = 'portaria_produtos_v1';
+  const PRODUTOS_PADRAO = ['SOJA','MILHO','MILHO WAXY','ALGODÃO','TRIGO','BRIQUETE','FERTILIZANTE'];
+
+  function _carregarProdutos() {
+    try {
+      const raw = localStorage.getItem(LS_PRODUTOS_KEY);
+      return raw ? JSON.parse(raw) : [...PRODUTOS_PADRAO];
+    } catch(e) { return [...PRODUTOS_PADRAO]; }
+  }
+
+  function _salvarProdutos(lista) {
+    localStorage.setItem(LS_PRODUTOS_KEY, JSON.stringify(lista));
+  }
+
+  function renderProdutosSelect() {
+    const sel = document.getElementById('prod_ent');
+    if (!sel) return;
+    const produtos = _carregarProdutos();
+    const valorAtual = sel.value;
+    sel.innerHTML = '';
+    produtos.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p; opt.textContent = p;
+      sel.appendChild(opt);
+    });
+    // Opção "Outros" sempre ao final
+    const outro = document.createElement('option');
+    outro.value = '__OUTROS__'; outro.textContent = 'OUTROS (digitar)';
+    sel.appendChild(outro);
+    // Tenta restaurar o valor anterior
+    if (valorAtual && [...sel.options].some(o => o.value === valorAtual)) {
+      sel.value = valorAtual;
+    }
+    onProdutoChange(sel);
+  }
+
+  function onProdutoChange(sel) {
+    const manual = document.getElementById('prod_ent_manual');
+    if (!manual) return;
+    if (sel.value === '__OUTROS__') {
+      manual.style.display = 'block';
+      manual.focus();
+    } else {
+      manual.style.display = 'none';
+      manual.value = '';
+    }
+  }
+
+  function getProdutoSelecionado() {
+    const sel = document.getElementById('prod_ent');
+    if (sel.value === '__OUTROS__') {
+      return document.getElementById('prod_ent_manual').value.trim().toUpperCase() || 'OUTROS';
+    }
+    return sel.value;
+  }
+
+  // Modal de gerenciar produtos
+  let _produtoEditIdx = null;
+
+  function abrirGerenciarProdutos() {
+    _renderListaProdutos();
+    document.getElementById('produtosListaView').style.display = '';
+    document.getElementById('produtosEditView').classList.remove('ativo');
+    document.getElementById('modalGerenciarProdutos').classList.add('open');
+  }
+
+  function fecharGerenciarProdutos() {
+    document.getElementById('modalGerenciarProdutos').classList.remove('open');
+    renderProdutosSelect();
+  }
+
+  document.getElementById('modalGerenciarProdutos').addEventListener('click', function(e) {
+    if (e.target === this) fecharGerenciarProdutos();
+  });
+
+  function _renderListaProdutos() {
+    const produtos = _carregarProdutos();
+    const container = document.getElementById('listaProdutosContainer');
+    container.innerHTML = '';
+    produtos.forEach((p, i) => {
+      const item = document.createElement('div');
+      item.className = 'perfil-item';
+      item.innerHTML = `
+        <div class="perfil-item-info">
+          <div class="perfil-item-nome" style="display:flex;align-items:center;gap:8px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 3H8l-2 4h12l-2-4z"/></svg>
+            ${p}
+          </div>
+        </div>
+        <div class="perfil-item-acoes">
+          <button class="btn-perfil-acao btn-perfil-editar" onclick="produtoEditar(${i})" title="Editar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn-perfil-acao btn-perfil-apagar ${produtos.length <= 1 ? 'desativado' : ''}" onclick="produtoApagar(${i})" title="Apagar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
+        </div>`;
+      container.appendChild(item);
+    });
+  }
+
+  function produtoEditarNovo() {
+    _produtoEditIdx = null;
+    document.getElementById('produtoEditTitulo').textContent = 'Novo Produto';
+    document.getElementById('produtoEditNome').value = '';
+    document.getElementById('produtosListaView').style.display = 'none';
+    document.getElementById('produtosEditView').classList.add('ativo');
+    setTimeout(() => document.getElementById('produtoEditNome').focus(), 150);
+  }
+
+  function produtoEditar(idx) {
+    const produtos = _carregarProdutos();
+    _produtoEditIdx = idx;
+    document.getElementById('produtoEditTitulo').textContent = 'Editar Produto';
+    document.getElementById('produtoEditNome').value = produtos[idx] || '';
+    document.getElementById('produtosListaView').style.display = 'none';
+    document.getElementById('produtosEditView').classList.add('ativo');
+    setTimeout(() => document.getElementById('produtoEditNome').focus(), 150);
+  }
+
+  function produtoVoltarLista() {
+    _renderListaProdutos();
+    document.getElementById('produtosListaView').style.display = '';
+    document.getElementById('produtosEditView').classList.remove('ativo');
+  }
+
+  function produtoSalvar() {
+    const nome = document.getElementById('produtoEditNome').value.trim().toUpperCase();
+    if (!nome) { mostrarToast('⚠️ Informe o nome do produto!', 'error'); return; }
+    const produtos = _carregarProdutos();
+    if (_produtoEditIdx !== null) {
+      produtos[_produtoEditIdx] = nome;
+    } else {
+      if (produtos.includes(nome)) { mostrarToast('⚠️ Produto já existe!', 'error'); return; }
+      produtos.push(nome);
+    }
+    _salvarProdutos(produtos);
+    mostrarToast('✅ Produto salvo!', 'success', 2000);
+    produtoVoltarLista();
+  }
+
+  async function produtoApagar(idx) {
+    const produtos = _carregarProdutos();
+    if (produtos.length <= 1) { mostrarToast('⚠️ Deve haver ao menos 1 produto.', 'error'); return; }
+    const ok = await mostrarDialog({ icone:'🗑️', titulo:'Apagar Produto', msg:`Apagar "${produtos[idx]}"? Essa ação não pode ser desfeita.`, botoes:[{texto:'Cancelar',tipo:'cancel'},{texto:'Apagar',tipo:'ok'}] });
+    if (!ok) return;
+    produtos.splice(idx, 1);
+    _salvarProdutos(produtos);
+    mostrarToast('🗑️ Produto apagado.', 'success', 2000);
+    _renderListaProdutos();
+  }
+
   /* ── Expõe funções ao escopo global (type=module isola o escopo) ── */
   Object.assign(window, {
     fazerLogin, trocarPerfil, aplicarPerfil, switchTab,
@@ -4026,12 +4724,17 @@ ${trocasStr}
     abrirRelatorio, abrirPlanilha, abrirModalTurno, abrirModalObs,
     abrirOCR, abrirGerenciarPerfis, limparTodosDados,
     copiarRelatorio, salvarTurno, confirmarTrocarTurno, salvarObs,
-    chamarVeiculo, dispensarChamada,
-    prepararEdicao, previewSaida,
+    chamarVeiculo, chamarVeiculoEl, dispensarChamada, dispensarChamadaPlaca,
+    prepararEdicao, prepararEdicaoEl, previewSaida,
+    abrirModalObsEl,
     filtrarHistorico, limparTabela,
     ocrConfirmar, ocrFechar, ocrReler,
     mostrarDialog, mostrarToast,
     perfilEditar, perfilApagar, perfilEditarNovo, perfilVoltarLista, perfilSalvar,
+    // Produtos
+    abrirGerenciarProdutos, fecharGerenciarProdutos,
+    produtoEditar, produtoApagar, produtoEditarNovo, produtoVoltarLista, produtoSalvar,
+    onProdutoChange, renderProdutosSelect,
   });
 
 </script>
@@ -4174,6 +4877,40 @@ ${trocasStr}
       });
     }
   </script>
+
+<!-- MODAL GERENCIAR PRODUTOS (admin) -->
+<div class="modal-perfis-overlay" id="modalGerenciarProdutos">
+  <div class="modal-perfis-box">
+    <div class="modal-perfis-handle"></div>
+    <div id="produtosListaView">
+      <div class="modal-perfis-header">
+        <div class="modal-perfis-titulo" style="display:flex;align-items:center;gap:8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 3H8l-2 4h12l-2-4z"/><path d="M12 12v3"/></svg>
+          Gerenciar Produtos
+        </div>
+        <button class="btn-novo-perfil" onclick="produtoEditarNovo()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Novo Produto
+        </button>
+      </div>
+      <div class="lista-perfis" id="listaProdutosContainer"></div>
+    </div>
+    <div class="perfil-edit-section" id="produtosEditView">
+      <div class="modal-perfis-header">
+        <button class="perfil-edit-back" onclick="produtoVoltarLista()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Voltar
+        </button>
+        <div class="modal-perfis-titulo" id="produtoEditTitulo">Novo Produto</div>
+      </div>
+      <div style="padding:0 14px 24px;display:flex;flex-direction:column;gap:10px;">
+        <label style="font-size:0.62rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">Nome do Produto</label>
+        <input class="perfil-edit-input" id="produtoEditNome" placeholder="EX: SOJA, MILHO..." maxlength="40" autocomplete="off" oninput="this.value=this.value.toUpperCase()">
+        <button class="btn-salvar-perfil" onclick="produtoSalvar()">✓ Salvar Produto</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL GERENCIAR PERFIS -->
 <div class="modal-perfis-overlay" id="modalGerenciarPerfis">
