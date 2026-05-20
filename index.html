@@ -1024,7 +1024,7 @@
     .btn-obs:active { transform: scale(0.92); }
 
     /* Cores individuais */
-    .st-badge { color: white; }
+    .st-badge { color: white; opacity: 0.55; }
 
     .btn-edit {
       background: var(--bg);
@@ -1034,15 +1034,17 @@
     }
 
     .btn-chamar {
-      background: linear-gradient(135deg, #f59e0b, #d97706);
-      color: white;
-      box-shadow: 0 2px 6px rgba(245,158,11,0.25);
+      background: rgba(245,158,11,0.10);
+      color: #b45309;
+      box-shadow: none;
+      border: 1px solid rgba(245,158,11,0.25);
     }
 
     .btn-obs {
-      background: linear-gradient(135deg, #7c3aed, #6d28d9);
-      color: white;
-      box-shadow: 0 2px 6px rgba(124,58,237,0.25);
+      background: rgba(124,58,237,0.08);
+      color: #7c3aed;
+      box-shadow: none;
+      border: 1px solid rgba(124,58,237,0.2);
     }
 
     /* ===================== BANNER CHAMADA ===================== */
@@ -1154,8 +1156,8 @@
     .btn-ok-chamada:disabled { background: #4b5563; cursor: not-allowed; }
 
     /* Linha do histórico com status CARREGANDO */
-    tr.status-carregando { background: rgba(234,179,8,0.08) !important; }
-    tr.status-carregando td:first-child { border-left: 3px solid #ca8a04; }
+    tr.status-carregando { background: rgba(37,99,235,0.08) !important; }
+    tr.status-carregando td:first-child { border-left: 3px solid #2563eb; }
 
     @keyframes pulsar { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
 
@@ -2089,13 +2091,6 @@
   <div class="hist-barra" id="histBarra">
     <div class="hist-barra-inner">
       <input type="text" class="input-busca" id="campoBusca" placeholder="🔍 Buscar placa ou motorista..." oninput="filtrarHistorico(this.value)">
-      <div class="turno-header label-dia" id="turnoHeaderDia">
-        <span style="display:flex;align-items:center;gap:6px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-          Turno Dia
-        </span>
-        <button class="btn-limpar" onclick="limparTabela('tabDia')">Zerar</button>
-      </div>
     </div>
   </div>
 </div>
@@ -2297,14 +2292,7 @@
   <!-- ABA HISTÓRICO -->
   <div id="abaHist" class="card" style="border-top-color: var(--accent); padding-top: 8px;">
     <table id="tabDia"><tbody></tbody></table>
-    <div class="turno-header label-noite">
-      <span style="display:flex;align-items:center;gap:6px;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-        Turno Noite
-      </span>
-      <button class="btn-limpar" onclick="limparTabela('tabNoite')">Zerar</button>
-    </div>
-    <table id="tabNoite"><tbody></tbody></table>
+    <table id="tabNoite" style="display:none"><tbody></tbody></table>
   </div>
 
 </div>
@@ -3678,8 +3666,7 @@ ${trocasStr}
     const hStr = dataManual ? dataManual.split(" ")[1] : agora.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     const dStr = dataManual ? dataManual.split(" ")[0] : agora.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'});
     let hInt = dataManual ? parseInt(hStr.split(":")[0]) : agora.getHours();
-    const tabID = (hInt >= 6 && hInt < 18) ? "#tabDia" : "#tabNoite";
-    const tbody = document.querySelector(tabID + " tbody");
+    const tbody = document.querySelector("#tabDia tbody");
 
     const obsLocal = observacoesMap[d.placa] || d.observacao || '';
     const tempo = tipo === 'ENTRADA' ? calcularTempo(d.chegadaTimestamp) : null;
@@ -3728,7 +3715,11 @@ ${trocasStr}
           <div class="row-btns" style="justify-content:flex-end;margin-top:10px;">
             <button class="btn-edit" title="Editar" onclick="prepararEdicaoEl(this)">${EDIT_ICON_SVG}</button>
           </div>
-        ` : `<div style="margin-top:10px;"><span style="color:var(--success);font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SAÍDA</span></div>`}
+          ${d.status==='CARREGANDO' ? `<div style="margin-top:6px;text-align:right;"><span style="color:#2563eb;font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8l5 2v6h-5V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>CARREGANDO</span></div>` : ''}
+        ` : `<div style="margin-top:10px;">${d.status==='CARREGANDO'
+          ? `<span style="color:#2563eb;font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8l5 2v6h-5V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>CARREGANDO</span>`
+          : `<span style="color:var(--success);font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SAÍDA</span>`
+        }</div>`}
       </td>`;
     tbody.appendChild(tr);
   }
@@ -3836,7 +3827,18 @@ ${trocasStr}
     vibrar(80);
     // Atualiza linha do histórico visualmente
     document.querySelectorAll('#tabDia tbody tr, #tabNoite tbody tr').forEach(tr => {
-      if (tr.dataset.placa === placa) tr.classList.add('status-carregando');
+      if (tr.dataset.placa === placa) {
+        tr.classList.add('status-carregando');
+        // Adiciona badge CARREGANDO se ainda não existir
+        const statusTd = tr.querySelector('.container-status');
+        if (statusTd && !statusTd.querySelector('.badge-carregando')) {
+          const badge = document.createElement('div');
+          badge.className = 'badge-carregando';
+          badge.style.cssText = 'margin-top:6px;text-align:right;';
+          badge.innerHTML = `<span style="color:#2563eb;font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8l5 2v6h-5V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>CARREGANDO</span>`;
+          statusTd.appendChild(badge);
+        }
+      }
     });
     setTimeout(() => carregarEstado(), 1500);
   }
