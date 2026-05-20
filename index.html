@@ -12,6 +12,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Portaria">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <!-- Ícone na aba do navegador (favicon) -->
+  <link rel="icon" type="image/png" sizes="32x32"  href="icons/icon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="shortcut icon" href="icons/icon-192.png">
   <title>PORTARIA SAVANA</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2451,6 +2455,8 @@
     aplicarPermissoes(perfil.permissoes || {});
     document.getElementById('telaLogin').classList.add('oculto');
     mostrarToast(`✅ Bem-vindo, ${perfil.label}!`, 'success', 3000);
+    // Pede permissão de notificação logo após o login (precisa de gesto do usuário)
+    _pedirPermissaoNotificacao();
   }
 
   function trocarPerfil() {
@@ -3781,6 +3787,13 @@ ${trocasStr}
       painel.appendChild(card);
     });
     if (temNovo) vibrar([60, 40, 60, 40, 120]);
+    // Notificação push nativa para cada chamada nova (funciona com app em background)
+    if (temNovo) {
+      chamadas.forEach(c => {
+        if (!painel.querySelector(`.chamada-card[data-placa="${c.placa}"]`)) return; // só as novas
+        _dispararNotificacaoChamada(c.placa, c.motorista || 'Motorista não informado', c.hora || '');
+      });
+    }
   }
 
   // Dispensar chamada individual: marca como CARREGANDO
@@ -4749,7 +4762,54 @@ ${trocasStr}
     _renderListaProdutos();
   }
 
-  /* ── Expõe funções ao escopo global (type=module isola o escopo) ── */
+  /* ===================== NOTIFICAÇÕES PUSH NATIVAS =====================
+   * Exibe notificação no sistema mesmo com o app em background.
+   * Pede permissão automaticamente no primeiro uso.
+   * ===================================================================== */
+
+  // Pede permissão assim que o usuário faz login (gesto do usuário garante aceite no iOS 16.4+)
+  async function _pedirPermissaoNotificacao() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
+  }
+
+  // Dispara notificação nativa para chamada de veículo
+  // • Se o SW estiver ativo: usa showNotification (funciona em background)
+  // • Fallback: new Notification() para navegadores sem SW
+  async function _dispararNotificacaoChamada(placa, motorista, hora) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+    const titulo = `🚛 CHAMADA — ${placa}`;
+    const corpo  = `${motorista}${hora ? '  ·  ' + hora : ''}`;
+    const opcoes = {
+      body:    corpo,
+      icon:    'icons/icon-192.png',
+      badge:   'icons/icon-32.png',
+      tag:     `chamada-${placa}`,          // agrupa por placa (não acumula spam)
+      renotify: true,                        // re-vibra mesmo se a tag já existir
+      vibrate: [200, 100, 200, 100, 400],   // padrão de vibração: curto-curto-longo
+      requireInteraction: true,             // fica na tela até o porteiro tocar
+      data: { placa, url: self.location ? self.location.href : '/' }
+    };
+
+    try {
+      // Preferencial: via Service Worker (funciona com app fechado/minimizado)
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        const reg = await navigator.serviceWorker.ready;
+        await reg.showNotification(titulo, opcoes);
+      } else {
+        // Fallback direto (app aberto no navegador)
+        new Notification(titulo, opcoes);
+      }
+    } catch(e) {
+      console.warn('[Notificação] Falha ao exibir:', e);
+    }
+  }
+
+  /* ───────────────────────────────────────────────────────────────────────
+   * Expõe funções ao escopo global (type=module isola o escopo) ── */
   Object.assign(window, {
     fazerLogin, trocarPerfil, aplicarPerfil, switchTab,
     registrarEntrada, registrarSaida, toggleOrdem,
