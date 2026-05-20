@@ -97,3 +97,32 @@ self.addEventListener('message', event => {
     self.skipWaiting();
   }
 });
+
+// ── Clique na notificação: abre/foca o app ───────────────────
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+
+  const targetUrl = (event.notification.data && event.notification.data.url)
+    ? event.notification.data.url
+    : self.location.origin + '/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      // Se o app já está aberto em alguma aba, foca ela
+      for (const client of windowClients) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Senão abre uma nova aba
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+
+// ── Fecha notificação ao deslizar (dispensar) ────────────────
+self.addEventListener('notificationclose', () => {
+  // Espaço para analytics futuro se precisar
+});
