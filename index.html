@@ -1159,6 +1159,10 @@
     tr.status-carregando { background: rgba(37,99,235,0.08) !important; }
     tr.status-carregando td:first-child { border-left: 3px solid #2563eb; }
 
+    /* Linha do histórico com status A DESCARREGAR */
+    tr.status-descarregando { }
+    tr.status-descarregando td:first-child { }
+
     @keyframes pulsar { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
 
     /* ===================== MODAL ===================== */
@@ -1873,6 +1877,75 @@
     }
     .btn-salvar-perfil:active { transform: scale(0.97); opacity: 0.88; }
 
+    /* ===================== DESCARGA — CHECKBOX ===================== */
+    .campo-descarregar {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: rgba(220,38,38,0.07);
+      border: 1.5px solid rgba(220,38,38,0.25);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s, border-color 0.2s;
+      animation: fadeSlideIn 0.2s ease;
+    }
+    .campo-descarregar.ativo { display: flex; }
+    .campo-descarregar.marcado {
+      background: rgba(220,38,38,0.12);
+      border-color: rgba(220,38,38,0.5);
+    }
+    .campo-descarregar input[type="checkbox"] { display: none; }
+    .check-custom {
+      width: 22px; height: 22px;
+      border-radius: 6px;
+      border: 2px solid rgba(220,38,38,0.5);
+      background: white;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.18s;
+    }
+    body.modo-noite .check-custom { background: #1e293b; }
+    .campo-descarregar.marcado .check-custom {
+      background: var(--danger);
+      border-color: var(--danger);
+    }
+    .check-custom svg { display: none; }
+    .campo-descarregar.marcado .check-custom svg { display: block; }
+    .check-label {
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: var(--danger);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ===================== BTN REGISTRAR SAÍDA (histórico) ===================== */
+    .btn-registrar-saida {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 26px;
+      padding: 0 9px;
+      border-radius: 13px;
+      font-size: 0.57rem;
+      font-weight: 700;
+      font-family: inherit;
+      text-transform: uppercase;
+      white-space: nowrap;
+      cursor: pointer;
+      border: 1px solid rgba(220,38,38,0.35);
+      background: rgba(220,38,38,0.10);
+      color: var(--danger);
+      letter-spacing: 0.2px;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .btn-registrar-saida:active { transform: scale(0.92); }
+    .btn-registrar-saida:disabled { opacity: 0.45; cursor: not-allowed; }
+
   </style>
 </head>
 <body>
@@ -2240,9 +2313,9 @@
         </select>
         <input type="text" id="prod_ent_manual" placeholder="DIGITAR PRODUTO..." autocomplete="off" autocorrect="off"
           style="display:none;margin-top:6px;"
-          oninput="this.value=this.value.toUpperCase()">
+          oninput="this.value=this.value.toUpperCase();onProdutoManualInput()">
       </div>
-      <div class="campo" style="flex:1; margin-bottom:10px;">
+      <div class="campo" id="campo-ordem-wrap" style="flex:1; margin-bottom:10px;">
         <label>Ordem</label>
         <select id="o_ent">
           <option value="SIM">SIM</option>
@@ -2250,7 +2323,15 @@
         </select>
       </div>
     </div>
-    <div class="campo">
+    <!-- Checkbox DESCARREGAR — aparece ao selecionar produto gatilho -->
+    <div class="campo-descarregar" id="campoDescarregar" onclick="toggleDescarregar()">
+      <input type="checkbox" id="chk_descarregar">
+      <div class="check-custom">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <span class="check-label">⬇ DESCARREGAR</span>
+    </div>
+    <div class="campo" id="campo-obs-wrap">
       <label>Observação (opcional)</label>
       <textarea id="obs_ent" placeholder="EX: AGUARDANDO DOCUMENTO, VEÍCULO COM AVARIA..."></textarea>
     </div>
@@ -2378,13 +2459,20 @@
   // Salva entrada no Firestore (não bloqueia o fluxo principal)
   async function _fbEntrada(d) {
     try {
+      const statusInicial = d.descarregar === 'SIM' ? 'A DESCARREGAR' : 'PÁTIO';
       await addDoc(collection(_db, 'veiculos'), {
-        ...d,
-        portaria:    perfilAtual || 'portaria',
-        status:      'PÁTIO',
-        turnoId:     _turnoId(),
-        criadoEm:    serverTimestamp(),
-        atualizadoEm: serverTimestamp()
+        placa:          d.placa,
+        motorista:      d.motorista,
+        transportadora: d.transportadora,
+        produto:        d.produto,
+        ordem:          d.ordem,
+        observacao:     d.observacao || '',
+        descarregar:    d.descarregar || 'NÃO',
+        portaria:       perfilAtual || 'portaria',
+        status:         statusInicial,
+        turnoId:        _turnoId(),
+        criadoEm:       serverTimestamp(),
+        atualizadoEm:   serverTimestamp()
       });
     } catch(e) { console.warn('[Firebase] Entrada falhou:', e); }
   }
@@ -2393,21 +2481,30 @@
   async function _fbEditar(d) {
     try {
       const placaBusca = d.placaOriginal || d.placa;
-      const q = query(
-        collection(_db, 'veiculos'),
-        where('placa', '==', placaBusca),
-        where('status', '==', 'PÁTIO'),
-        orderBy('criadoEm', 'desc')
-      );
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        await updateDoc(snap.docs[0].ref, {
+      // Busca em todos os status ativos (PÁTIO, CARREGANDO, A DESCARREGAR)
+      let docRef = null;
+      for (const st of ['PÁTIO', 'CARREGANDO', 'A DESCARREGAR']) {
+        const stNorm = st;
+        const q = query(
+          collection(_db, 'veiculos'),
+          where('placa', '==', placaBusca),
+          where('status', '==', stNorm),
+          orderBy('criadoEm', 'desc')
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) { docRef = snap.docs[0].ref; break; }
+      }
+      if (docRef) {
+        const novoStatus = d.descarregar === 'SIM' ? 'A DESCARREGAR' : 'PÁTIO';
+        await updateDoc(docRef, {
           placa:          d.placa,
           motorista:      d.motorista,
           transportadora: d.transportadora,
           produto:        d.produto,
           ordem:          d.ordem,
           observacao:     d.observacao,
+          descarregar:    d.descarregar || 'NÃO',
+          status:         novoStatus,
           atualizadoEm:   serverTimestamp()
         });
       }
@@ -2417,15 +2514,19 @@
   // Atualiza saída no Firestore
   async function _fbSaida(placa, nfe) {
     try {
-      const q = query(
-        collection(_db, 'veiculos'),
-        where('placa', '==', placa),
-        where('status', '==', 'PÁTIO'),
-        orderBy('criadoEm', 'desc')
-      );
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        await updateDoc(snap.docs[0].ref, {
+      let docRef = null;
+      for (const st of ['PÁTIO', 'CARREGANDO']) {
+        const q = query(
+          collection(_db, 'veiculos'),
+          where('placa', '==', placa),
+          where('status', '==', st),
+          orderBy('criadoEm', 'desc')
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) { docRef = snap.docs[0].ref; break; }
+      }
+      if (docRef) {
+        await updateDoc(docRef, {
           status: 'SAÍDA', nfe,
           saida: serverTimestamp(),
           atualizadoEm: serverTimestamp()
@@ -2437,15 +2538,19 @@
   // Atualiza ordem no Firestore
   async function _fbOrdem(placa, ordem) {
     try {
-      const q = query(
-        collection(_db, 'veiculos'),
-        where('placa', '==', placa),
-        where('status', '==', 'PÁTIO'),
-        orderBy('criadoEm', 'desc')
-      );
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        await updateDoc(snap.docs[0].ref, { ordem, atualizadoEm: serverTimestamp() });
+      let docRef = null;
+      for (const st of ['PÁTIO', 'CARREGANDO', 'A DESCARREGAR']) {
+        const q = query(
+          collection(_db, 'veiculos'),
+          where('placa', '==', placa),
+          where('status', '==', st),
+          orderBy('criadoEm', 'desc')
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) { docRef = snap.docs[0].ref; break; }
+      }
+      if (docRef) {
+        await updateDoc(docRef, { ordem, atualizadoEm: serverTimestamp() });
       }
     } catch(e) { console.warn('[Firebase] Ordem falhou:', e); }
   }
@@ -3556,12 +3661,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   }
 
   /* ===================== CARREGAR ESTADO ===================== */
-  // Cache de dados para evitar re-render completo desnecessário
   let ultimoDadosHash = '';
 
   async function carregarEstado() {
     if (!navigator.onLine) {
-      // Offline: usa cache do localStorage, mas avisa que pode estar desatualizado
       try {
         const cached = JSON.parse(localStorage.getItem(LS_ESTADO_KEY) || 'null');
         if (cached) processarDados(cached);
@@ -3570,12 +3673,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     }
 
     try {
-      // Sempre busca da rede com cache-busting para evitar resposta cacheada pelo SW
       const res = await fetch(WEB_APP_URL + '&_t=' + Date.now());
       const json = await res.json();
       const dados = json.dados || [];
 
-      // Atualiza cache local com dados frescos da rede
       localStorage.setItem(LS_ESTADO_KEY, JSON.stringify(json));
 
       const hash = JSON.stringify(dados);
@@ -3586,7 +3687,6 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
     } catch(e) {
       console.error('Erro ao carregar estado:', e);
-      // Só cai no cache se a rede falhou de verdade
       try {
         const cached = JSON.parse(localStorage.getItem(LS_ESTADO_KEY) || 'null');
         if (cached) processarDados(cached);
@@ -3598,22 +3698,19 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   // Garante que variações de digitação (acento, espaço, maiúscula) não causam sumiço
   function normalizarStatus(raw) {
     if (!raw) return '';
-    // Remove espaços, coloca maiúsculo, tira acentos para comparação
     const s = String(raw).trim().toUpperCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    // Mapeia para o valor canônico com acento correto
-    if (s === 'PATIO')       return 'PÁTIO';
-    if (s === 'CARREGANDO')  return 'CARREGANDO';
-    if (s === 'SAIDA')       return 'SAÍDA';
+    if (s === 'PATIO')                        return 'PÁTIO';
+    if (s === 'CARREGANDO')                   return 'CARREGANDO';
+    if (s === 'SAIDA')                        return 'SAÍDA';
     if (s === 'CONCLUIDO' || s === 'CONCLUÍDO') return 'CONCLUIDO';
-    // Retorna o original normalizado caso seja outro valor
+    if (s === 'A DESCARREGAR')               return 'A DESCARREGAR';
     return String(raw).trim().toUpperCase();
   }
 
   function processarDados(json, hash) {
     const dados = json.dados || [];
 
-    // Se dados não mudaram, não re-renderiza
     const novoHash = JSON.stringify(dados) + (json.chamada||'');
     if (hash && novoHash === ultimoDadosHash) return;
 
@@ -3623,18 +3720,26 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
     dados.sort((a, b) => a.chegada - b.chegada);
 
-    // ── NORMALIZA STATUS DE TODOS OS REGISTROS ──────────────────────────────
-    // Evita sumiço por variações de digitação na planilha (ex: "Pátio", "patio", "CARREGANDO ")
+    // Normaliza status de todos os registros (inclui A DESCARREGAR)
     dados.forEach(r => { r.status = normalizarStatus(r.status); });
 
+    // Promoção de status: se a planilha devolveu PÁTIO mas o campo descarregar=SIM,
+    // o frontend trata como A DESCARREGAR (garante compatibilidade com planilhas legadas)
+    dados.forEach(r => {
+      const desc = String(r.descarregar || '').trim().toUpperCase();
+      if (desc === 'SIM' && r.status === 'PÁTIO') {
+        r.status = 'A DESCARREGAR';
+      }
+    });
+
     // Regras de visibilidade:
-    // • PÁTIO      → ativo no pátio, aparece no histórico (linha normal)
-    // • CARREGANDO → ativo no pátio (fundo amarelo), aparece no histórico
-    // • SAÍDA      → saiu, aparece no histórico; some após 19h
-    // • CONCLUIDO  → encerrado/teste confirmado, NÃO aparece em nada (só no final do dia)
+    // • PÁTIO         → ativo no pátio, aparece no histórico
+    // • CARREGANDO    → ativo no pátio (fundo azul), aparece no histórico
+    // • A DESCARREGAR → NÃO aparece nos cards de pátio, aparece no histórico com badge próprio
+    // • SAÍDA         → carregados + histórico (some após 19h)
+    // • CONCLUIDO     → não aparece em nada
     const ocultarSaidas = new Date().getHours() >= 19;
 
-    // 1º PASSO: pré-processa timestamps e determina quem vai aparecer na tela
     dados.forEach(r => {
       if (r.dataEntrada && !r.chegadaTimestamp) {
         try {
@@ -3644,15 +3749,12 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           r.chegadaTimestamp = new Date(a,m-1,d,h,mi).getTime();
         } catch(e) {}
       }
-      // CONCLUIDO nunca aparece na tela (removido do histórico no final do dia)
       if (r.status === 'CONCLUIDO') { r._visivel = false; return; }
 
-      r._visivel = (r.status === 'PÁTIO' || r.status === 'CARREGANDO')
+      r._visivel = (r.status === 'PÁTIO' || r.status === 'CARREGANDO' || r.status === 'A DESCARREGAR')
                 || (r.status === 'SAÍDA' && !ocultarSaidas);
     });
 
-    // 2º PASSO: gera seqGeral (N°) e seqProduto (#) APENAS para os veículos visíveis
-    // Caminhões ocultos após 19h não "gastam" número nem na fila geral nem por produto
     const seqPorProduto = {};
     let seqGeral = 0;
     dados.forEach(r => {
@@ -3665,29 +3767,24 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       r.seqProduto = seqPorProduto[prod];
     });
 
-    // 3º PASSO: popula arrays e histórico apenas com quem é visível
-    // • PÁTIO / CARREGANDO → pátio ativo + histórico aguardando
-    // • SAÍDA              → carregados + histórico (antes das 19h)
-    // • CONCLUIDO          → ignorado completamente (some do histórico)
     dados.forEach(r => {
       if (r.status === 'PÁTIO' || r.status === 'CARREGANDO') {
         veiculosPatio.push(r);
+        addHist(r, 'ENTRADA', r.dataEntrada);
+      } else if (r.status === 'A DESCARREGAR') {
+        // Aparece no histórico mas NÃO nos cards de pátio
         addHist(r, 'ENTRADA', r.dataEntrada);
       } else if (r.status === 'SAÍDA') {
         if (!ocultarSaidas) {
           veiculosCarregados.push(r);
           addHist(r, 'SAÍDA', r.dataEntrada);
         }
-        // após 19h: não exibe na tela, mas permanece no Firebase/planilha
       }
-      // CONCLUIDO: não entra em nenhum array nem no histórico
+      // CONCLUIDO: ignorado
     });
 
     atualizarDetalhesProdutos();
     atualizarBarraTurno();
-
-    // Chamadas são gerenciadas exclusivamente pelo onSnapshot do Firestore
-    // Não alimentar o painel aqui — evita re-aparecimento após dispensa
   }
 
   /* ===================== ADD HISTÓRICO ===================== */
@@ -3703,7 +3800,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const tempoBadge = tempo ? `<span class="tempo-badge ${tempo.classe}">⏱ ${tempo.texto}</span>` : '';
 
     const tr = document.createElement("tr");
-    if (d.status === 'CARREGANDO') tr.classList.add('status-carregando');
+    if (d.status === 'CARREGANDO')    tr.classList.add('status-carregando');
+    if (d.status === 'A DESCARREGAR') tr.classList.add('status-descarregando');
     tr.dataset.busca          = `${d.placa} ${d.motorista||''} ${d.transportadora||''} ${d.produto||''}`.toUpperCase();
     tr.dataset.placa          = d.placa          || '';
     tr.dataset.motorista      = d.motorista       || '';
@@ -3711,6 +3809,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     tr.dataset.produto        = d.produto         || '';
     tr.dataset.ordem          = d.ordem           || '';
     tr.dataset.obs            = obsLocal          || '';
+    tr.dataset.descarregar    = d.status === 'A DESCARREGAR' ? 'SIM' : 'NÃO';
 
     const chamadaInfo = historicoChamadas.find(c => c.placa === d.placa);
     const chamadaBadge = chamadaInfo
@@ -3730,8 +3829,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.36 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg>
               Chamar
             </button>
-            <button class="btn-obs" onclick="abrirModalObsEl(this)">Obs</button>
-            <button class="st-badge" style="background:${d.ordem==='SIM'?'var(--success)':'var(--danger)'}" onclick="toggleOrdem(this,'${d.placa}')">${d.ordem}</button>
+            ${d.status === 'A DESCARREGAR' ? `<button class="btn-registrar-saida" onclick="registrarSaidaDescarga(this,'${d.placa}')">⬇ Registrar Saída</button>` : `<button class="btn-obs" onclick="abrirModalObsEl(this)">Obs</button>`}
+            ${d.status !== 'A DESCARREGAR' ? `<button class="st-badge" style="background:${d.ordem==='SIM'?'var(--success)':'var(--danger)'}" onclick="toggleOrdem(this,'${d.placa}')">${d.ordem}</button>` : ''}
           </div>` : ''}
         ${chamadaBadge}
       </td>
@@ -3746,6 +3845,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
             <button class="btn-edit" title="Editar" onclick="prepararEdicaoEl(this)">${EDIT_ICON_SVG}</button>
           </div>
           ${d.status==='CARREGANDO' ? `<div style="margin-top:6px;text-align:right;"><span style="color:#2563eb;font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8l5 2v6h-5V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>CARREGANDO</span></div>` : ''}
+          ${d.status==='A DESCARREGAR' ? `<div style="margin-top:6px;text-align:right;"><span style="color:#f59e0b;font-weight:800;font-size:0.62rem;white-space:nowrap;">A DESCARREGAR</span></div>` : ''}
+
         ` : `<div style="margin-top:10px;">${d.status==='CARREGANDO'
           ? `<span style="color:#2563eb;font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8l5 2v6h-5V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>CARREGANDO</span>`
           : `<span style="color:var(--success);font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SAÍDA</span>`
@@ -3988,13 +4089,16 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const btn = document.getElementById('btnEnt');
     const isEdit = document.getElementById('edit_mode').value === "true";
     const placaOriginal = document.getElementById('placa_original').value || '';
+    const isGatilho = _isProdutoGatilho();
+    const isDescarga = isGatilho && document.getElementById('chk_descarregar').checked;
     const d = {
       placa: document.getElementById('p_ent').value.toUpperCase().trim(),
       motorista: document.getElementById('m_ent').value.toUpperCase().trim(),
       transportadora: document.getElementById('t_ent').value.toUpperCase().trim(),
       produto: getProdutoSelecionado(),
-      ordem: document.getElementById('o_ent').value,
-      observacao: document.getElementById('obs_ent').value.toUpperCase().trim(),
+      ordem: isGatilho ? 'NÃO' : document.getElementById('o_ent').value,
+      observacao: isGatilho ? '' : document.getElementById('obs_ent').value.toUpperCase().trim(),
+      descarregar: isDescarga ? 'SIM' : 'NÃO',
       acao: isEdit ? "EDITAR" : "ENTRADA",
       placaOriginal: isEdit ? placaOriginal : undefined
     };
@@ -4035,6 +4139,12 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       document.getElementById('edit_mode').value = "false";
       document.getElementById('placa_original').value = "";
       document.getElementById('tituloEntradaTexto').innerText = "Nova Entrada";
+      // Reseta checkbox e regra de descarga
+      const chk = document.getElementById('chk_descarregar');
+      if (chk) chk.checked = false;
+      const campoChk = document.getElementById('campoDescarregar');
+      if (campoChk) campoChk.classList.remove('marcado');
+      _aplicarRegraGatilho();
       carregarEstado();
     } catch(e) {
       if (e.message !== 'offline') { await idbAdicionarPendente(d); }
@@ -4089,6 +4199,48 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     }
   }
 
+  /* ===================== REGISTRAR SAÍDA DESCARGA (histórico) ===================== */
+  async function registrarSaidaDescarga(btn, placa) {
+    btn.disabled = true;
+    btn.innerText = '⏳';
+    try {
+      // Busca por A DESCARREGAR — sem orderBy para não exigir índice composto no Firebase
+      let docRef = null;
+      const qDesc = query(collection(_db, 'veiculos'), where('placa', '==', placa), where('status', '==', 'A DESCARREGAR'));
+      const snapDesc = await getDocs(qDesc);
+      if (!snapDesc.empty) {
+        // Pega o mais recente manualmente
+        const docs = snapDesc.docs.sort((a,b) => (b.data().criadoEm?.toMillis?.() || 0) - (a.data().criadoEm?.toMillis?.() || 0));
+        docRef = docs[0].ref;
+      }
+      if (docRef) {
+        await updateDoc(docRef, {
+          status: 'CONCLUIDO',
+          saida: serverTimestamp(),
+          atualizadoEm: serverTimestamp()
+        });
+      }
+      fetch(WEB_APP_POST_URL, {
+        method: "POST", mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ placa, acao: "SAIDA_DESCARGA" })
+      }).catch(() => {});
+      const tr = btn.closest('tr');
+      if (tr) {
+        tr.style.opacity = '0';
+        tr.style.transition = 'opacity 0.4s ease';
+        setTimeout(() => tr.remove(), 450);
+      }
+      vibrar([50, 30, 100]);
+      mostrarToast(`✅ Saída de descarga registrada: ${placa}`, 'success', 3500);
+      setTimeout(() => carregarEstado(), 600);
+    } catch(e) {
+      btn.disabled = false;
+      btn.innerText = '⬇ Registrar Saída';
+      mostrarToast('⚠️ Erro ao registrar saída de descarga', 'error');
+    }
+  }
+
   /* ===================== OUTROS ===================== */
   async function toggleOrdem(btn, placa) {
     const novo = btn.innerText === 'SIM' ? 'NÃO' : 'SIM';
@@ -4111,7 +4263,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       tr.dataset.motorista,
       tr.dataset.transportadora,
       tr.dataset.produto,
-      tr.dataset.ordem
+      tr.dataset.ordem,
+      tr.dataset.descarregar
     );
   }
 
@@ -4125,11 +4278,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     abrirModalObs(tr.dataset.placa, observacoesMap[tr.dataset.placa] || tr.dataset.obs || '');
   }
 
-  function prepararEdicao(p, m, t, pr, ord) {
+  function prepararEdicao(p, m, t, pr, ord, descarg) {
     const campPlaca = document.getElementById('p_ent');
     campPlaca.value = p;
-    // Guarda a placa original para o backend localizar a linha correta,
-    // mesmo que o usuário altere a placa no formulário
     document.getElementById('placa_original').value = p;
 
     document.getElementById('m_ent').value = m;
@@ -4144,9 +4295,16 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       sel.value = '__OUTROS__';
       document.getElementById('prod_ent_manual').value = pr;
       document.getElementById('prod_ent_manual').style.display = 'block';
+      _aplicarRegraGatilho();
     }
     document.getElementById('o_ent').value = ord;
     document.getElementById('obs_ent').value = observacoesMap[p] || '';
+    // Restaura estado do checkbox de descarga
+    const chk = document.getElementById('chk_descarregar');
+    const campoChk = document.getElementById('campoDescarregar');
+    const isDesc = (descarg || '').toUpperCase() === 'SIM';
+    if (chk) chk.checked = isDesc;
+    if (campoChk) campoChk.classList.toggle('marcado', isDesc);
     document.getElementById('edit_mode').value = "true";
     document.getElementById('tituloEntradaTexto').innerText = "✏️ Editando: " + p;
     switchTab('abaEntrada', document.getElementById('tabBtnEnt'));
@@ -4722,6 +4880,55 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     onProdutoChange(sel);
   }
 
+  // Produtos que ativam a regra de descarga/carregamento
+  const PRODUTOS_GATILHO = ['FERTILIZANTE', 'ADUBO', 'DEFENSIVOS'];
+
+  // Verifica se o produto atual é um gatilho
+  function _isProdutoGatilho() {
+    const sel = document.getElementById('prod_ent');
+    if (!sel) return false;
+    if (sel.value === '__OUTROS__') return true; // OUTROS sempre é gatilho
+    const prod = sel.value.toUpperCase().trim();
+    return PRODUTOS_GATILHO.some(g => prod.includes(g));
+  }
+
+  // Chamado quando o input manual de produto muda (para __OUTROS__)
+  function onProdutoManualInput() {
+    _aplicarRegraGatilho();
+  }
+
+  // Aplica ou remove a regra de ocultar Obs/Ordem e mostrar checkbox
+  function _aplicarRegraGatilho() {
+    const isGatilho = _isProdutoGatilho();
+    const campoObs   = document.getElementById('campo-obs-wrap');
+    const campoOrdem = document.getElementById('campo-ordem-wrap');
+    const campoChk   = document.getElementById('campoDescarregar');
+
+    if (isGatilho) {
+      // Oculta Obs e Ordem
+      if (campoObs)   campoObs.style.display   = 'none';
+      if (campoOrdem) campoOrdem.style.display  = 'none';
+      // Exibe checkbox
+      if (campoChk)   campoChk.classList.add('ativo');
+    } else {
+      // Restaura Obs e Ordem
+      if (campoObs)   campoObs.style.display   = '';
+      if (campoOrdem) campoOrdem.style.display  = '';
+      // Oculta e desmarca checkbox
+      if (campoChk) {
+        campoChk.classList.remove('ativo', 'marcado');
+        document.getElementById('chk_descarregar').checked = false;
+      }
+    }
+  }
+
+  function toggleDescarregar() {
+    const chk = document.getElementById('chk_descarregar');
+    const campo = document.getElementById('campoDescarregar');
+    chk.checked = !chk.checked;
+    campo.classList.toggle('marcado', chk.checked);
+  }
+
   function onProdutoChange(sel) {
     const manual = document.getElementById('prod_ent_manual');
     if (!manual) return;
@@ -4732,6 +4939,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       manual.style.display = 'none';
       manual.value = '';
     }
+    _aplicarRegraGatilho();
   }
 
   function getProdutoSelecionado() {
@@ -4906,7 +5114,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // Produtos
     abrirGerenciarProdutos, fecharGerenciarProdutos,
     produtoEditar, produtoApagar, produtoEditarNovo, produtoVoltarLista, produtoSalvar,
-    onProdutoChange, renderProdutosSelect,
+    onProdutoChange, renderProdutosSelect, onProdutoManualInput,
+    toggleDescarregar, registrarSaidaDescarga,
   });
 
 </script>
