@@ -2337,6 +2337,38 @@
     });
   }
 
+  // ── LISTENERS TEMPO REAL — PERFIS E PRODUTOS ─────────────────────────────
+  // Quando admin salvar perfis ou produtos, todos os dispositivos atualizam na hora
+  let _configListenerIniciado = false;
+  function iniciarListenerConfig() {
+    if (_configListenerIniciado) return;
+    _configListenerIniciado = true;
+
+    // Listener de perfis
+    onSnapshot(doc(_db, 'config', 'perfis'), (snap) => {
+      if (!snap.exists()) return;
+      try {
+        const perfis = JSON.parse(snap.data().dados);
+        // Atualiza localStorage para que _carregarPerfisCustom() sempre leia o dado fresco
+        localStorage.setItem(LS_PERFIS_CUSTOM, JSON.stringify(perfis));
+        // Re-aplica permissões do perfil logado se ele foi alterado
+        if (perfilAtual && perfis[perfilAtual]) {
+          aplicarPermissoes(perfis[perfilAtual].permissoes || {});
+        }
+      } catch(e) { console.warn('[Firebase] Erro ao processar perfis:', e); }
+    }, (err) => { console.warn('[Firebase] onSnapshot perfis erro:', err); });
+
+    // Listener de produtos
+    onSnapshot(doc(_db, 'config', 'produtos'), (snap) => {
+      if (!snap.exists()) return;
+      try {
+        const lista = JSON.parse(snap.data().dados);
+        localStorage.setItem(LS_PRODUTOS_KEY, JSON.stringify(lista));
+        renderProdutosSelect();
+      } catch(e) { console.warn('[Firebase] Erro ao processar produtos:', e); }
+    }, (err) => { console.warn('[Firebase] onSnapshot produtos erro:', err); });
+  }
+
   // Gera turnoId = YYYYMMDD
   function _turnoId() {
     const d = new Date();
@@ -3286,43 +3318,45 @@
     const agora = new Date();
     const dataStr = agora.toLocaleDateString('pt-BR');
     const horaStr = agora.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
-    const emPatio = dadosFrescos.filter(v => v.status === 'PÁTIO').sort((a,b) => (a.chegada||0) - (b.chegada||0));
-    const saidos  = dadosFrescos.filter(v => v.status === 'SAÍDA').sort((a,b) => (a.chegada||0) - (b.chegada||0));
-    const totalEntradas = emPatio.length + saidos.length;
 
-    // ── Agrupar pátio por produto ──
-    const patioGrupos = {};
-    emPatio.forEach(v => { const p = v.produto||'---'; if(!patioGrupos[p]) patioGrupos[p]=[]; patioGrupos[p].push(v); });
-    const resumoPatioParts = Object.entries(patioGrupos).sort((a,b)=>a[0].localeCompare(b[0])).map(([p,l])=>`${l.length}-${p}`);
-    const resumoPatio = resumoPatioParts.join(' / ') || '—';
+    // Mesma regra do histórico: SAÍDA some após 19h (igual ao processarDados)
+    const ocultarSaidasRel = agora.getHours() >= 19;
+    const filaAtiva = dadosFrescos
+      .filter(v => {
+        const s = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        if (s === 'CONCLUIDO') return false;
+        if (s === 'SAIDA' && ocultarSaidasRel) return false;
+        return s === 'PATIO' || s === 'CARREGANDO' || s === 'SAIDA';
+      })
+      .sort((a,b) => (a.chegada||0) - (b.chegada||0));
 
-    let detalhePatioStr = '';
-    Object.entries(patioGrupos).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([prod, lista]) => {
-      detalhePatioStr += `\n  *${prod}: ${String(lista.length).padStart(2,'0')}*\n`;
+    const emPatio = dadosFrescos.filter(v => v.status === 'PÁTIO' || v.status === 'CARREGANDO');
+
+    // ── Agrupar fila ativa por produto ──
+    const filaGrupos = {};
+    filaAtiva.forEach(v => { const p = v.produto||'---'; if(!filaGrupos[p]) filaGrupos[p]=[]; filaGrupos[p].push(v); });
+
+    let detalheFilaStr = '';
+    Object.entries(filaGrupos).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([prod, lista]) => {
+      const totalProd = lista.length;
+      detalheFilaStr += `\n  *${prod}: ${String(totalProd).padStart(2,'0')}*\n`;
       lista.forEach((v, i) => {
-        const oc = (v.ordem||'').toUpperCase().trim() === 'SIM' ? ' O.C - OK' : '';
+        const st = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        let sufixo = '';
+        if (st === 'SAIDA') {
+          sufixo = v.nfe ? ` | NFe - ${v.nfe}` : ' | SAÍDA';
+        } else if (st === 'CARREGANDO') {
+          sufixo = ' | CARREGANDO';
+        } else {
+          const oc = (v.ordem||'').toUpperCase().trim() === 'SIM' ? ' O.C - OK' : '';
+          sufixo = oc;
+        }
         const obs = observacoesMap[v.placa] || v.observacao || '';
         const obsStr = obs ? ` ${obs}` : '';
-        detalhePatioStr += `  ${i+1}° ${v.placa} - (${v.transportadora||'---'})${oc}${obsStr}\n`;
+        detalheFilaStr += `  ${i+1}° ${v.placa} - (${v.transportadora||'---'})${sufixo}${obsStr}\n`;
       });
     });
-    detalhePatioStr = detalhePatioStr.trimEnd() || '  • —';
-
-    // ── Agrupar saídos por produto ──
-    const saidaGrupos = {};
-    saidos.forEach(v => { const p = v.produto||'---'; if(!saidaGrupos[p]) saidaGrupos[p]=[]; saidaGrupos[p].push(v); });
-    const resumoSaidaParts = Object.entries(saidaGrupos).sort((a,b)=>a[0].localeCompare(b[0])).map(([p,l])=>`${l.length}-${p}`);
-    const resumoSaida = resumoSaidaParts.join(' / ') || '—';
-
-    let detalheCargaStr = '';
-    Object.entries(saidaGrupos).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([prod, lista]) => {
-      detalheCargaStr += `\n  *${prod}: ${String(lista.length).padStart(2,'0')}*\n`;
-      lista.forEach((v, i) => {
-        const nfe = v.nfe ? ` NFE: ${v.nfe}` : '';
-        detalheCargaStr += `  ${i+1}° ${v.placa} - (${v.transportadora||'---'})${nfe}\n`;
-      });
-    });
-    detalheCargaStr = detalheCargaStr.trimEnd() || '  • —';
+    detalheFilaStr = detalheFilaStr.trimEnd() || '  • —';
 
     // ── Críticos +4h ──
     emPatio.forEach(v => {
@@ -3333,24 +3367,22 @@
     const criticos = emPatio.filter(v => v.chegadaTimestamp && (Date.now()-v.chegadaTimestamp) > 4*3600000);
     const criticosStr = criticos.length > 0 ? criticos.map(v=>`  • ${v.placa} (${v.motorista||'---'})`).join('\n') : '  • Nenhum';
 
-    let trocasStr = '  • Nenhum porteiro informado';
-    if (turnoAtual.trocas.length > 0) { trocasStr = turnoAtual.trocas.map(t=>`  • ${t.porteiro} — ${t.data} às ${t.hora}`).join('\n'); }
+    // Último porteiro registrado
+    const ultimoPorteiro = turnoAtual.trocas.length > 0
+      ? turnoAtual.trocas[turnoAtual.trocas.length - 1].porteiro
+      : (turnoAtual.porteiro || '');
 
     const texto =
 `*RELATÓRIO — PORTARIA SAVANA* 
-${dataStr} às ${horaStr}${turnoAtual.porteiro ? '\n👤 Porteiro: ' + turnoAtual.porteiro : ''}
+${dataStr} às ${horaStr}
 ━━━━━━━━━━━━━━━━━━━━
-*PÁTIO DE TRIAGEM: ${emPatio.length}* 
-${detalhePatioStr}
-
-CARREGADOS: ${saidos.length} 
-${resumoSaida}${detalheCargaStr}
+*FILA DE TRIAGEM: ${filaAtiva.length}* 
+${detalheFilaStr}
 
 AGUARDANDO HÁ +4H:
 ${criticosStr}
 
-Porteiro:
-${trocasStr}
+PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 `
 
     document.getElementById('relatorioTexto').innerText = texto;
@@ -4231,6 +4263,7 @@ ${trocasStr}
     // Sempre carrega o estado — processarDados já sabe filtrar SAÍDA após 19h
     carregarEstado();
     iniciarListenerChamadas(); // push em tempo real para chamadas
+    iniciarListenerConfig();   // push em tempo real para perfis e produtos
     atualizarContadorIDB();
     // Mede em múltiplos momentos para garantir que fontes e layout já renderizaram
     ajustarContainerTop();
@@ -4318,6 +4351,10 @@ ${trocasStr}
 
   function _salvarPerfisCustom(perfis) {
     localStorage.setItem(LS_PERFIS_CUSTOM, JSON.stringify(perfis));
+    // Sobe para o Firestore — todos os dispositivos recebem via onSnapshot
+    try {
+      setDoc(doc(_db, 'config', 'perfis'), { dados: JSON.stringify(perfis), atualizadoEm: new Date().toISOString() });
+    } catch(e) { console.warn('[Firebase] Falha ao salvar perfis:', e); }
   }
 
   // Retorna perfil pelo usuário digitado
@@ -4518,6 +4555,10 @@ ${trocasStr}
 
     perfis[key] = { label: emoji + ' ' + nome, usuario, senha, permissoes };
     _salvarPerfisCustom(perfis);
+    // Se editou o próprio perfil logado, re-aplica permissões imediatamente
+    if (key === perfilAtual || _perfilEditKey === perfilAtual) {
+      aplicarPermissoes(permissoes);
+    }
     mostrarToast('✅ Perfil salvo!', 'success', 2500);
     perfilVoltarLista();
   }
@@ -4624,6 +4665,10 @@ ${trocasStr}
 
   function _salvarProdutos(lista) {
     localStorage.setItem(LS_PRODUTOS_KEY, JSON.stringify(lista));
+    // Sobe para o Firestore — todos os dispositivos recebem via onSnapshot
+    try {
+      setDoc(doc(_db, 'config', 'produtos'), { dados: JSON.stringify(lista), atualizadoEm: new Date().toISOString() });
+    } catch(e) { console.warn('[Firebase] Falha ao salvar produtos:', e); }
   }
 
   function renderProdutosSelect() {
@@ -4749,6 +4794,7 @@ ${trocasStr}
       produtos.push(nome);
     }
     _salvarProdutos(produtos);
+    renderProdutosSelect();
     mostrarToast('✅ Produto salvo!', 'success', 2000);
     produtoVoltarLista();
   }
@@ -4760,6 +4806,7 @@ ${trocasStr}
     if (!ok) return;
     produtos.splice(idx, 1);
     _salvarProdutos(produtos);
+    renderProdutosSelect();
     mostrarToast('🗑️ Produto apagado.', 'success', 2000);
     _renderListaProdutos();
   }
