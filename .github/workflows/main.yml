@@ -31,7 +31,7 @@ jobs:
           cat > twa-manifest.json << 'EOF'
           {
             "packageId": "io.github.cleitonpborges_ux.portaria_savana",
-            "host": "cleitonpborges-ux.github.io",
+            "host": "portaria-savana.web.app",
             "name": "Portaria Savana",
             "launcherName": "Portaria",
             "display": "standalone",
@@ -42,10 +42,10 @@ jobs:
             "navigationDividerColorDark": "#0f2040",
             "backgroundColor": "#0f2040",
             "enableNotifications": true,
-            "startUrl": "/Portaria-Savana/index.html",
-            "iconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icons/icon-512.png",
-            "maskableIconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icons/icon-512.png",
-            "monochromeIconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icons/icon-192.png",
+            "startUrl": "/index.html",
+            "iconUrl": "https://portaria-savana.web.app/icons/icon-512.png",
+            "maskableIconUrl": "https://portaria-savana.web.app/icons/icon-512.png",
+            "monochromeIconUrl": "https://portaria-savana.web.app/icons/icon-192.png",
             "appVersion": "1",
             "appVersionCode": 1,
             "signingKey": {
@@ -56,13 +56,13 @@ jobs:
             "enableSiteSettingsShortcut": true,
             "isChromeOSOnly": false,
             "isMetaQuest": false,
-            "fullScopeUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/",
+            "fullScopeUrl": "https://portaria-savana.web.app/",
             "minSdkVersion": 21,
             "orientation": "portrait",
             "fingerprints": [],
             "alphaDependencies": { "enabled": false },
             "generatorApp": "bubblewrap-cli",
-            "webManifestUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/manifest.json",
+            "webManifestUrl": "https://portaria-savana.web.app/manifest.json",
             "serviceWorkerUrl": null,
             "shortcuts": []
           }
