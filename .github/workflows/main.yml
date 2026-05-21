@@ -41,7 +41,7 @@ jobs:
             "navigationDividerColor": "#0f2040",
             "navigationDividerColorDark": "#0f2040",
             "backgroundColor": "#0f2040",
-            "enableNotifications": false,
+            "enableNotifications": true,
             "startUrl": "/Portaria-Savana/index.html",
             "iconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icons/icon-512.png",
             "maskableIconUrl": "https://cleitonpborges-ux.github.io/Portaria-Savana/icons/icon-512.png",
@@ -67,6 +67,7 @@ jobs:
             "shortcuts": []
           }
           EOF
+
       - name: Configurar Bubblewrap com SDK do Actions
         run: |
           mkdir -p ~/.bubblewrap
@@ -76,9 +77,11 @@ jobs:
             "androidSdkPath": "$ANDROID_SDK_ROOT"
           }
           EOF
+
       - name: Restaurar Keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > portaria-savana.keystore
+
       - name: Gerar projeto Android
         run: |
           sudo apt-get install -y expect
@@ -88,28 +91,52 @@ jobs:
           send "y\r"
           expect eof
           EOF
+
+      # ─────────────────────────────────────────────────────────────────
+      # CORREÇÃO ANDROID 13+: Injeta POST_NOTIFICATIONS no AndroidManifest
+      # O Bubblewrap não adiciona essa permissão mesmo com enableNotifications.
+      # Sem ela, o Android 13+ bloqueia SILENCIOSAMENTE — o app nunca pede
+      # permissão ao usuário e as notificações simplesmente não funcionam.
+      # ─────────────────────────────────────────────────────────────────
+      - name: Injetar permissão POST_NOTIFICATIONS no AndroidManifest
+        run: |
+          MANIFEST="app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST" ]; then
+            # Só injeta se ainda não estiver presente
+            if ! grep -q "POST_NOTIFICATIONS" "$MANIFEST"; then
+              sed -i 's|<uses-permission android:name="android.permission.INTERNET"/>|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>|' "$MANIFEST"
+              echo "✅ POST_NOTIFICATIONS adicionado ao AndroidManifest.xml"
+            else
+              echo "ℹ️  POST_NOTIFICATIONS já presente, nada a fazer"
+            fi
+            echo "--- Conteúdo das permissions no Manifest ---"
+            grep "uses-permission" "$MANIFEST"
+          else
+            echo "❌ AndroidManifest.xml não encontrado em: $MANIFEST"
+            find . -name "AndroidManifest.xml" 2>/dev/null
+          fi
+
       - name: Construir APK não assinado
         run: |
           printf "n\n" | bubblewrap build --skipSigning 2>/dev/null || true
-          # Verifica se o APK foi gerado mesmo com erro de buffer
           ls ./app/build/outputs/apk/release/ || echo "APK não encontrado"
+
       - name: Assinar APK com apksigner
         env:
           KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASS: ${{ secrets.KEY_PASSWORD }}
         run: |
-          # Encontra o APK gerado
           APK=$(find . -name "*.apk" | head -1)
           echo "APK encontrado: $APK"
-          # Assina com apksigner (sem interação)
           $ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner sign \
             --ks ./portaria-savana.keystore \
             --ks-pass env:KS_PASS \
             --key-pass env:KEY_PASS \
             --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
             "$APK"
-          echo "APK assinado com sucesso!"
+          echo "✅ APK assinado com sucesso!"
           find . -name "*.apk"
+
       - name: Encontrar APK
         run: find . -name "*.apk" 2>/dev/null || echo "Nenhum APK encontrado"
 
