@@ -83,13 +83,12 @@ jobs:
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > portaria-savana.keystore
 
       # ─────────────────────────────────────────────────────────────────
-      # GERAR PROJETO ANDROID (Corrigido usando ametist para pular perguntas)
+      # GERAR PROJETO ANDROID (Usa a flag --yes para pular as perguntas)
       # ─────────────────────────────────────────────────────────────────
       - name: Gerar projeto Android
         run: |
           rm -rf app
-          # O comando 'ametist' gera toda a estrutura nativa direto do manifesto de forma 100% não-interativa
-          bubblewrap ametist --manifest=twa-manifest.json --directory=./app
+          bubblewrap init --manifest=twa-manifest.json --directory=./app --metaQuest=false --yes
 
       # ─────────────────────────────────────────────────────────────────
       # CORREÇÃO ANDROID 13+: Injeta POST_NOTIFICATIONS no AndroidManifest
