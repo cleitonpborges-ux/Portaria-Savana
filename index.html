@@ -5144,10 +5144,12 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         onMessage(_messaging, (payload) => {
           const { title, body } = payload.notification || {};
           const placa = payload.data?.placa || '';
+          const tipo  = payload.data?.tipo  || 'chamada';
           _exibirNotificacaoLocal(
-            title || `🚛 CHAMADA — ${placa}`,
-            body  || 'Nova chamada ativa',
-            placa
+            title || (tipo === 'entrada' ? `🚛 NOVA ENTRADA — ${placa}` : `📢 CHAMADA — ${placa}`),
+            body  || '',
+            placa,
+            tipo
           );
         });
       }
@@ -5156,20 +5158,22 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     }
   }
 
-  // Exibe notificação local via SW (funciona em foreground e background)
-  async function _exibirNotificacaoLocal(titulo, corpo, placa) {
+  // Exibe notificação local via SW (foreground e background, app aberto)
+  async function _exibirNotificacaoLocal(titulo, corpo, placa, tipo = 'chamada') {
     if (Notification.permission !== 'granted') return;
+    const ehChamada = tipo === 'chamada';
     try {
       const reg = await navigator.serviceWorker.ready;
       await reg.showNotification(titulo, {
-        body:             corpo,
-        icon:             'icons/icon-192.png',
-        badge:            'icons/icon-32.png',
-        tag:              `chamada-${placa}`,
-        renotify:         true,
-        vibrate:          [200, 100, 200, 100, 400],
-        requireInteraction: true,
-        data:             { placa, url: location.href }
+        body:               corpo,
+        icon:               'icons/icon-192.png',
+        badge:              'icons/icon-32.png',
+        tag:                `${tipo}-${placa}`,
+        renotify:           true,
+        vibrate:            ehChamada ? [200, 100, 200, 100, 400] : [100, 50, 100],
+        requireInteraction: ehChamada,   // chamada fica na tela; entrada some sozinha
+        silent:             false,
+        data:               { placa, tipo, url: location.href }
       });
     } catch(e) {
       console.warn('[FCM] Falha ao exibir notificação local:', e);
@@ -5181,44 +5185,48 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     try {
       const titulo = `🚛 NOVA ENTRADA — ${placa}`;
       const corpo  = `${motorista || 'Motorista não informado'}${produto ? '  ·  ' + produto : ''}`;
-      // Busca tokens dos perfis admin e balanca no Firestore
-      const snap = await getDocs(
-        query(collection(_db, 'fcm_tokens'), where('perfil', 'in', ['admin', 'balanca']))
+
+      // Exibe localmente (app aberto)
+      await _exibirNotificacaoLocal(titulo, corpo, placa, 'entrada');
+
+      // Grava na push_queue → Cloud Function envia para todos os dispositivos
+      await setDoc(
+        doc(_db, 'push_queue', `entrada-${placa}-${Date.now()}`),
+        {
+          titulo, corpo, placa,
+          tipo:    'entrada',
+          perfis:  ['admin', 'balanca'],   // quem recebe
+          ts:      serverTimestamp(),
+          enviado: false
+        }
       );
-      if (snap.empty) return;
-      // Grava um doc por token na push_queue — o Cloud Function/SW entrega pra cada um
-      const batch = snap.docs.map(d => d.data().token);
-      await Promise.all(batch.map(token =>
-        setDoc(
-          doc(_db, 'push_queue', `entrada-${placa}-${token.slice(-8)}`),
-          { titulo, corpo, placa, token, ts: serverTimestamp(), enviado: false },
-          { merge: true }
-        )
-      ));
     } catch(e) {
       console.warn('[FCM] Erro ao notificar nova entrada:', e);
     }
   }
 
-  // Dispara notificação para chamada nova — usa FCM via Firestore trigger
-  // O firebase-messaging-sw.js intercepta e exibe mesmo com app fechado
+  // Dispara notificação para chamada nova
   async function _dispararNotificacaoChamada(placa, motorista, hora) {
-    const titulo = `🚛 CHAMADA — ${placa}`;
+    const titulo = `📢 CHAMADA — ${placa}`;
     const corpo  = `${motorista || 'Motorista não informado'}${hora ? '  ·  ' + hora : ''}`;
 
-    // Salva no Firestore — o SW de messaging recebe via FCM automaticamente
-    // e também exibimos localmente como garantia imediata
-    await _exibirNotificacaoLocal(titulo, corpo, placa);
+    // Exibe localmente (app aberto/background)
+    await _exibirNotificacaoLocal(titulo, corpo, placa, 'chamada');
 
-    // Registra a chamada para envio FCM aos outros dispositivos portaria
+    // Grava na push_queue → Cloud Function envia para todos os porteiros
     try {
       await setDoc(
-        doc(_db, 'push_queue', `chamada-${placa}`),
-        { titulo, corpo, placa, ts: serverTimestamp(), enviado: false },
-        { merge: true }
+        doc(_db, 'push_queue', `chamada-${placa}-${Date.now()}`),
+        {
+          titulo, corpo, placa,
+          tipo:    'chamada',
+          perfis:  ['porteiro', 'admin'],  // quem recebe
+          ts:      serverTimestamp(),
+          enviado: false
+        }
       );
     } catch(e) {
-      console.warn('[FCM] Erro ao enfileirar push:', e);
+      console.warn('[FCM] Erro ao enfileirar chamada:', e);
     }
   }
 
