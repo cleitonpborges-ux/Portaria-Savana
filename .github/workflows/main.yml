@@ -63,7 +63,7 @@ jobs:
             "alphaDependencies": { "enabled": false },
             "generatorApp": "bubblewrap-cli",
             "webManifestUrl": "https://portaria-savana.web.app/manifest.json",
-            "serviceWorkerUrl": "https://portaria-savana.web.app/service-worker.js",
+            "serviceWorkerUrl": null,
             "shortcuts": []
           }
           EOF
@@ -82,21 +82,27 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > portaria-savana.keystore
 
-      # ─────────────────────────────────────────────────────────────────
-      # GERAR PROJETO ANDROID
-      # ─────────────────────────────────────────────────────────────────
       - name: Gerar projeto Android
         run: |
-          rm -rf app
-          yes "" | bubblewrap init --manifest=twa-manifest.json --directory=./app --metaQuest=false
+          sudo apt-get install -y expect
+          expect << EOF || true
+          spawn bubblewrap update
+          expect "*(Y/n)*"
+          send "y\r"
+          expect eof
+          EOF
 
       # ─────────────────────────────────────────────────────────────────
       # CORREÇÃO ANDROID 13+: Injeta POST_NOTIFICATIONS no AndroidManifest
+      # O Bubblewrap não adiciona essa permissão mesmo com enableNotifications.
+      # Sem ela, o Android 13+ bloqueia SILENCIOSAMENTE — o app nunca pede
+      # permissão ao usuário e as notificações simplesmente não funcionam.
       # ─────────────────────────────────────────────────────────────────
       - name: Injetar permissão POST_NOTIFICATIONS no AndroidManifest
         run: |
           MANIFEST="app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
+            # Só injeta se ainda não estiver presente
             if ! grep -q "POST_NOTIFICATIONS" "$MANIFEST"; then
               sed -i 's|<uses-permission android:name="android.permission.INTERNET"/>|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>|' "$MANIFEST"
               echo "✅ POST_NOTIFICATIONS adicionado ao AndroidManifest.xml"
@@ -110,14 +116,9 @@ jobs:
             find . -name "AndroidManifest.xml" 2>/dev/null
           fi
 
-      # ─────────────────────────────────────────────────────────────────
-      # CONSTRUÇÃO DO APK 
-      # ─────────────────────────────────────────────────────────────────
       - name: Construir APK não assinado
         run: |
-          cd app
-          yes "n" | bubblewrap build --skipSigning
-          cd ..
+          printf "n\n" | bubblewrap build --skipSigning 2>/dev/null || true
           ls ./app/build/outputs/apk/release/ || echo "APK não encontrado"
 
       - name: Assinar APK com apksigner
@@ -143,4 +144,4 @@ jobs:
         uses: actions/upload-artifact@v4.6.0
         with:
           name: App-Portaria-Savana
-          path: ./app/build/outputs/apk/release/
+          path: ./app/build/outputs/apk/release/app-release-unsigned.apk
