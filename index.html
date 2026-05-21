@@ -5063,7 +5063,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
    * =================================================================== */
 
   const FCM_VAPID_KEY = 'BCQpD1Tb_xTWFO5K7Os_EPfln6eHTAzazoY5DVjt5BCs_w7bvlQpBAYfLEpgCZZ0_GipLh50xTByl4yR7KYMySg';
-  let   _fcmToken     = null;
+  let   _fcmToken            = null;
+  let   _onMessageRegistrado = false; // ✅ evita registrar onMessage múltiplas vezes
 
   // Chamada após login — pede permissão e registra token FCM no Firestore
   async function _pedirPermissaoNotificacao() {
@@ -5086,20 +5087,24 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           { merge: true }
         );
       }
+      // ✅ CORREÇÃO: onMessage DENTRO do try — garante que só roda se a
+      // permissão foi concedida e o token obtido com sucesso.
+      // Registrado apenas uma vez com o flag _onMessageRegistrado.
+      if (!_onMessageRegistrado) {
+        _onMessageRegistrado = true;
+        onMessage(_messaging, (payload) => {
+          const { title, body } = payload.notification || {};
+          const placa = payload.data?.placa || '';
+          _exibirNotificacaoLocal(
+            title || `🚛 CHAMADA — ${placa}`,
+            body  || 'Nova chamada ativa',
+            placa
+          );
+        });
+      }
     } catch(e) {
       console.warn('[FCM] Erro ao obter token:', e);
     }
-
-    // Notificação em FOREGROUND (app aberto) — FCM não exibe sozinho, tratamos aqui
-    onMessage(_messaging, (payload) => {
-      const { title, body, icon } = payload.notification || {};
-      const placa = payload.data?.placa || '';
-      _exibirNotificacaoLocal(
-        title || `🚛 CHAMADA — ${placa}`,
-        body  || 'Nova chamada ativa',
-        placa
-      );
-    });
   }
 
   // Exibe notificação local via SW (funciona em foreground e background)
