@@ -83,12 +83,13 @@ jobs:
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > portaria-savana.keystore
 
       # ─────────────────────────────────────────────────────────────────
-      # GERAR PROJETO ANDROID (Usa a flag --yes para pular as perguntas)
+      # GERAR PROJETO ANDROID (Usa o utilitário yes para engolir prompts)
       # ─────────────────────────────────────────────────────────────────
       - name: Gerar projeto Android
         run: |
           rm -rf app
-          bubblewrap init --manifest=twa-manifest.json --directory=./app --metaQuest=false --yes
+          # O comando 'yes' simula as respostas de terminal necessárias para o Bubblewrap prosseguir
+          yes "" | bubblewrap init --manifest=twa-manifest.json --directory=./app --metaQuest=false
 
       # ─────────────────────────────────────────────────────────────────
       # CORREÇÃO ANDROID 13+: Injeta POST_NOTIFICATIONS no AndroidManifest
@@ -116,7 +117,8 @@ jobs:
       - name: Construir APK não assinado
         run: |
           cd app
-          bubblewrap build --skipSigning
+          # Alimenta as perguntas de build com respostas automáticas
+          yes "n" | bubblewrap build --skipSigning
           cd ..
           ls ./app/build/outputs/apk/release/ || echo "APK não encontrado"
 
