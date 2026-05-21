@@ -2422,6 +2422,54 @@
     });
   }
 
+  // ── LISTENER TEMPO REAL — NOVAS ENTRADAS (notifica admin e balança) ────────
+  let _entradaListenerIniciado = false;
+  function iniciarListenerEntradas() {
+    // Só escuta em perfis que devem receber a notificação
+    if (_entradaListenerIniciado) return;
+    if (!['admin', 'balanca'].includes(perfilAtual)) return;
+    _entradaListenerIniciado = true;
+
+    const turno = _turnoId();
+    const q = query(
+      collection(_db, 'veiculos'),
+      where('turnoId', '==', turno)
+    );
+
+    // Guarda as placas já conhecidas para detectar apenas documentos realmente novos
+    let _placasConhecidas = null;
+
+    onSnapshot(q, (snap) => {
+      const placasAtuais = new Set(snap.docs.map(d => d.id));
+
+      // Primeira execução: só popula o estado inicial, sem notificar
+      if (_placasConhecidas === null) {
+        _placasConhecidas = placasAtuais;
+        return;
+      }
+
+      // Detecta docs adicionados desde a última snapshot
+      snap.docChanges().forEach(change => {
+        if (change.type !== 'added') return;
+        if (_placasConhecidas.has(change.doc.id)) return; // já conhecia
+
+        const d = change.doc.data();
+        const placa     = d.placa     || '';
+        const motorista = d.motorista || 'Motorista não informado';
+        const produto   = d.produto   || '';
+        const titulo    = `🚛 NOVA ENTRADA — ${placa}`;
+        const corpo     = `${motorista}${produto ? '  ·  ' + produto : ''}`;
+
+        vibrar([60, 40, 60, 40, 120]);
+        _exibirNotificacaoLocal(titulo, corpo, placa);
+      });
+
+      _placasConhecidas = placasAtuais;
+    }, (err) => {
+      console.warn('[Firebase] onSnapshot entradas erro:', err);
+    });
+  }
+
   // ── LISTENERS TEMPO REAL — PERFIS E PRODUTOS ─────────────────────────────
   // Quando admin salvar perfis ou produtos, todos os dispositivos atualizam na hora
   let _configListenerIniciado = false;
@@ -4135,8 +4183,6 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       vibrar(60);
       pulsarCard('patio');
       setStatusEnt('sucesso', '✅ Salvo com sucesso!');
-      // Notifica admin e balança sobre nova entrada (não notifica em edição)
-      if (!isEdit) _notificarNovaEntrada(d.placa, d.motorista, d.produto);
       setTimeout(() => setStatusEnt(null), 2500);
       document.getElementById('p_ent').value = "";
       document.getElementById('m_ent').value = "";
@@ -4455,8 +4501,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     atualizarStatusRede();
     // Sempre carrega o estado — processarDados já sabe filtrar SAÍDA após 19h
     carregarEstado();
-    iniciarListenerChamadas(); // push em tempo real para chamadas
-    iniciarListenerConfig();   // push em tempo real para perfis e produtos
+    iniciarListenerChamadas();  // push em tempo real para chamadas
+    iniciarListenerEntradas();  // notifica admin/balança sobre novas entradas
+    iniciarListenerConfig();    // push em tempo real para perfis e produtos
     atualizarContadorIDB();
     // Mede em múltiplos momentos para garantir que fontes e layout já renderizaram
     ajustarContainerTop();
