@@ -4135,6 +4135,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       vibrar(60);
       pulsarCard('patio');
       setStatusEnt('sucesso', '✅ Salvo com sucesso!');
+      // Notifica admin e balança sobre nova entrada (não notifica em edição)
+      if (!isEdit) _notificarNovaEntrada(d.placa, d.motorista, d.produto);
       setTimeout(() => setStatusEnt(null), 2500);
       document.getElementById('p_ent').value = "";
       document.getElementById('m_ent').value = "";
@@ -5124,6 +5126,30 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       });
     } catch(e) {
       console.warn('[FCM] Falha ao exibir notificação local:', e);
+    }
+  }
+
+  // Notifica perfis admin e balanca quando uma nova entrada é cadastrada
+  async function _notificarNovaEntrada(placa, motorista, produto) {
+    try {
+      const titulo = `🚛 NOVA ENTRADA — ${placa}`;
+      const corpo  = `${motorista || 'Motorista não informado'}${produto ? '  ·  ' + produto : ''}`;
+      // Busca tokens dos perfis admin e balanca no Firestore
+      const snap = await getDocs(
+        query(collection(_db, 'fcm_tokens'), where('perfil', 'in', ['admin', 'balanca']))
+      );
+      if (snap.empty) return;
+      // Grava um doc por token na push_queue — o Cloud Function/SW entrega pra cada um
+      const batch = snap.docs.map(d => d.data().token);
+      await Promise.all(batch.map(token =>
+        setDoc(
+          doc(_db, 'push_queue', `entrada-${placa}-${token.slice(-8)}`),
+          { titulo, corpo, placa, token, ts: serverTimestamp(), enviado: false },
+          { merge: true }
+        )
+      ));
+    } catch(e) {
+      console.warn('[FCM] Erro ao notificar nova entrada:', e);
     }
   }
 
