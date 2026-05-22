@@ -31,7 +31,7 @@ messaging.onBackgroundMessage((payload) => {
   self.registration.showNotification(titulo, {
     body:               corpo,
     icon:               "/icons/icon-192.png",
-    badge:              "/icons/ic_notification.png",
+    badge:              "/icons/ic_notification_xxhdpi.png",
     tag:                `${tipo}-${placa}`,
     renotify:           true,
     vibrate:            ehChamada ? [200, 100, 200, 100, 400] : [100, 50, 100],
