@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "io.github.cleitonpborges_ux.portaria_savana",
+    "sha256_cert_fingerprints": [
+      "6F:EA:7A:3D:30:8F:5E:6D:BF:78:94:18:95:61:5C:66:65:25:61:54:AE:F1:3A:DC:6E:C0:C7:B4:E3:F7:6B:1D"
+    ]
+  }
+}]
