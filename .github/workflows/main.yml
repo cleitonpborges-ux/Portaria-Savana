@@ -59,11 +59,13 @@ jobs:
             "fullScopeUrl": "https://portaria-savana.web.app/",
             "minSdkVersion": 21,
             "orientation": "portrait",
-            "fingerprints": [],
+            "fingerprints": [
+              "COLOQUE_AQUI_O_SHA256_QUE_VOCE_PEGOO_NO_LOG"
+            ],
             "alphaDependencies": { "enabled": false },
             "generatorApp": "bubblewrap-cli",
             "webManifestUrl": "https://portaria-savana.web.app/manifest.json",
-            "serviceWorkerUrl": null,
+            "serviceWorkerUrl": "https://portaria-savana.web.app/sw.js",
             "shortcuts": []
           }
           EOF
@@ -94,7 +96,6 @@ jobs:
 
       # ─────────────────────────────────────────────────────────────────
       # CORREÇÃO 1 — POST_NOTIFICATIONS (Android 13+)
-      # Sem essa permissão o Android bloqueia notificações silenciosamente.
       # ─────────────────────────────────────────────────────────────────
       - name: Injetar permissão POST_NOTIFICATIONS no AndroidManifest
         run: |
@@ -106,50 +107,32 @@ jobs:
             else
               echo "ℹ️  POST_NOTIFICATIONS já presente"
             fi
-            grep "uses-permission" "$MANIFEST"
-          else
-            echo "❌ AndroidManifest.xml não encontrado"
-            find . -name "AndroidManifest.xml" 2>/dev/null
           fi
 
       # ─────────────────────────────────────────────────────────────────
       # CORREÇÃO 2 — Suprimir notificação "Executando no Chrome"
-      # O Bubblewrap gera um Service no AndroidManifest que mantém o
-      # Chrome em foreground e exibe a notificação persistente.
-      # Adicionar android:foregroundServiceType suprime em Android 14+
-      # e o workaround abaixo remove o canal para Android 12/13.
       # ─────────────────────────────────────────────────────────────────
       - name: Suprimir notificação persistente do Chrome (TWA)
         run: |
           MANIFEST="app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
-            # Adiciona permissão FOREGROUND_SERVICE se não existir
             if ! grep -q "FOREGROUND_SERVICE" "$MANIFEST"; then
               sed -i 's|<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>|<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>|' "$MANIFEST"
               echo "✅ FOREGROUND_SERVICE adicionado"
             fi
 
-            # Marca o foreground service como dataSync para suprimir notificação visível
-            if grep -q "foregroundServiceType" "$MANIFEST"; then
-              echo "ℹ️  foregroundServiceType já presente"
-            else
+            if ! grep -q "foregroundServiceType" "$MANIFEST"; then
               sed -i 's|android:name="org.chromium.webapk.shell_apk.HostBrowserLauncherService"|android:name="org.chromium.webapk.shell_apk.HostBrowserLauncherService" android:foregroundServiceType="dataSync"|g' "$MANIFEST"
               echo "✅ foregroundServiceType=dataSync injetado"
             fi
-
-            echo "--- Manifest após correções ---"
-            grep -A2 "Service\|FOREGROUND\|POST_NOTI" "$MANIFEST" || true
           fi
 
       # ─────────────────────────────────────────────────────────────────
-      # CORREÇÃO 3 — O APK salvo era o "unsigned" mesmo após assinar.
-      # O apksigner grava o APK assinado NO MESMO ARQUIVO, então o
-      # upload deve apontar para o arquivo correto.
+      # CORREÇÃO 3 — Construção e Assinatura Correta do APK
       # ─────────────────────────────────────────────────────────────────
       - name: Construir APK não assinado
         run: |
           printf "n\n" | bubblewrap build --skipSigning 2>/dev/null || true
-          ls ./app/build/outputs/apk/release/ || echo "APK não encontrado"
 
       - name: Assinar APK com apksigner
         env:
@@ -157,7 +140,6 @@ jobs:
           KEY_PASS: ${{ secrets.KEY_PASSWORD }}
         run: |
           APK=$(find ./app/build/outputs/apk/release -name "*.apk" | head -1)
-          echo "APK encontrado: $APK"
           $ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner sign \
             --ks ./portaria-savana.keystore \
             --ks-pass env:KS_PASS \
@@ -165,9 +147,8 @@ jobs:
             --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
             "$APK"
 
-          # Copia para nome fixo para facilitar o upload
           cp "$APK" ./portaria-savana-signed.apk
-          echo "✅ APK assinado: portaria-savana-signed.apk"
+          echo "✅ APK assinado com sucesso!"
 
       - name: Salvar APK assinado para Download
         uses: actions/upload-artifact@v4.6.0
