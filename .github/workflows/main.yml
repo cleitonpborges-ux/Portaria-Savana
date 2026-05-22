@@ -26,6 +26,18 @@ jobs:
       - name: Instalar Bubblewrap e Firebase CLI
         run: npm install -g @bubblewrap/cli firebase-tools
 
+      # ── Deploy Firebase PRIMEIRO (APK será gerado sobre o site atualizado) ──
+      - name: Deploy Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PORTARIA_SAVANA }}
+          channelId: live
+          projectId: portaria-savana
+
+      - name: Aguardar propagação do Firebase (30s)
+        run: sleep 30
+
       - name: Criar twa-manifest.json
         run: |
           cat > twa-manifest.json << 'EOF'
@@ -139,12 +151,3 @@ jobs:
         with:
           name: App-Portaria-Savana
           path: ./portaria-savana-signed.apk
-
-      # ── Deploy automático Firebase Hosting ──────────────────────────
-      - name: Deploy Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PORTARIA_SAVANA }}
-          channelId: live
-          projectId: portaria-savana
