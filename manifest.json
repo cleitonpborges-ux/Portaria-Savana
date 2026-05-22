@@ -27,6 +27,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "icons/ic_notification.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "maskable any"
     }
   ]
 }
