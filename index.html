@@ -2002,7 +2002,7 @@
           </svg>
         </div>
       <div>
-        <div class="brand-name">Portaria Savana</div>
+        <div class="brand-name" id="brandName">PORTARIA SAVANA</div>
         <div class="brand-sub" id="relogio">--:--</div>
       </div>
     </div>
@@ -2630,6 +2630,7 @@
     perfilAtual = perfil.key;
     localStorage.setItem(LS_PERFIL_KEY, perfilAtual);
     aplicarPermissoes(perfil.permissoes || {});
+    _atualizarTituloPerfil(usuario);
     document.getElementById('telaLogin').classList.add('oculto');
     mostrarToast(`✅ Bem-vindo, ${perfil.label}!`, 'success', 3000);
     // Pede permissão de notificação logo após o login (precisa de gesto do usuário)
@@ -2662,6 +2663,13 @@
     }
   }
 
+  function _atualizarTituloPerfil(usuario) {
+    const el = document.getElementById('brandName');
+    if (!el) return;
+    const nome = (usuario || '').toUpperCase().trim();
+    el.textContent = nome ? nome + ' SAVANA' : 'PORTARIA SAVANA';
+  }
+
   function verificarLoginSalvo() {
     const salvo = localStorage.getItem(LS_PERFIL_KEY);
     if (salvo) {
@@ -2669,6 +2677,8 @@
       if (perfis[salvo]) {
         perfilAtual = salvo;
         aplicarPermissoes(perfis[salvo].permissoes || {});
+        const usuarioSalvo = perfis[salvo].usuario || salvo;
+        _atualizarTituloPerfil(usuarioSalvo);
         document.getElementById('telaLogin').classList.add('oculto');
       }
     }
