@@ -5,22 +5,6 @@ const { getFirestore }      = require("firebase-admin/firestore");
 
 initializeApp();
 
-/**
- * Cloud Function: enviarPushNotificacao
- *
- * Dispara quando qualquer documento é criado em /push_queue/{docId}
- * Documento esperado:
- *   {
- *     titulo:  string,
- *     corpo:   string,
- *     placa:   string,
- *     token:   string  (se definido → envia só pra esse device)
- *              OU
- *     perfis:  string[] (ex: ['porteiro','admin'] → envia pra todos esses perfis)
- *     ts:      Timestamp,
- *     enviado: boolean
- *   }
- */
 exports.enviarPushNotificacao = onDocumentCreated(
   "push_queue/{docId}",
   async (event) => {
@@ -29,14 +13,13 @@ exports.enviarPushNotificacao = onDocumentCreated(
     if (!snap) return;
 
     const data = snap.data();
-    if (data.enviado) return; // segurança contra reprocessamento
+    if (data.enviado) return;
 
     const titulo = data.titulo || "Portaria Savana";
     const corpo  = data.corpo  || "";
     const placa  = data.placa  || "";
-    const tipo   = data.tipo   || "chamada"; // 'chamada' | 'entrada'
+    const tipo   = data.tipo   || "chamada";
 
-    // ── Monta a mensagem FCM base ────────────────────────────────────────
     const mensagemBase = {
       notification: {
         title: titulo,
@@ -45,14 +28,14 @@ exports.enviarPushNotificacao = onDocumentCreated(
       android: {
         priority: "high",
         notification: {
-          channelId:   "portaria_chamadas",
-          icon:        "ic_notification",   // drawable no app nativo (PWA usa o badge)
-          color:       "#0f2040",
-          sound:       "default",
+          channelId:            "portaria_chamadas",
+          // icon removido — Android usa o ícone do app automaticamente
+          color:                "#0f2040",
+          sound:                "default",
           vibrateTimingsMillis: [0, 200, 100, 200, 100, 400],
           defaultVibrateTimings: false,
-          tag:         `${tipo}-${placa}`,  // agrupa por placa — não acumula spam
-          sticky:      tipo === "chamada",  // chamada fica até tocar; entrada some sozinha
+          tag:                  `${tipo}-${placa}`,
+          sticky:               tipo === "chamada",
         },
       },
       webpush: {
@@ -64,7 +47,7 @@ exports.enviarPushNotificacao = onDocumentCreated(
           badge:              "/icons/icon-32.png",
           tag:                `${tipo}-${placa}`,
           renotify:           true,
-          requireInteraction: tipo === "chamada", // só chamada fica presa na tela
+          requireInteraction: tipo === "chamada",
           vibrate:            [200, 100, 200, 100, 400],
           data:               { placa, tipo, url: "/" },
         },
@@ -74,12 +57,9 @@ exports.enviarPushNotificacao = onDocumentCreated(
     };
 
     try {
-      // ── MODO 1: token individual definido ───────────────────────────────
       if (data.token) {
         await getMessaging().send({ ...mensagemBase, token: data.token });
         console.log(`[FCM] Push enviado para token ${data.token.slice(-8)} — ${titulo}`);
-
-      // ── MODO 2: envia para perfis específicos ───────────────────────────
       } else {
         const perfisAlvo = data.perfis || (tipo === "chamada" ? ["porteiro", "admin"] : ["admin", "balanca"]);
 
@@ -94,7 +74,6 @@ exports.enviarPushNotificacao = onDocumentCreated(
           const tokens = tokensSnap.docs.map(d => d.data().token).filter(Boolean);
           console.log(`[FCM] Enviando para ${tokens.length} token(s) — perfis: ${perfisAlvo.join(", ")}`);
 
-          // Envia em lotes de 500 (limite FCM)
           const LOTE = 500;
           for (let i = 0; i < tokens.length; i += LOTE) {
             const lote = tokens.slice(i, i + LOTE);
@@ -103,7 +82,6 @@ exports.enviarPushNotificacao = onDocumentCreated(
               tokens: lote,
             });
 
-            // Remove tokens inválidos do Firestore automaticamente
             resp.responses.forEach((r, idx) => {
               if (!r.success) {
                 const codigo = r.error?.code || "";
@@ -124,7 +102,6 @@ exports.enviarPushNotificacao = onDocumentCreated(
         }
       }
 
-      // Marca como enviado para não reprocessar
       await snap.ref.update({ enviado: true, enviadoEm: new Date() });
 
     } catch (err) {
