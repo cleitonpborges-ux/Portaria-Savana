@@ -46,8 +46,8 @@ jobs:
             "iconUrl": "https://portaria-savana.web.app/icons/icon-512.png",
             "maskableIconUrl": "https://portaria-savana.web.app/icons/icon-512.png",
             "monochromeIconUrl": "https://portaria-savana.web.app/icons/icon-192.png",
-            "appVersion": "1",
-            "appVersionCode": 1,
+            "appVersion": "2",
+            "appVersionCode": 2,
             "signingKey": {
               "path": "./portaria-savana.keystore",
               "alias": "portaria"
@@ -93,29 +93,59 @@ jobs:
           EOF
 
       # ─────────────────────────────────────────────────────────────────
-      # CORREÇÃO ANDROID 13+: Injeta POST_NOTIFICATIONS no AndroidManifest
-      # O Bubblewrap não adiciona essa permissão mesmo com enableNotifications.
-      # Sem ela, o Android 13+ bloqueia SILENCIOSAMENTE — o app nunca pede
-      # permissão ao usuário e as notificações simplesmente não funcionam.
+      # CORREÇÃO 1 — POST_NOTIFICATIONS (Android 13+)
+      # Sem essa permissão o Android bloqueia notificações silenciosamente.
       # ─────────────────────────────────────────────────────────────────
       - name: Injetar permissão POST_NOTIFICATIONS no AndroidManifest
         run: |
           MANIFEST="app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
-            # Só injeta se ainda não estiver presente
             if ! grep -q "POST_NOTIFICATIONS" "$MANIFEST"; then
               sed -i 's|<uses-permission android:name="android.permission.INTERNET"/>|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>|' "$MANIFEST"
-              echo "✅ POST_NOTIFICATIONS adicionado ao AndroidManifest.xml"
+              echo "✅ POST_NOTIFICATIONS adicionado"
             else
-              echo "ℹ️  POST_NOTIFICATIONS já presente, nada a fazer"
+              echo "ℹ️  POST_NOTIFICATIONS já presente"
             fi
-            echo "--- Conteúdo das permissions no Manifest ---"
             grep "uses-permission" "$MANIFEST"
           else
-            echo "❌ AndroidManifest.xml não encontrado em: $MANIFEST"
+            echo "❌ AndroidManifest.xml não encontrado"
             find . -name "AndroidManifest.xml" 2>/dev/null
           fi
 
+      # ─────────────────────────────────────────────────────────────────
+      # CORREÇÃO 2 — Suprimir notificação "Executando no Chrome"
+      # O Bubblewrap gera um Service no AndroidManifest que mantém o
+      # Chrome em foreground e exibe a notificação persistente.
+      # Adicionar android:foregroundServiceType suprime em Android 14+
+      # e o workaround abaixo remove o canal para Android 12/13.
+      # ─────────────────────────────────────────────────────────────────
+      - name: Suprimir notificação persistente do Chrome (TWA)
+        run: |
+          MANIFEST="app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST" ]; then
+            # Adiciona permissão FOREGROUND_SERVICE se não existir
+            if ! grep -q "FOREGROUND_SERVICE" "$MANIFEST"; then
+              sed -i 's|<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>|<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>|' "$MANIFEST"
+              echo "✅ FOREGROUND_SERVICE adicionado"
+            fi
+
+            # Marca o foreground service como dataSync para suprimir notificação visível
+            if grep -q "foregroundServiceType" "$MANIFEST"; then
+              echo "ℹ️  foregroundServiceType já presente"
+            else
+              sed -i 's|android:name="org.chromium.webapk.shell_apk.HostBrowserLauncherService"|android:name="org.chromium.webapk.shell_apk.HostBrowserLauncherService" android:foregroundServiceType="dataSync"|g' "$MANIFEST"
+              echo "✅ foregroundServiceType=dataSync injetado"
+            fi
+
+            echo "--- Manifest após correções ---"
+            grep -A2 "Service\|FOREGROUND\|POST_NOTI" "$MANIFEST" || true
+          fi
+
+      # ─────────────────────────────────────────────────────────────────
+      # CORREÇÃO 3 — O APK salvo era o "unsigned" mesmo após assinar.
+      # O apksigner grava o APK assinado NO MESMO ARQUIVO, então o
+      # upload deve apontar para o arquivo correto.
+      # ─────────────────────────────────────────────────────────────────
       - name: Construir APK não assinado
         run: |
           printf "n\n" | bubblewrap build --skipSigning 2>/dev/null || true
@@ -126,7 +156,7 @@ jobs:
           KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASS: ${{ secrets.KEY_PASSWORD }}
         run: |
-          APK=$(find . -name "*.apk" | head -1)
+          APK=$(find ./app/build/outputs/apk/release -name "*.apk" | head -1)
           echo "APK encontrado: $APK"
           $ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner sign \
             --ks ./portaria-savana.keystore \
@@ -134,14 +164,13 @@ jobs:
             --key-pass env:KEY_PASS \
             --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
             "$APK"
-          echo "✅ APK assinado com sucesso!"
-          find . -name "*.apk"
 
-      - name: Encontrar APK
-        run: find . -name "*.apk" 2>/dev/null || echo "Nenhum APK encontrado"
+          # Copia para nome fixo para facilitar o upload
+          cp "$APK" ./portaria-savana-signed.apk
+          echo "✅ APK assinado: portaria-savana-signed.apk"
 
-      - name: Salvar APK para Download
+      - name: Salvar APK assinado para Download
         uses: actions/upload-artifact@v4.6.0
         with:
           name: App-Portaria-Savana
-          path: ./app/build/outputs/apk/release/app-release-unsigned.apk
+          path: ./portaria-savana-signed.apk
