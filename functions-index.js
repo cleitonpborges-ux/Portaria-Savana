@@ -44,7 +44,7 @@ exports.enviarPushNotificacao = onDocumentCreated(
           title:              titulo,
           body:               corpo,
           icon:               "/icons/icon-192.png",
-          badge:              "/icons/icon-32.png",
+          badge:              "/icons/ic_notification_xxhdpi.png",
           tag:                `${tipo}-${placa}`,
           renotify:           true,
           requireInteraction: tipo === "chamada",
