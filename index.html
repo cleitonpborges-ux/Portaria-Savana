@@ -269,6 +269,10 @@
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
+    html {
+      overflow-x: hidden;
+      max-width: 100vw;
+    }
     body {
       font-family: 'DM Sans', 'Segoe UI', sans-serif;
       background: var(--bg);
@@ -279,6 +283,8 @@
       align-items: center;
       min-height: 100vh;
       transition: background 0.4s ease;
+      overflow-x: hidden;
+      max-width: 100vw;
     }
 
     /* ===================== STICKY HEADER ===================== */
@@ -292,6 +298,8 @@
       justify-content: center;
       pointer-events: none;
       background: var(--bg); /* bloqueia conteúdo que rola por baixo */
+      overflow: hidden;
+      max-width: 100vw;
     }
 
     .sticky-header {
@@ -498,6 +506,10 @@
       text-transform: uppercase;
       font-family: inherit;
       transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
+      white-space: nowrap;
     }
     .btn-troca-turno:active { transform: scale(0.95); background: rgba(255,255,255,0.25); }
 
@@ -614,10 +626,12 @@
     .container {
       width: 100%;
       max-width: 480px;
-      padding: 10px 16px 16px;
+      padding: 10px 10px 16px;
       padding-top: 210px; /* valor conservador — JS sobrescreve com medida real */
       margin-top: 0;
       position: relative;
+      box-sizing: border-box;
+      overflow-x: hidden;
     }
 
     /* ===================== SUB-HEADER FIXO HISTÓRICO ===================== */
@@ -962,21 +976,47 @@
       text-transform: uppercase;
     }
 
-    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 4px; table-layout: fixed; max-width: 100%; }
 
     td {
       padding: 12px 5px;
       border-bottom: 1px solid var(--border);
       vertical-align: middle;
       color: var(--text-main);
+      overflow: hidden;
     }
 
-    .container-info { width: 55%; }
-    .container-status { width: 45%; text-align: right; vertical-align: top; }
-    .data-hora-canto { font-size: 0.62rem; font-weight: 700; color: var(--text-muted); white-space: nowrap; font-family: 'JetBrains Mono', monospace; }
-    .detalhe-linha { font-size: 0.65rem; color: var(--text-muted); line-height: 1.3; margin-top: 2px; }
+    .container-info { width: 46%; overflow: hidden; }
+    .container-status { width: 32%; text-align: right; vertical-align: top; overflow: visible; }
+
+    /* Responsivo: em telas estreitas, ajusta colunas */
+    @media (max-width: 400px) {
+      .container-info { width: 44%; }
+      .container-status { width: 34%; }
+      td { padding: 10px 2px; }
+
+      .st-badge, .btn-edit, .btn-chamar {
+        font-size: 0.52rem;
+        padding: 0 6px;
+        height: 24px;
+      }
+
+      .btn-aguardar-nfe {
+        font-size: 0.52rem;
+        padding: 0 7px;
+        height: 24px;
+      }
+
+      .data-hora-canto {
+        font-size: 0.52rem;
+      }
+    }
+    .data-hora-canto { font-size: 0.58rem; font-weight: 700; color: var(--text-muted); white-space: nowrap; font-family: 'JetBrains Mono', monospace; flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .detalhe-linha { font-size: 0.65rem; color: var(--text-muted); line-height: 1.3; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .detalhe-linha b { color: var(--text-main); }
-    .obs-linha { font-size: 0.6rem; color: var(--text-muted); font-style: italic; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+    .obs-linha { font-size: 0.6rem; color: var(--text-muted); font-style: italic; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    .obs-row-full td { padding: 0 12px 8px; border-top: none; }
+    .obs-linha-full { font-size: 0.6rem; color: var(--text-muted); font-style: italic; white-space: normal; overflow: visible; display: flex; align-items: flex-start; gap: 4px; width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.025); border-radius: 6px; padding: 5px 8px; }
 
     /* ===================== TEMPO NO PÁTIO ===================== */
     .tempo-badge { display: inline-block; font-size: 0.52rem; font-weight: 700; padding: 3px 8px; border-radius: 20px; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
@@ -985,13 +1025,77 @@
     .tempo-critico { background: #fee2e2; color: #991b1b; animation: piscar-critico 2s infinite; }
     @keyframes piscar-critico { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
 
+    /* ===================== AGUARDANDO NFE ===================== */
+    .status-aguardando-nfe {
+      background: var(--card-bg) !important;
+    }
+    body.modo-noite .status-aguardando-nfe {
+      background: var(--card-bg) !important;
+    }
+    .badge-aguardando-nfe {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #111827;
+      color: #ffffff;
+      font-size: 0.58rem;
+      font-weight: 800;
+      padding: 3px 9px;
+      border-radius: 20px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    body.modo-noite .badge-aguardando-nfe {
+      background: #f1f5f9;
+      color: #0f2040;
+    }
+    body.modo-contraste .badge-aguardando-nfe {
+      background: #000;
+      color: #fff;
+      border: 1.5px solid #000;
+    }
+    .btn-aguardar-nfe {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 26px;
+      padding: 0 10px;
+      border-radius: 13px;
+      font-size: 0.57rem;
+      font-weight: 800;
+      font-family: inherit;
+      text-transform: uppercase;
+      white-space: nowrap;
+      cursor: pointer;
+      border: 1.5px solid #374151;
+      background: #111827;
+      color: #ffffff;
+      letter-spacing: 0.2px;
+      transition: all 0.15s;
+      flex-shrink: 0;
+      flex-grow: 0;
+    }
+    .btn-aguardar-nfe:active { transform: scale(0.92); opacity: 0.85; }
+    body.modo-noite .btn-aguardar-nfe {
+      background: #e2e8f0;
+      color: #0f172a;
+      border-color: #cbd5e1;
+    }
+
     /* ===================== BADGES E BOTÕES ===================== */
     /* Token compartilhado: todos os mini-botões da linha têm a mesma altura */
     .row-btns {
       display: flex;
-      align-items: center;
+      flex-direction: column;
       gap: 5px;
       margin-top: 8px;
+      width: 100%;
+    }
+
+    .row-btns-top {
+      display: flex;
+      align-items: center;
+      gap: 4px;
       flex-wrap: nowrap;
     }
 
@@ -1003,7 +1107,7 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      height: 26px;           /* altura fixa = tudo alinhado */
+      height: 26px;
       padding: 0 9px;
       border-radius: 13px;
       font-size: 0.57rem;
@@ -1016,6 +1120,7 @@
       letter-spacing: 0.2px;
       transition: all 0.15s;
       flex-shrink: 0;
+      flex-grow: 0;
     }
 
     .st-badge:active,
@@ -1031,6 +1136,8 @@
       border: 1.5px solid var(--border);
       color: var(--text-muted);
       padding: 0 8px;
+      flex-shrink: 0;
+      min-width: 28px;
     }
 
     .btn-chamar {
@@ -1412,10 +1519,139 @@
     }
     .btn-modo-noite:active { transform: scale(0.9); }
 
-    /* ===================== SCROLL BAR ===================== */
+    /* ===================== BOTÃO VOLTAR EDITOR ===================== */
+    .btn-voltar-hist {
+      background: none;
+      border: none;
+      cursor: default;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      opacity: 0.35;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+      flex-shrink: 0;
+    }
+
+    /* Quando em modo edição, o botão fica ativo */
+    .card-header.modo-edicao .btn-voltar-hist {
+      opacity: 1;
+      cursor: pointer;
+      pointer-events: all;
+    }
+
+    .card-header.modo-edicao .btn-voltar-hist:hover {
+      opacity: 0.75;
+    }
+
+    .card-header.modo-edicao .btn-voltar-hist:active {
+      transform: translateX(-4px);
+    }
+
+    @keyframes voltarSeta {
+      0%   { transform: translateX(0); }
+      35%  { transform: translateX(-6px); }
+      65%  { transform: translateX(-2px); }
+      100% { transform: translateX(0); }
+    }
+
+    .btn-voltar-hist.animando svg {
+      animation: voltarSeta 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    /* Botão voltar saída — sempre ativo (não depende de modo edição) */
+    .btn-voltar-saida {
+      opacity: 1 !important;
+      cursor: pointer !important;
+      pointer-events: all !important;
+    }
+    .btn-voltar-saida:hover { opacity: 0.7 !important; }
+    .btn-voltar-saida:active { transform: translateX(-4px); }
+
+    /* ===================== FIM BOTÃO VOLTAR EDITOR ===================== */
+
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* ===================== AUTOCOMPLETE SAÍDA ===================== */
+    .autocomplete-wrap {
+      position: relative;
+      width: 100%;
+    }
+    .autocomplete-lista {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0; right: 0;
+      background: var(--card-bg);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      z-index: 200;
+      overflow: hidden;
+      animation: fadeSlideIn 0.15s ease;
+    }
+    .autocomplete-lista.visivel { display: block; }
+    .autocomplete-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.12s;
+    }
+    .autocomplete-item:last-child { border-bottom: none; }
+    .autocomplete-item:active, .autocomplete-item:hover { background: var(--bg); }
+    .ac-placa {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: 1px;
+      flex-shrink: 0;
+      min-width: 72px;
+    }
+    .ac-placa mark {
+      background: transparent;
+      color: var(--accent);
+      font-weight: 800;
+    }
+    .ac-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .ac-motorista {
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ac-detalhe {
+      font-size: 0.58rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ac-status {
+      font-size: 0.52rem;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 20px;
+      flex-shrink: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+    }
+    .ac-status-carregando { background: rgba(37,99,235,0.12); color: #2563eb; }
+    .ac-status-patio      { background: rgba(15,32,64,0.10);  color: var(--primary); }
+    .ac-status-nfe        { background: rgba(107,114,128,0.12); color: #6b7280; }
 
     /* ===================== TOAST NOTIFICATIONS ===================== */
     #toastContainer {
@@ -1945,7 +2181,6 @@
     }
     .btn-registrar-saida:active { transform: scale(0.92); }
     .btn-registrar-saida:disabled { opacity: 0.45; cursor: not-allowed; }
-
   </style>
 </head>
 <body>
@@ -2105,7 +2340,14 @@
       <div class="turno-strip-name" id="turnoNomeAtual">TURNO EM ANDAMENTO</div>
       <div class="turno-strip-sub" id="turnoPorteiroAtual">Nenhum porteiro informado</div>
     </div>
-    <button class="btn-troca-turno" onclick="abrirModalTurno()">🔄 Trocar Turno</button>
+    <button class="btn-troca-turno" onclick="abrirModalTurno()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:5px;flex-shrink:0;">
+        <path d="M17 2l4 4-4 4"/>
+        <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+        <path d="M7 22l-4-4 4-4"/>
+        <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+      </svg>TROCAR TURNO
+    </button>
   </div>
   </div>
 
@@ -2278,10 +2520,12 @@
     <!-- PAINEL DE CHAMADAS MÚLTIPLAS -->
     <div id="painelChamadas"></div>
     <div class="card-header" id="headerEntrada">
-      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
-        <polyline points="10,12 3,12" stroke="#1565c0" stroke-width="2.5" stroke-linecap="round"/>
-        <polyline points="6.5,8.5 3,12 6.5,15.5" stroke="#1565c0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      </svg>
+      <button id="btnVoltarHistorico" class="btn-voltar-hist" onclick="voltarDoEditor()" title="Voltar ao histórico">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+          <polyline points="10,12 3,12" stroke="#1565c0" stroke-width="2.5" stroke-linecap="round"/>
+          <polyline points="6.5,8.5 3,12 6.5,15.5" stroke="#1565c0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </button>
       <div class="card-header-title azul" id="tituloEntradaTexto">Nova Entrada</div>
     </div>
     <input type="hidden" id="edit_mode" value="false">
@@ -2318,8 +2562,8 @@
       <div class="campo" id="campo-ordem-wrap" style="flex:1; margin-bottom:10px;">
         <label>Ordem</label>
         <select id="o_ent">
+          <option value="NÃO" selected>NÃO</option>
           <option value="SIM">SIM</option>
-          <option value="NÃO">NÃO</option>
         </select>
       </div>
     </div>
@@ -2345,17 +2589,22 @@
   <!-- ABA SAÍDA -->
   <div id="abaSaida" class="card" style="border-top-color: var(--success)">
     <div class="card-header">
-      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
-        <polyline points="14,12 21,12" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round"/>
-        <polyline points="17.5,8.5 21,12 17.5,15.5" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      </svg>
+      <button id="btnVoltarSaida" class="btn-voltar-hist btn-voltar-saida" onclick="voltarDaSaida()" title="Voltar ao histórico">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+          <polyline points="10,12 3,12" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round"/>
+          <polyline points="6.5,8.5 3,12 6.5,15.5" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </button>
       <div class="card-header-title verde">Registrar Saída</div>
     </div>
     <div class="feedback-box" id="feedbackSaida"></div>
     <div class="campo">
       <label>Placa</label>
       <div class="placa-row">
-        <input type="text" id="p_sai" oninput="previewSaida(this.value)" autocomplete="off" autocorrect="off" spellcheck="false">
+        <div class="autocomplete-wrap" style="flex:1;">
+          <input type="text" id="p_sai" oninput="previewSaida(this.value);acSaidaInput(this.value)" onblur="acSaidaFechar()" autocomplete="off" autocorrect="off" spellcheck="false" style="width:100%;">
+          <div class="autocomplete-lista" id="acSaidaLista"></div>
+        </div>
         <button class="btn-ocr" onclick="abrirOCR('p_sai')" title="Ler placa pela câmera">
           <span class="ocr-icon">📷</span>
           <span class="ocr-label">OCR</span>
@@ -2377,6 +2626,7 @@
   </div>
 
 </div>
+
 
 <script type="module">
   const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyjxrCNfrASZiox6VNzYY2J8_480qrcTH-sPeBEAonfSvar08z8Jr2O-Gzfd5iPALUQzw/exec?dados=true";
@@ -2567,7 +2817,7 @@
   async function _fbSaida(placa, nfe) {
     try {
       let docRef = null;
-      for (const st of ['PÁTIO', 'CARREGANDO']) {
+      for (const st of ['PÁTIO', 'CARREGANDO', 'AGUARDANDO NFE']) {
         const q = query(
           collection(_db, 'veiculos'),
           where('placa', '==', placa),
@@ -2585,6 +2835,76 @@
         });
       }
     } catch(e) { console.warn('[Firebase] Saída falhou:', e); }
+  }
+
+  // Grava AGUARDANDO NFE no Firestore
+  async function _fbAguardarNfe(placa) {
+    try {
+      let docRef = null;
+      const q = query(
+        collection(_db, 'veiculos'),
+        where('placa', '==', placa),
+        where('status', '==', 'CARREGANDO'),
+        orderBy('criadoEm', 'desc')
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) { docRef = snap.docs[0].ref; }
+      if (docRef) {
+        await updateDoc(docRef, {
+          status: 'AGUARDANDO NFE',
+          atualizadoEm: serverTimestamp()
+        });
+      }
+    } catch(e) { console.warn('[Firebase] Aguardar NFe falhou:', e); }
+  }
+
+  // Handler do botão "Aguardando NFe" — lê a placa do dataset do <tr>
+  async function registrarAguardarNfeEl(btn) {
+    const tr = btn.closest('tr');
+    const placa = tr.dataset.placa;
+    if (!placa) return;
+
+    // 1. Botão fica no lugar — bem fraquinho, sem aceitar toque
+    btn.disabled = true;
+    btn.style.opacity = '0.18';
+    btn.style.pointerEvents = 'none';
+
+    // Remove highlight azul de CARREGANDO da linha
+    tr.classList.remove('status-carregando');
+
+    // 2. Badge lado direito — mesmo estilo de CARREGANDO
+    const statusTd = tr.querySelector('.container-status');
+    if (statusTd) {
+      const badgeCarr = [...statusTd.querySelectorAll('span')].find(s => s.textContent.includes('CARREGANDO'));
+      const wrapper = badgeCarr ? (badgeCarr.closest('div') || badgeCarr) : null;
+      const html = `<div style="margin-top:6px;text-align:right;"><span style="color:var(--text-muted);font-weight:700;font-size:0.62rem;">AGUARD. NF-e</span></div>`;
+      if (wrapper) wrapper.outerHTML = html;
+      else statusTd.insertAdjacentHTML('beforeend', html);
+    }
+
+    // 3. Conta no card "Carregados"
+    const idx = veiculosPatio.findIndex(v => v.placa === placa);
+    if (idx >= 0) {
+      const veiculo = veiculosPatio.splice(idx, 1)[0];
+      veiculo.status = 'AGUARDANDO NFE';
+      veiculosCarregados.push(veiculo);
+      atualizarDetalhesProdutos('carga');
+    }
+
+    vibrar(60);
+    mostrarToast(`${placa} — Aguard. NF-e`, 'info', 3000);
+
+    // 4. Persiste no backend
+    try {
+      fetch(WEB_APP_POST_URL, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ acao: 'AGUARDANDO_NFE', placa })
+      }).catch(() => {});
+      _fbAguardarNfe(placa);
+    } catch(e) {
+      console.warn('[Aguardar NFe] Erro no backend:', e);
+    }
   }
 
   // Atualiza ordem no Firestore
@@ -2633,6 +2953,7 @@
     _atualizarTituloPerfil(usuario);
     document.getElementById('telaLogin').classList.add('oculto');
     mostrarToast(`✅ Bem-vindo, ${perfil.label}!`, 'success', 3000);
+    carregarEstado();
     // Pede permissão de notificação logo após o login (precisa de gesto do usuário)
     _pedirPermissaoNotificacao();
   }
@@ -2640,6 +2961,7 @@
   function trocarPerfil() {
     localStorage.removeItem(LS_PERFIL_KEY);
     perfilAtual = null;
+    ultimoDadosHash = '';
     document.getElementById('loginUsuario').value = '';
     document.getElementById('loginSenha').value = '';
     document.getElementById('telaLogin').classList.remove('oculto');
@@ -2685,7 +3007,7 @@
   }
 
 
-  const EDIT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const EDIT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`;
   const LS_TURNO_KEY   = 'portaria_turno';
   const LS_PENDING_KEY = 'portaria_pending';
   const LS_ESTADO_KEY  = 'portaria_estado';
@@ -3493,7 +3815,7 @@
         const s = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
         if (s === 'CONCLUIDO') return false;
         if (s === 'SAIDA' && ocultarSaidasRel) return false;
-        return s === 'PATIO' || s === 'CARREGANDO' || s === 'SAIDA';
+        return s === 'PATIO' || s === 'CARREGANDO' || s === 'SAIDA' || s === 'AGUARDANDO NFE';
       })
       .sort((a,b) => (a.chegada||0) - (b.chegada||0));
 
@@ -3514,6 +3836,8 @@
           sufixo = v.nfe ? ` | NFe - ${v.nfe}` : ' | SAÍDA';
         } else if (st === 'CARREGANDO') {
           sufixo = ' | CARREGANDO';
+        } else if (st === 'AGUARDANDO NFE') {
+          sufixo = ' | AG. NFe';
         } else {
           const oc = (v.ordem||'').toUpperCase().trim() === 'SIM' ? ' O.C - OK' : '';
           sufixo = oc;
@@ -3638,11 +3962,16 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   /* ===================== PREVIEW SAÍDA ===================== */
   function previewSaida(val) {
     const placa = val.toUpperCase().trim();
-    const veiculo = veiculosPatio.find(v => v.placa === placa);
+    const veiculo = veiculosPatio.find(v => v.placa === placa)
+                 || veiculosCarregados.find(v => v.placa === placa && v.status === 'AGUARDANDO NFE');
     const preview = document.getElementById('preview_saida');
     if (veiculo) {
       preview.style.display = 'block';
-      preview.innerHTML = `✅ <b>${veiculo.placa}</b> encontrado no pátio<br><span style="color:var(--accent);font-size:0.78rem;">Motorista: ${veiculo.motorista||'---'} | ${veiculo.produto||'---'} | ${veiculo.transportadora||'---'}</span>`;
+      preview.style.background = '';
+      preview.style.borderColor = '';
+      preview.style.color = '';
+      const extraInfo = veiculo.status === 'AGUARDANDO NFE' ? ' <b style="color:#6b7280;font-size:0.72rem;">Aguard. NF-e</b>' : '';
+      preview.innerHTML = `✅ <b>${veiculo.placa}</b> encontrado${extraInfo}<br><span style="color:var(--accent);font-size:0.78rem;">Motorista: ${veiculo.motorista||'---'} | ${veiculo.produto||'---'} | ${veiculo.transportadora||'---'}</span>`;
     } else if (placa.length >= 7) {
       preview.style.display = 'block';
       preview.style.background = 'var(--danger-light)';
@@ -3656,6 +3985,76 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       preview.style.color = '';
     }
   }
+
+  /* ===================== AUTOCOMPLETE SAÍDA ===================== */
+  let _acFecharTimer = null;
+
+  function acSaidaInput(val) {
+    const q = val.toUpperCase().trim();
+    const lista = document.getElementById('acSaidaLista');
+    if (q.length < 2) { lista.classList.remove('visivel'); lista.innerHTML = ''; return; }
+
+    // Busca por início da placa OU pelos 4 dígitos/letras finais
+    const candidatos = [...veiculosPatio, ...veiculosCarregados].filter(v => {
+      const p = (v.placa || '').toUpperCase();
+      return p.startsWith(q) || p.endsWith(q) || p.slice(-4) === q.slice(-4) && q.length >= 4;
+    });
+
+    // Remove duplicatas por placa
+    const vistos = new Set();
+    const unicos = candidatos.filter(v => { if (vistos.has(v.placa)) return false; vistos.add(v.placa); return true; });
+
+    if (unicos.length === 0) { lista.classList.remove('visivel'); lista.innerHTML = ''; return; }
+
+    lista.innerHTML = unicos.slice(0, 6).map(v => {
+      const p = v.placa;
+      // Destaca a parte digitada na placa
+      let placaHtml = p;
+      if (p.startsWith(q)) {
+        placaHtml = `<mark>${p.slice(0, q.length)}</mark>${p.slice(q.length)}`;
+      } else if (p.endsWith(q) || (q.length >= 4 && p.slice(-4) === q.slice(-4))) {
+        const sufixo = p.endsWith(q) ? q : p.slice(-4);
+        const idx = p.lastIndexOf(sufixo);
+        placaHtml = `${p.slice(0, idx)}<mark>${p.slice(idx)}</mark>`;
+      }
+
+      const statusClass = v.status === 'CARREGANDO' ? 'ac-status-carregando'
+                        : v.status === 'AGUARDANDO NFE' ? 'ac-status-nfe'
+                        : 'ac-status-patio';
+      const statusLabel = v.status === 'CARREGANDO' ? 'Carregando'
+                        : v.status === 'AGUARDANDO NFE' ? 'Ag. NF-e'
+                        : 'Pátio';
+
+      return `<div class="autocomplete-item" onmousedown="acSaidaSelecionar('${p}')">
+        <span class="ac-placa">${placaHtml}</span>
+        <div class="ac-info">
+          <span class="ac-motorista">${v.motorista || '---'}</span>
+          <span class="ac-detalhe">${v.transportadora || ''} · ${v.produto || ''}</span>
+        </div>
+        <span class="ac-status ${statusClass}">${statusLabel}</span>
+      </div>`;
+    }).join('');
+
+    lista.classList.add('visivel');
+  }
+
+  function acSaidaSelecionar(placa) {
+    const inp = document.getElementById('p_sai');
+    inp.value = placa;
+    previewSaida(placa);
+    document.getElementById('acSaidaLista').classList.remove('visivel');
+    // Foca no campo NFE para agilizar o fluxo
+    setTimeout(() => document.getElementById('nfe_sai').focus(), 80);
+  }
+
+  function acSaidaFechar() {
+    // Pequeno delay para o onmousedown do item ter tempo de disparar antes de sumir
+    _acFecharTimer = setTimeout(() => {
+      const lista = document.getElementById('acSaidaLista');
+      if (lista) lista.classList.remove('visivel');
+    }, 200);
+  }
+  /* ===================== FIM AUTOCOMPLETE SAÍDA ===================== */
 
   /* ===================== PS4 CARD PULSE ===================== */
   function pulsarCard(tipo) {
@@ -3767,6 +4166,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     if (s === 'SAIDA')                        return 'SAÍDA';
     if (s === 'CONCLUIDO' || s === 'CONCLUÍDO') return 'CONCLUIDO';
     if (s === 'A DESCARREGAR')               return 'A DESCARREGAR';
+    if (s === 'AGUARDANDO NFE' || s === 'AGUARDANDO NFE' || s === 'AGUARDANDONFE') return 'AGUARDANDO NFE';
     return String(raw).trim().toUpperCase();
   }
 
@@ -3798,6 +4198,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // • PÁTIO         → ativo no pátio, aparece no histórico
     // • CARREGANDO    → ativo no pátio (fundo azul), aparece no histórico
     // • A DESCARREGAR → NÃO aparece nos cards de pátio, aparece no histórico com badge próprio
+    // • AGUARDANDO NFE → aparece na lista (fundo branco), conta no card "Carregados", NÃO some na virada
     // • SAÍDA         → carregados + histórico (some após 19h)
     // • CONCLUIDO     → não aparece em nada
     const ocultarSaidas = new Date().getHours() >= 19;
@@ -3813,7 +4214,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       }
       if (r.status === 'CONCLUIDO') { r._visivel = false; return; }
 
-      r._visivel = (r.status === 'PÁTIO' || r.status === 'CARREGANDO' || r.status === 'A DESCARREGAR')
+      r._visivel = (r.status === 'PÁTIO' || r.status === 'CARREGANDO' || r.status === 'A DESCARREGAR' || r.status === 'AGUARDANDO NFE')
                 || (r.status === 'SAÍDA' && !ocultarSaidas);
     });
 
@@ -3835,6 +4236,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         addHist(r, 'ENTRADA', r.dataEntrada);
       } else if (r.status === 'A DESCARREGAR') {
         // Aparece no histórico mas NÃO nos cards de pátio
+        addHist(r, 'ENTRADA', r.dataEntrada);
+      } else if (r.status === 'AGUARDANDO NFE') {
+        // Conta no card "Carregados" (carga física concluída) mas permanece visível na lista (fundo branco)
+        veiculosCarregados.push(r);
         addHist(r, 'ENTRADA', r.dataEntrada);
       } else if (r.status === 'SAÍDA') {
         if (!ocultarSaidas) {
@@ -3864,6 +4269,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const tr = document.createElement("tr");
     if (d.status === 'CARREGANDO')    tr.classList.add('status-carregando');
     if (d.status === 'A DESCARREGAR') tr.classList.add('status-descarregando');
+    if (d.status === 'AGUARDANDO NFE') tr.classList.add('status-aguardando-nfe');
     tr.dataset.busca          = `${d.placa} ${d.motorista||''} ${d.transportadora||''} ${d.produto||''}`.toUpperCase();
     tr.dataset.placa          = d.placa          || '';
     tr.dataset.motorista      = d.motorista       || '';
@@ -3872,6 +4278,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     tr.dataset.ordem          = d.ordem           || '';
     tr.dataset.obs            = obsLocal          || '';
     tr.dataset.descarregar    = d.status === 'A DESCARREGAR' ? 'SIM' : 'NÃO';
+    tr.dataset.status         = d.status          || '';
+    tr.dataset.data           = d.dataEntrada     || '';
+    tr.dataset.seqgeral       = d.seqGeral        || '';
+    tr.dataset.seqproduto     = d.seqProduto      || '';
 
     const chamadaInfo = historicoChamadas.find(c => c.placa === d.placa);
     const chamadaBadge = chamadaInfo
@@ -3883,38 +4293,72 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         <span style="font-size:0.55rem;color:var(--text-muted);font-weight:700;">N°${String(d.seqGeral).padStart(2,'0')}${d.seqProduto ? ` <span style="color:var(--accent);margin-left:4px;">${d.produto||''} #${d.seqProduto}</span>` : ''}</span>
         <div style="font-size:1rem;font-weight:700;color:var(--text-main);font-family:'JetBrains Mono',monospace;letter-spacing:1px;margin:2px 0 1px;">${d.placa}</div>
         <div class="detalhe-linha"><b>MOT:</b> ${d.motorista||'---'}</div>
-        ${obsLocal ? `<div class="obs-linha"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>${obsLocal}</div>` : ''}
         ${tempoBadge}
         ${tipo==='ENTRADA' ? `
           <div class="row-btns">
-            <button class="btn-chamar" onclick="chamarVeiculoEl(this)" style="display:inline-flex;align-items:center;gap:5px;">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.36 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg>
-              Chamar
-            </button>
-            ${d.status === 'A DESCARREGAR' ? `<button class="btn-registrar-saida" onclick="registrarSaidaDescarga(this,'${d.placa}')">⬇ Registrar Saída</button>` : `<button class="btn-obs" onclick="abrirModalObsEl(this)">Obs</button>`}
-            ${d.status !== 'A DESCARREGAR' ? `<button class="st-badge" style="background:${d.ordem==='SIM'?'var(--success)':'var(--danger)'}" onclick="toggleOrdem(this,'${d.placa}')">${d.ordem}</button>` : ''}
-          </div>` : ''}
+            ${d.status === 'A DESCARREGAR' ? `
+              <button class="btn-registrar-saida" onclick="registrarSaidaDescarga(this,'${d.placa}')">⬇ Registrar Saída</button>
+            ` : d.status === 'CARREGANDO' || d.status === 'AGUARDANDO NFE' ? '' : `
+              <div class="row-btns-top">
+                ${perfilAtual === 'portaria' ? '' : `<button class="btn-chamar" onclick="chamarVeiculoEl(this)" style="display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.36 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg>Chamar</button>`}
+                <button class="st-badge" style="background:${d.ordem==='SIM'?'var(--success)':'var(--danger)'}" onclick="toggleOrdem(this,'${d.placa}')">${d.ordem==='SIM'?'C/OC':'S/OC'}</button>
+              </div>
+            `}
+          </div>
+` : ''}
         ${chamadaBadge}
       </td>
-      <td style="width:26%;text-align:center;vertical-align:middle;">
-        <div class="detalhe-linha">${d.transportadora||'---'}</div>
-        <div class="detalhe-linha"><b>${d.produto||(d.nfe?'NFE: '+d.nfe:'---')}</b></div>
+      <td style="width:22%;text-align:center;vertical-align:middle;padding:10px 4px;overflow:hidden;">
+        <div class="detalhe-linha" style="white-space:normal;word-break:break-word;line-height:1.3;">${d.transportadora||'---'}</div>
+        <div class="detalhe-linha" style="white-space:normal;word-break:break-word;line-height:1.3;"><b>${d.produto||(d.nfe?'NFE: '+d.nfe:'---')}</b></div>
       </td>
       <td class="container-status" style="vertical-align:top;padding-top:12px;padding-bottom:12px;">
-        <span class="data-hora-canto">${dStr} ${hStr}</span>
-        ${tipo==='ENTRADA' ? `
-          <div class="row-btns" style="justify-content:flex-end;margin-top:10px;">
-            <button class="btn-edit" title="Editar" onclick="prepararEdicaoEl(this)">${EDIT_ICON_SVG}</button>
-          </div>
-          ${d.status==='CARREGANDO' ? `<div style="margin-top:6px;text-align:right;"><span style="color:#2563eb;font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8l5 2v6h-5V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>CARREGANDO</span></div>` : ''}
-          ${d.status==='A DESCARREGAR' ? `<div style="margin-top:6px;text-align:right;"><span style="color:#f59e0b;font-weight:800;font-size:0.62rem;white-space:nowrap;">A DESCARREGAR</span></div>` : ''}
 
-        ` : `<div style="margin-top:10px;">${d.status==='CARREGANDO'
-          ? `<span style="color:#2563eb;font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8l5 2v6h-5V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>CARREGANDO</span>`
-          : `<span style="color:var(--success);font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SAÍDA</span>`
-        }</div>`}
+        <!-- LINHA 1: data/hora à esquerda + botão editar à direita -->
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:6px;flex-wrap:nowrap;min-width:0;">
+          <span class="data-hora-canto" style="min-width:0;overflow:hidden;text-overflow:ellipsis;">${dStr} ${hStr}</span>
+          ${tipo==='ENTRADA' ? `<button class="btn-edit" title="Editar" onclick="prepararEdicaoEl(this)" style="flex-shrink:0;">${EDIT_ICON_SVG}</button>` : ''}
+        </div>
+
+        <!-- LINHA 2: status -->
+        ${tipo==='ENTRADA' ? `
+          <div style="text-align:right;margin-bottom:6px;">
+            ${d.status==='CARREGANDO'    ? `<span style="color:#2563eb;font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8l5 2v6h-5V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>CARREGANDO</span>` : ''}
+            ${d.status==='A DESCARREGAR' ? `<span style="color:#f59e0b;font-weight:800;font-size:0.62rem;white-space:nowrap;">A DESCARREGAR</span>` : ''}
+            ${d.status==='AGUARDANDO NFE'? `<span style="color:var(--text-muted);font-weight:700;font-size:0.62rem;">AGUARD. NF-e</span>` : ''}
+          </div>
+        ` : `
+          <div style="text-align:right;margin-bottom:6px;">
+            ${d.status==='CARREGANDO'
+              ? `<span style="color:#2563eb;font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8l5 2v6h-5V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>CARREGANDO</span>`
+              : `<span style="color:var(--success);font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SAÍDA</span>`
+            }
+          </div>
+        `}
+
+        <!-- LINHA 3: botão Aguard. NF-e alinhado com row-btns da esquerda -->
+        ${tipo==='ENTRADA' && d.status==='CARREGANDO' ? `
+          <div style="display:flex;justify-content:flex-end;">
+            <button class="btn-aguardar-nfe" onclick="registrarAguardarNfeEl(this)">Aguard. NF-e</button>
+          </div>
+        ` : ''}
+
       </td>`;
+
     tbody.appendChild(tr);
+
+    // Linha de observação de largura total (abaixo do tr principal)
+    if (obsLocal && tipo === 'ENTRADA') {
+      const trObs = document.createElement('tr');
+      trObs.className = 'obs-row-full';
+      trObs.innerHTML = `<td colspan="3" style="padding:0 12px 10px;border-top:none;">
+        <div class="obs-linha-full">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><!-- letra a --><path d="M5 10 C5 7.5 6.2 6 8 6 C9.8 6 11 7.5 11 10 L11 13 C11 13 10 14 8 14 C6 14 5 13 5 11.5 C5 10 6.5 9.5 8 9.5 L11 9.5"/><!-- letra b --><path d="M13 5 L13 14"/><path d="M13 9.5 C13 9.5 14 8.5 15.5 8.5 C17 8.5 18 9.5 18 11 C18 12.5 17 13.8 15.5 13.8 C14 13.8 13 12.8 13 12.8"/><!-- lápis embaixo --><line x1="3" y1="19" x2="18" y2="19"/><path d="M15 19 L18 16 L20 18 L17 21 Z"/><line x1="18" y1="16" x2="20" y2="18"/></svg>
+          <span>${obsLocal}</span>
+        </div>
+      </td>`;
+      tbody.appendChild(trObs);
+    }
   }
 
   /* ===================== BUSCA HISTÓRICO ===================== */
@@ -4201,6 +4645,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       document.getElementById('edit_mode').value = "false";
       document.getElementById('placa_original').value = "";
       document.getElementById('tituloEntradaTexto').innerText = "Nova Entrada";
+      document.getElementById('headerEntrada').classList.remove('modo-edicao');
       // Reseta checkbox e regra de descarga
       const chk = document.getElementById('chk_descarregar');
       if (chk) chk.checked = false;
@@ -4233,7 +4678,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     btn.disabled = true;
     btn.innerText = "⏳ Processando...";
     btn.style.opacity = '0.7';
-    const veiculo = veiculosPatio.find(v => v.placa === placa);
+    // Busca em pátio E em aguardando NFe
+    const veiculo = veiculosPatio.find(v => v.placa === placa)
+                 || veiculosCarregados.find(v => v.placa === placa && v.status === 'AGUARDANDO NFE');
     const payload = { placa, nfe, acao:"SAIDA" };
     try {
       if (!navigator.onLine) { await idbAdicionarPendente(payload); throw new Error('offline'); }
@@ -4247,7 +4694,16 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       fb.style.display = 'block';
       fb.innerHTML = `✅ Saída registrada: <b>${placa}</b>${veiculo ? ` — ${veiculo.motorista||''} — ${veiculo.produto||''}` : ''}`;
       vibrar([50, 30, 100]);
-      pulsarCard('carga');
+      // AGUARDANDO NFE que sai NÃO altera o card do dia atual (regra: saída de outro dia não conta)
+      // apenas remove da lista local
+      const idxCarr = veiculosCarregados.findIndex(v => v.placa === placa && v.status === 'AGUARDANDO NFE');
+      if (idxCarr >= 0) {
+        veiculosCarregados.splice(idxCarr, 1);
+        // Não pulsamos 'carga' pois a saída de outro dia não altera o contador de hoje
+        atualizarDetalhesProdutos();
+      } else {
+        pulsarCard('carga');
+      }
       setTimeout(() => { fb.style.display = 'none'; }, 5000);
       carregarEstado();
     } catch(e) {
@@ -4305,10 +4761,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
   /* ===================== OUTROS ===================== */
   async function toggleOrdem(btn, placa) {
-    const novo = btn.innerText === 'SIM' ? 'NÃO' : 'SIM';
+    const novo = btn.innerText === 'C/OC' ? 'NÃO' : 'SIM';
     // Atualiza UI imediatamente (não espera o servidor)
     btn.style.background = novo === 'SIM' ? 'var(--success)' : 'var(--danger)';
-    btn.innerText = novo;
+    btn.innerText = novo === 'SIM' ? 'C/OC' : 'S/OC';
     vibrar(40);
     // Envia para o servidor em background (fire-and-forget)
     try {
@@ -4318,6 +4774,38 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   }
 
   // Lê os dados do dataset do <tr> com segurança (sem quebrar por aspas/caracteres especiais)
+  function voltarDoEditor() {
+    const btn = document.getElementById('btnVoltarHistorico');
+    if (!btn) return;
+    // Dispara animação
+    btn.classList.remove('animando');
+    void btn.offsetWidth; // reflow
+    btn.classList.add('animando');
+    setTimeout(() => btn.classList.remove('animando'), 400);
+
+    // Limpa modo edição
+    document.getElementById('edit_mode').value = "false";
+    document.getElementById('placa_original').value = "";
+    document.getElementById('tituloEntradaTexto').innerText = "Nova Entrada";
+    document.getElementById('headerEntrada').classList.remove('modo-edicao');
+
+    // Volta para o histórico
+    const tabHist = document.querySelectorAll('.tab-btn')[2];
+    switchTab('abaHist', tabHist);
+  }
+
+  function voltarDaSaida() {
+    const btn = document.getElementById('btnVoltarSaida');
+    if (btn) {
+      btn.classList.remove('animando');
+      void btn.offsetWidth;
+      btn.classList.add('animando');
+      setTimeout(() => btn.classList.remove('animando'), 400);
+    }
+    const tabHist = document.querySelectorAll('.tab-btn')[2];
+    switchTab('abaHist', tabHist);
+  }
+
   function prepararEdicaoEl(btn) {
     const tr = btn.closest('tr');
     prepararEdicao(
@@ -4368,7 +4856,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     if (chk) chk.checked = isDesc;
     if (campoChk) campoChk.classList.toggle('marcado', isDesc);
     document.getElementById('edit_mode').value = "true";
-    document.getElementById('tituloEntradaTexto').innerText = "✏️ Editando: " + p;
+    document.getElementById('tituloEntradaTexto').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg> Editando: ${p}`;
+    document.getElementById('headerEntrada').classList.add('modo-edicao');
     switchTab('abaEntrada', document.getElementById('tabBtnEnt'));
   }
 
@@ -4454,13 +4943,17 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
     // Remove APENAS os caminhões com SAÍDA registrada da memória
     // veiculosPatio é preservado — quem ainda está no pátio continua visível
+    // AGUARDANDO NFE: sai do card "Carregados" (reset do dia), mas permanece visível na lista
     veiculosCarregados = [];
     ultimoDadosHash = '';
 
     // Re-renderiza o histórico mostrando APENAS quem ainda está no pátio
+    // + AGUARDANDO NFE (que "dormiu" esperando a nota — controle físico real)
     document.querySelector('#tabDia tbody').innerHTML = '';
     document.querySelector('#tabNoite tbody').innerHTML = '';
     veiculosPatio.forEach(r => addHist(r, 'ENTRADA', r.dataEntrada));
+    // Veículos aguardando NFe permanecem visíveis na lista (fundo branco) mas NÃO no card
+    // Eles serão re-renderizados pelo próximo carregarEstado() com status AGUARDANDO NFE
 
     // Atualiza cards: carregados vai a zero, pátio mantém contagem real
     atualizarDetalhesProdutos();
@@ -5251,7 +5744,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     abrirOCR, abrirGerenciarPerfis, limparTodosDados,
     copiarRelatorio, salvarTurno, confirmarTrocarTurno, salvarObs,
     chamarVeiculo, chamarVeiculoEl, dispensarChamada, dispensarChamadaPlaca,
-    prepararEdicao, prepararEdicaoEl, previewSaida,
+    prepararEdicao, prepararEdicaoEl, previewSaida, voltarDoEditor,
+    acSaidaInput, acSaidaSelecionar, acSaidaFechar, voltarDaSaida,
     abrirModalObsEl,
     filtrarHistorico, limparTabela,
     ocrConfirmar, ocrFechar, ocrReler,
@@ -5262,7 +5756,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     produtoEditar, produtoApagar, produtoEditarNovo, produtoVoltarLista, produtoSalvar,
     onProdutoChange, renderProdutosSelect, onProdutoManualInput,
     toggleDescarregar, registrarSaidaDescarga,
+    registrarAguardarNfeEl,
   });
+
 
 </script>
   <!-- Registro do Service Worker PWA -->
