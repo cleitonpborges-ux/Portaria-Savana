@@ -2307,6 +2307,28 @@
           </svg>
           <span class="gear-item-label">Produtos</span>
         </button>
+        <!-- Dashboard Desktop (admin e balanca) -->
+        <button class="gear-item" id="btnDashboard" onclick="abrirDashboard(); fecharGear()" title="Dashboard Desktop" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+            <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/>
+            <rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/>
+            <rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/>
+            <rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          <span class="gear-item-label">Dashboard</span>
+        </button>
+        <!-- Janela Flutuante Mini (admin e balanca) -->
+        <button class="gear-item" id="btnJanelaFlutuante" onclick="abrirJanelaFlutuante(); fecharGear()" title="Janela Flutuante Mini" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+            <!-- Janela principal (fundo) -->
+            <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Mini janela flutuante (sobreposição no canto inferior direito) -->
+            <rect x="11" y="11" width="10" height="8" rx="1.5" fill="var(--card-bg,#fff)" stroke="currentColor" stroke-width="2"/>
+            <!-- Barra de título da mini janela -->
+            <line x1="11" y1="14" x2="21" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <span class="gear-item-label">Mini</span>
+        </button>
         <button class="gear-item" id="btnLimparDados" onclick="limparTodosDados(); fecharGear()" title="Limpar Dados" style="color: var(--danger, #dc2626); display:none">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
             <polyline points="3 6 5 6 21 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -5049,6 +5071,103 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   window.addEventListener('resize', ajustarContainerTop);
 
 
+  function abrirDashboard() {
+    const url = new URL('balanca.html', window.location.href).href;
+    window.open(url, 'balanca_dashboard', 'width=1280,height=800,resizable=yes,scrollbars=yes');
+  }
+
+  /* ===================== JANELA FLUTUANTE MINI (Document Picture-in-Picture) =====================
+   * Abre uma janela SEM barra do navegador, sempre no topo, sobre outros programas.
+   * Requer Chrome/Edge 116+ em HTTPS ou localhost.
+   * Fallback: window.open com popup compacto para navegadores sem suporte.
+   * ========================================================================================== */
+  let _pipWin = null;
+
+  async function abrirJanelaFlutuante() {
+    // ── Se já está aberta, traz para frente ──
+    if (_pipWin && !_pipWin.closed) {
+      try { _pipWin.focus(); } catch(e) {}
+      return;
+    }
+
+    // ── Tenta Document PiP (Chrome/Edge 116+) ──
+    if ('documentPictureInPicture' in window) {
+      try {
+        _pipWin = await window.documentPictureInPicture.requestWindow({
+          width:  390,
+          height: 720,
+          disallowReturnToOpener: false,
+        });
+
+        // Copia todos os estilos da página principal para a janela PiP
+        [...document.styleSheets].forEach(sheet => {
+          try {
+            const cssRules = [...sheet.cssRules].map(r => r.cssText).join('');
+            const style = _pipWin.document.createElement('style');
+            style.textContent = cssRules;
+            _pipWin.document.head.appendChild(style);
+          } catch(e) {
+            // Stylesheet cross-origin — copia via link
+            if (sheet.href) {
+              const link = _pipWin.document.createElement('link');
+              link.rel = 'stylesheet';
+              link.href = sheet.href;
+              _pipWin.document.head.appendChild(link);
+            }
+          }
+        });
+
+        // Copia meta viewport
+        const meta = _pipWin.document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, initial-scale=1.0';
+        _pipWin.document.head.appendChild(meta);
+
+        // Título
+        _pipWin.document.title = 'Portaria Savana — Mini';
+
+        // Cria um iframe apontando para a própria página dentro da janela PiP
+        const iframe = _pipWin.document.createElement('iframe');
+        iframe.src = window.location.href;
+        iframe.style.cssText = 'width:100%;height:100%;border:none;display:block;';
+        _pipWin.document.body.style.cssText = 'margin:0;padding:0;overflow:hidden;height:100vh;';
+        _pipWin.document.body.appendChild(iframe);
+
+        _pipWin.addEventListener('pagehide', () => { _pipWin = null; });
+        mostrarToast('📱 Janela mini aberta — sempre no topo!', 'success', 3000);
+        return;
+      } catch(e) {
+        console.warn('[PiP] documentPictureInPicture falhou:', e);
+        // Cai no fallback abaixo
+      }
+    }
+
+    // ── Fallback: window.open compacto (Firefox, Safari, Edge antigo) ──
+    // Abre em popup sem toolbar. Não fica "sempre no topo" mas é sem barras.
+    const largura = 390, altura = 720;
+    const left = Math.round((screen.width  - largura) / 2);
+    const top  = Math.round((screen.height - altura)  / 2);
+    const features = [
+      `width=${largura}`, `height=${altura}`,
+      `left=${left}`, `top=${top}`,
+      'resizable=yes', 'scrollbars=yes',
+      'toolbar=no', 'menubar=no', 'location=no', 'status=no',
+    ].join(',');
+
+    _pipWin = window.open(window.location.href, 'portaria_mini', features);
+
+    if (!_pipWin) {
+      mostrarToast('⚠️ Popup bloqueado! Permita popups para este site no navegador.', 'error', 5000);
+      return;
+    }
+    mostrarToast('📱 Janela mini aberta! (Use Chrome/Edge para modo sempre no topo)', 'info', 4000);
+  }
+
+  function fecharJanelaFlutuante() {
+    if (_pipWin && !_pipWin.closed) try { _pipWin.close(); } catch(e) {}
+    _pipWin = null;
+  }
+
   /* ===================== GERENCIAR PERFIS =====================
      Perfis dinâmicos salvos em localStorage.
      Admin pode criar, editar e apagar perfis.
@@ -5155,6 +5274,20 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // Botão gerenciar produtos (só admin)
     const btnGP2 = document.getElementById('btnGerenciarProdutos');
     if (btnGP2) btnGP2.style.display = perm.gerenciar_perfis ? '' : 'none';
+
+    // Botão janela flutuante mini (admin e balanca — quem não tem aba_entrada ou é admin)
+    const btnJF = document.getElementById('btnJanelaFlutuante');
+    if (btnJF) {
+      const isAdminOuBalanca = perm.gerenciar_perfis || (!perm.aba_entrada && !perm.aba_saida);
+      btnJF.style.display = isAdminOuBalanca ? '' : 'none';
+    }
+
+    // Botão dashboard desktop (admin e balanca)
+    const btnDB = document.getElementById('btnDashboard');
+    if (btnDB) {
+      const isAdminOuBalanca2 = perm.gerenciar_perfis || (!perm.aba_entrada && !perm.aba_saida);
+      btnDB.style.display = isAdminOuBalanca2 ? '' : 'none';
+    }
   }
 
   // Estado do editor
@@ -5757,6 +5890,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     onProdutoChange, renderProdutosSelect, onProdutoManualInput,
     toggleDescarregar, registrarSaidaDescarga,
     registrarAguardarNfeEl,
+    // Janela flutuante mini
+    abrirJanelaFlutuante, fecharJanelaFlutuante,
+    // Dashboard desktop
+    abrirDashboard,
   });
 
 
