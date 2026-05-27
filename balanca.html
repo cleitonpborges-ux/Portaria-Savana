@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Balança — Portaria Savana</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary:       #0f2040;
+      --primary-light: #1a3560;
+      --accent:        #2563eb;
+      --accent-light:  #dbeafe;
+      --success:       #16a34a;
+      --success-light: #dcfce7;
+      --danger:        #dc2626;
+      --danger-light:  #fee2e2;
+      --warn:          #d97706;
+      --warn-light:    #fef3c7;
+      --bg:            #f0f2f5;
+      --card:          #ffffff;
+      --text:          #111827;
+      --muted:         #6b7280;
+      --border:        #e5e7eb;
+      --radius:        12px;
+      --shadow:        0 2px 12px rgba(0,0,0,0.08);
+      --shadow-md:     0 4px 20px rgba(0,0,0,0.12);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: 'DM Sans', 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      padding: 0 28px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 16px rgba(15,32,64,0.35);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      flex-shrink: 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-logo {
+      width: 36px; height: 36px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .header-title {
+      font-size: 1rem;
+      font-weight: 800;
+      color: white;
+      letter-spacing: 0.3px;
+    }
+
+    .header-sub {
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.55);
+      font-weight: 500;
+      letter-spacing: 0.3px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .header-clock {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: white;
+      letter-spacing: 1px;
+    }
+
+    .sync-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 6px #22c55e;
+      animation: pulse-dot 2s infinite;
+    }
+    .sync-dot.offline { background: #ef4444; box-shadow: 0 0 6px #ef4444; animation: none; }
+    @keyframes pulse-dot { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+    /* ── BARRA DE STATS ── */
+    .stats-bar {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 28px;
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .stat-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg);
+      border-radius: 100px;
+      padding: 6px 14px 6px 8px;
+      border: 1.5px solid var(--border);
+    }
+
+    .stat-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .stat-dot.patio   { background: #f59e0b; }
+    .stat-dot.carga   { background: var(--success); }
+    .stat-dot.saida   { background: var(--accent); }
+    .stat-dot.critico { background: var(--danger); }
+
+    .stat-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .stat-num {
+      font-size: 1rem;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text);
+    }
+
+    .stat-sep { width: 1px; height: 28px; background: var(--border); }
+
+    .porteiro-info {
+      margin-left: auto;
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .porteiro-nome {
+      color: var(--primary);
+      font-weight: 800;
+    }
+
+    /* ── SEARCH + FILTROS ── */
+    .toolbar {
+      padding: 14px 28px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .search-wrap {
+      position: relative;
+      flex: 1;
+      max-width: 360px;
+    }
+    .search-icon {
+      position: absolute;
+      left: 12px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+    .search-input {
+      width: 100%;
+      padding: 9px 12px 9px 36px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 0.85rem;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .search-input:focus { border-color: var(--accent); background: #fff; }
+
+    .filter-btn {
+      padding: 8px 14px;
+      border-radius: var(--radius);
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--muted);
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .filter-btn.active {
+      border-color: var(--accent);
+      background: var(--accent-light);
+      color: var(--accent);
+    }
+    .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    .atualiza-info {
+      margin-left: auto;
+      font-size: 0.65rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* ── TABELA ── */
+    .table-wrap {
+      flex: 1;
+      overflow: auto;
+      padding: 20px 28px 28px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 6px;
+    }
+
+    thead th {
+      background: var(--primary);
+      color: rgba(255,255,255,0.75);
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 10px 14px;
+      text-align: left;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    thead th:first-child { border-radius: 10px 0 0 10px; }
+    thead th:last-child  { border-radius: 0 10px 10px 0; }
+
+    tbody tr {
+      background: var(--card);
+      box-shadow: var(--shadow);
+      transition: box-shadow 0.15s, transform 0.15s;
+      cursor: default;
+    }
+    tbody tr:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+
+    tbody td {
+      padding: 12px 14px;
+      font-size: 0.82rem;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    tbody td:first-child { border-left: 1px solid var(--border); border-radius: 10px 0 0 10px; }
+    tbody td:last-child  { border-right: 1px solid var(--border); border-radius: 0 10px 10px 0; }
+
+    /* status de linha */
+    tr.row-patio      { border-left: 4px solid #f59e0b !important; }
+    tr.row-carregando { border-left: 4px solid var(--accent) !important; background: #eff6ff !important; }
+    tr.row-descarregar{ border-left: 4px solid var(--warn) !important; background: var(--warn-light) !important; }
+    tr.row-nfe        { border-left: 4px solid #94a3b8 !important; background: #f8fafc !important; }
+    tr.row-saida      { border-left: 4px solid var(--success) !important; background: var(--success-light) !important; }
+    tr.row-critico td:first-child { position: relative; }
+    tr.row-critico::after {
+      content: '⚠️ +4H';
+      position: absolute;
+      font-size: 0.55rem;
+      font-weight: 800;
+      color: var(--danger);
+      background: var(--danger-light);
+      border: 1px solid #fca5a5;
+      border-radius: 4px;
+      padding: 1px 4px;
+      margin-left: 4px;
+      white-space: nowrap;
+    }
+
+    /* células especiais */
+    .cell-seq {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .cell-placa {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: 1px;
+    }
+
+    .cell-name {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 180px;
+    }
+
+    .cell-empresa {
+      font-size: 0.75rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 160px;
+    }
+
+    .cell-produto {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--primary);
+      white-space: nowrap;
+    }
+
+    .cell-hora {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.62rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      padding: 3px 8px;
+      border-radius: 100px;
+      white-space: nowrap;
+    }
+    .badge-patio      { background: #fef3c7; color: #92400e; }
+    .badge-carregando { background: var(--accent-light); color: #1d4ed8; }
+    .badge-descarregar{ background: var(--warn-light); color: #92400e; }
+    .badge-nfe        { background: #f1f5f9; color: #475569; }
+    .badge-saida      { background: var(--success-light); color: #15803d; }
+
+    .tempo-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 100px;
+      white-space: nowrap;
+    }
+    .tempo-ok      { background: var(--success-light); color: #15803d; }
+    .tempo-alerta  { background: var(--warn-light);    color: #92400e; }
+    .tempo-critico { background: var(--danger-light);  color: #991b1b; }
+
+    .obs-badge {
+      font-size: 0.62rem;
+      color: var(--muted);
+      font-style: italic;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* sem dados */
+    .empty-state {
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--muted);
+    }
+    .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+    .empty-title { font-size: 1rem; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+    .empty-sub { font-size: 0.8rem; }
+
+    /* hidden rows */
+    tr.hidden { display: none; }
+
+    /* ── LOADING ── */
+    #loadingState {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── NOVO REGISTRO FLASH ── */
+    @keyframes row-flash {
+      0%   { background: #dbeafe; }
+      100% { background: var(--card); }
+    }
+    tr.novo-registro { animation: row-flash 1.5s ease-out; }
+
+    /* ── COLUNA ORDEM ── */
+    .oc-sim { color: var(--success); font-weight: 800; font-size: 0.7rem; }
+    .oc-nao { color: #cbd5e1; font-size: 0.7rem; }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="header-logo">
+      <svg viewBox="0 0 24 24" fill="none" width="20" height="20">
+        <rect x="2" y="10" width="20" height="12" rx="2" stroke="white" stroke-width="2"/>
+        <path d="M6 10V7a6 6 0 0 1 12 0v3" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="12" cy="16" r="2" fill="white"/>
+      </svg>
+    </div>
+    <div>
+      <div class="header-title">PORTARIA SAVANA</div>
+      <div class="header-sub">Dashboard Balança — Tempo Real</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div id="syncDot" class="sync-dot" title="Conectado ao Firebase"></div>
+    <div class="header-clock" id="relogio">--:--:--</div>
+  </div>
+</header>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stat-pill">
+    <div class="stat-dot patio"></div>
+    <span class="stat-label">Pátio</span>
+    <span class="stat-num" id="statPatio">0</span>
+  </div>
+  <div class="stat-pill">
+    <div class="stat-dot carga"></div>
+    <span class="stat-label">Carregando</span>
+    <span class="stat-num" id="statCarga">0</span>
+  </div>
+  <div class="stat-pill">
+    <div class="stat-dot saida"></div>
+    <span class="stat-label">Saída</span>
+    <span class="stat-num" id="statSaida">0</span>
+  </div>
+  <div class="stat-sep"></div>
+  <div class="stat-pill" style="border-color:#fca5a5;background:#fff5f5;">
+    <div class="stat-dot critico"></div>
+    <span class="stat-label" style="color:#dc2626;">Críticos +4h</span>
+    <span class="stat-num" id="statCritico" style="color:#dc2626;">0</span>
+  </div>
+  <div class="stat-sep"></div>
+  <div class="porteiro-info">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.582-7 8-7s8 3 8 7"/></svg>
+    Porteiro:&nbsp;<span class="porteiro-nome" id="statPorteiro">—</span>
+    <span id="statTurnoHora" style="color:var(--muted);font-weight:500;"></span>
+  </div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="search-wrap">
+    <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input class="search-input" id="searchInput" type="text" placeholder="Buscar placa, motorista, empresa ou produto..." oninput="filtrar()">
+  </div>
+
+  <button class="filter-btn active" id="fb-todos"        onclick="setFiltro('todos')">Todos</button>
+  <button class="filter-btn"        id="fb-patio"        onclick="setFiltro('patio')">Pátio</button>
+  <button class="filter-btn"        id="fb-carregando"   onclick="setFiltro('carregando')">Carregando</button>
+  <button class="filter-btn"        id="fb-saida"        onclick="setFiltro('saida')">Saída</button>
+  <button class="filter-btn"        id="fb-critico"      onclick="setFiltro('critico')" style="color:#dc2626;border-color:#fca5a5;">⚠️ +4h</button>
+
+  <span class="atualiza-info" id="ultimaAtualizacao">Aguardando dados...</span>
+</div>
+
+<!-- LOADING -->
+<div id="loadingState">
+  <div class="spinner"></div>
+  <div style="font-size:0.85rem;color:var(--muted);font-weight:600;">Conectando ao Firebase...</div>
+</div>
+
+<!-- TABELA -->
+<div class="table-wrap" id="tableWrap" style="display:none;">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:60px;">Nº</th>
+        <th style="width:100px;">Placa</th>
+        <th>Motorista</th>
+        <th>Empresa</th>
+        <th style="width:120px;">Produto</th>
+        <th style="width:80px;">O.C.</th>
+        <th style="width:100px;">Entrada</th>
+        <th style="width:90px;">Tempo</th>
+        <th style="width:130px;">Status</th>
+        <th>Observação</th>
+      </tr>
+    </thead>
+    <tbody id="tbodyPrincipal"></tbody>
+  </table>
+
+  <div id="emptyState" class="empty-state" style="display:none;">
+    <div class="empty-icon">📋</div>
+    <div class="empty-title">Nenhum registro encontrado</div>
+    <div class="empty-sub">Tente limpar os filtros ou aguarde novos registros.</div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp }    from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
+  import {
+    getFirestore, collection, doc, query, where, orderBy,
+    onSnapshot, getDoc
+  } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+
+  const _fbApp = initializeApp({
+    apiKey:            "AIzaSyCkD415LbF4S97BqRNXHBxnuGUDwzcUAd4",
+    authDomain:        "portaria-savana.firebaseapp.com",
+    projectId:         "portaria-savana",
+    storageBucket:     "portaria-savana.firebasestorage.app",
+    messagingSenderId: "983062289504",
+    appId:             "1:983062289504:web:38ececbd6ec52fafc4f705"
+  });
+  const _db = getFirestore(_fbApp);
+
+  /* ── helpers ── */
+  function normStatus(raw) {
+    if (!raw) return '';
+    const s = String(raw).trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    if (s === 'PATIO')      return 'PÁTIO';
+    if (s === 'CARREGANDO') return 'CARREGANDO';
+    if (s === 'SAIDA')      return 'SAÍDA';
+    if (s === 'CONCLUIDO' || s === 'CONCLUIDO') return 'CONCLUIDO';
+    if (s === 'A DESCARREGAR') return 'A DESCARREGAR';
+    if (s.includes('AGUARDANDO') || s.includes('NFE')) return 'AGUARDANDO NFE';
+    return String(raw).trim().toUpperCase();
+  }
+
+  function turnoId() {
+    const d = new Date();
+    return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function calcTempo(ts) {
+    if (!ts) return null;
+    const mins = Math.floor((Date.now() - ts) / 60000);
+    if (mins < 60) return { texto: `${mins}min`, cls: 'tempo-ok' };
+    const h = Math.floor(mins/60), m = mins%60;
+    const texto = `${h}h${m>0?('0'+m).slice(-2):''}`;
+    if (h < 3) return { texto, cls: 'tempo-ok' };
+    if (h < 4) return { texto, cls: 'tempo-alerta' };
+    return { texto, cls: 'tempo-critico' };
+  }
+
+  /* ── estado global ── */
+  let _registros   = [];
+  let _filtroAtivo = 'todos';
+  let _placasAntes = new Set();
+
+  /* ── relógio ── */
+  function tick() {
+    document.getElementById('relogio').textContent =
+      new Date().toLocaleTimeString('pt-BR');
+  }
+  tick(); setInterval(tick, 1000);
+
+  /* ── turno ── */
+  async function carregarTurno() {
+    try {
+      const snap = await getDoc(doc(_db, 'turno', 'atual'));
+      if (!snap.exists()) return;
+      const t = snap.data();
+      document.getElementById('statPorteiro').textContent = t.porteiro || '—';
+      if (t.inicio) {
+        const d = t.inicio.toDate ? t.inicio.toDate() : new Date(t.inicio);
+        document.getElementById('statTurnoHora').textContent =
+          ' desde ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+      }
+    } catch(e) {}
+  }
+  carregarTurno();
+  setInterval(carregarTurno, 60000);
+
+  /* ── listener principal Firebase ── */
+  function _ts(r) {
+    if (r.chegadaTimestamp) return r.chegadaTimestamp;
+    if (r.dataEntrada) {
+      try {
+        const [datePart, timePart] = r.dataEntrada.split(' ');
+        const [d,mo,a] = datePart.split('/');
+        const [h,mi]   = timePart.split(':');
+        return new Date(a,mo-1,d,h,mi).getTime();
+      } catch(e) {}
+    }
+    if (r.criadoEm?.toDate) return r.criadoEm.toDate().getTime();
+    return 0;
+  }
+
+  const q = query(
+    collection(_db, 'veiculos'),
+    where('turnoId', '==', turnoId()),
+    orderBy('criadoEm', 'asc')
+  );
+
+  const dot = document.getElementById('syncDot');
+
+  onSnapshot(q, (snap) => {
+    dot.classList.remove('offline');
+    const agora = new Date();
+    const ocultarSaidas = agora.getHours() >= 19;
+
+    const placasNova = new Set();
+    const lista = [];
+
+    snap.forEach(docSnap => {
+      const r = { id: docSnap.id, ...docSnap.data() };
+      r.status = normStatus(r.status);
+      if (r.status === 'PÁTIO' && String(r.descarregar||'').trim().toUpperCase() === 'SIM') r.status = 'A DESCARREGAR';
+      if (r.status === 'CONCLUIDO') return;
+      if (r.status === 'SAÍDA' && ocultarSaidas) return;
+      r._ts = _ts(r);
+      r._critico = (r.status === 'PÁTIO' || r.status === 'CARREGANDO' || r.status === 'A DESCARREGAR')
+                && r._ts && (Date.now() - r._ts) > 4 * 3600000;
+      lista.push(r);
+      placasNova.add(r.placa);
+    });
+
+    // ordena por chegada
+    lista.sort((a,b) => a._ts - b._ts);
+
+    const novas = [...placasNova].filter(p => !_placasAntes.has(p));
+    _placasAntes = placasNova;
+    _registros = lista;
+
+    renderTabela(novas);
+
+    // atualiza stats
+    const patio   = lista.filter(r => r.status === 'PÁTIO').length;
+    const carga   = lista.filter(r => r.status === 'CARREGANDO' || r.status === 'AGUARDANDO NFE').length;
+    const saida   = lista.filter(r => r.status === 'SAÍDA').length;
+    const critico = lista.filter(r => r._critico).length;
+    document.getElementById('statPatio').textContent   = patio;
+    document.getElementById('statCarga').textContent   = carga;
+    document.getElementById('statSaida').textContent   = saida;
+    document.getElementById('statCritico').textContent = critico;
+
+    const hora = agora.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    document.getElementById('ultimaAtualizacao').textContent = `Atualizado às ${hora} — ${lista.length} registro(s)`;
+
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('tableWrap').style.display = '';
+
+  }, (err) => {
+    console.warn('[Firebase]', err);
+    dot.classList.add('offline');
+  });
+
+  /* ── renderiza tabela ── */
+  function renderTabela(placasNovas = []) {
+    const tbody = document.getElementById('tbodyPrincipal');
+    const busca = document.getElementById('searchInput').value.trim().toUpperCase();
+
+    // numera por produto
+    const seqProd = {}, seqGeral = { n: 0 };
+
+    tbody.innerHTML = '';
+    let visiveis = 0;
+
+    _registros.forEach(r => {
+      const prod = r.produto || '---';
+      if (!seqProd[prod]) seqProd[prod] = 0;
+      seqProd[prod]++;
+      seqGeral.n++;
+      const sg = seqGeral.n, sp = seqProd[prod];
+
+      // filtro de busca
+      const haystack = `${r.placa} ${r.motorista||''} ${r.transportadora||''} ${r.produto||''}`.toUpperCase();
+      if (busca && !haystack.includes(busca)) return;
+
+      // filtro de status
+      if (_filtroAtivo === 'patio'      && r.status !== 'PÁTIO') return;
+      if (_filtroAtivo === 'carregando' && r.status !== 'CARREGANDO' && r.status !== 'AGUARDANDO NFE') return;
+      if (_filtroAtivo === 'saida'      && r.status !== 'SAÍDA') return;
+      if (_filtroAtivo === 'critico'    && !r._critico) return;
+
+      visiveis++;
+
+      const tempo  = calcTempo(r._ts);
+      const [datePart, timePart] = (r.dataEntrada || '').split(' ');
+
+      // badge status
+      let badgeCls = 'badge-patio', badgeTxt = 'Pátio';
+      if (r.status === 'CARREGANDO')     { badgeCls = 'badge-carregando';  badgeTxt = 'Carregando'; }
+      if (r.status === 'A DESCARREGAR') { badgeCls = 'badge-descarregar'; badgeTxt = 'A Descarregar'; }
+      if (r.status === 'AGUARDANDO NFE'){ badgeCls = 'badge-nfe';          badgeTxt = 'Ag. NF-e'; }
+      if (r.status === 'SAÍDA')         { badgeCls = 'badge-saida';        badgeTxt = 'Saída'; }
+
+      // classe da linha
+      let rowCls = 'row-patio';
+      if (r.status === 'CARREGANDO')     rowCls = 'row-carregando';
+      if (r.status === 'A DESCARREGAR') rowCls = 'row-descarregar';
+      if (r.status === 'AGUARDANDO NFE') rowCls = 'row-nfe';
+      if (r.status === 'SAÍDA')         rowCls = 'row-saida';
+      if (r._critico) rowCls += ' row-critico';
+      if (placasNovas.includes(r.placa)) rowCls += ' novo-registro';
+
+      const obs = (r.observacao || '').trim();
+      const nfe = r.nfe ? `<div style="font-size:0.62rem;color:var(--muted)">NFe: ${r.nfe}</div>` : '';
+
+      const tr = document.createElement('tr');
+      tr.className = rowCls;
+      tr.dataset.busca = haystack;
+      tr.innerHTML = `
+        <td>
+          <div class="cell-seq">Nº${String(sg).padStart(2,'0')}</div>
+          <div style="font-size:0.58rem;color:var(--accent);font-weight:700;">${prod} #${sp}</div>
+        </td>
+        <td><div class="cell-placa">${r.placa || '—'}</div></td>
+        <td>
+          <div class="cell-name">${r.motorista || '—'}</div>
+          ${r._critico ? '<div style="font-size:0.62rem;color:#dc2626;font-weight:800;">⚠️ CRÍTICO +4h</div>' : ''}
+        </td>
+        <td><div class="cell-empresa" title="${r.transportadora||''}">${r.transportadora || '—'}</div></td>
+        <td><div class="cell-produto">${r.produto || '—'}</div></td>
+        <td>
+          ${(r.ordem||'').toUpperCase() === 'SIM'
+            ? '<span class="oc-sim">✔ C/OC</span>'
+            : '<span class="oc-nao">S/OC</span>'}
+        </td>
+        <td>
+          <div class="cell-hora">${timePart || '—'}</div>
+          <div style="font-size:0.6rem;color:var(--muted);">${datePart || ''}</div>
+        </td>
+        <td>
+          ${tempo ? `<span class="tempo-badge ${tempo.cls}">${tempo.texto}</span>` : '—'}
+        </td>
+        <td><span class="badge-status ${badgeCls}">${badgeTxt}</span>${nfe}</td>
+        <td>
+          ${obs ? `<div class="obs-badge" title="${obs}">${obs}</div>` : '<span style="color:#e5e7eb;">—</span>'}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('emptyState').style.display = visiveis === 0 ? '' : 'none';
+  }
+
+  /* ── filtros ── */
+  window.setFiltro = function(f) {
+    _filtroAtivo = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('fb-' + f)?.classList.add('active');
+    renderTabela();
+  };
+
+  window.filtrar = function() { renderTabela(); };
+</script>
+</body>
+</html>
