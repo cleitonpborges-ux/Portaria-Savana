@@ -405,8 +405,71 @@
     /* hidden rows */
     tr.hidden { display: none; }
 
-    /* ── LOADING ── */
-    #loadingState {
+    /* ── LOGIN (igual ao index.html) ── */
+    #telaLogin {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: linear-gradient(160deg, #0f2040 0%, #1a3560 50%, #0f2040 100%);
+      padding: 32px 24px;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+    }
+    #telaLogin.oculto { display: none; }
+    .login-logo {
+      width: 80px; height: 80px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 24px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .login-title { font-size: 1.4rem; font-weight: 800; color: white; margin: 0 0 4px; text-align: center; }
+    .login-sub { font-size: 0.72rem; color: rgba(255,255,255,0.55); margin: 0 0 36px; text-align: center; text-transform: uppercase; letter-spacing: 0.5px; }
+    .login-card {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 28px 24px;
+      width: 100%; max-width: 380px;
+      backdrop-filter: blur(10px);
+      box-sizing: border-box;
+    }
+    .login-label { display: block; font-size: 0.62rem; font-weight: 700; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .login-input {
+      width: 100%; padding: 14px 16px;
+      background: rgba(255,255,255,0.08);
+      border: 1.5px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      color: white; font-size: 1rem; font-family: inherit;
+      outline: none; box-sizing: border-box;
+      transition: border-color 0.15s; margin-bottom: 16px;
+    }
+    .login-input::placeholder { color: rgba(255,255,255,0.3); }
+    .login-input:focus { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.12); }
+    .btn-login {
+      width: 100%; padding: 16px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      border: none; border-radius: 10px;
+      color: white; font-size: 0.95rem; font-weight: 800;
+      font-family: inherit; cursor: pointer;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      transition: all 0.15s; box-shadow: 0 4px 14px rgba(37,99,235,0.4);
+    }
+    .btn-login:active { transform: scale(0.97); }
+    .login-erro {
+      display: none;
+      background: rgba(220,38,38,0.15); border: 1px solid rgba(220,38,38,0.4);
+      border-radius: 10px; padding: 10px 14px;
+      color: #fca5a5; font-size: 0.78rem; font-weight: 600;
+      text-align: center; margin-top: 12px;
+    }
+    .login-erro.ativo { display: block; }
       flex: 1;
       display: flex;
       flex-direction: column;
@@ -434,7 +497,8 @@
     .oc-sim { color: var(--success); font-weight: 800; font-size: 0.7rem; }
     .oc-nao { color: #cbd5e1; font-size: 0.7rem; }
 
-    /* ── SCROLLBAR ── */
+    /* ── LOADING ── */
+    #loadingState {
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -511,8 +575,35 @@
   <span class="atualiza-info" id="ultimaAtualizacao">Aguardando dados...</span>
 </div>
 
+<!-- TELA DE LOGIN (igual ao index.html) -->
+<div id="telaLogin">
+  <div class="login-logo">
+    <img src="icon-portaria.png" alt="Porteiro" style="width:56px;height:56px;object-fit:contain;"
+         onerror="this.style.display='none';this.parentElement.innerHTML='🔒'">
+  </div>
+  <div class="login-title">Portaria Savana</div>
+  <div class="login-sub">Dashboard Balança — Tempo Real</div>
+  <div class="login-card">
+    <label class="login-label">Usuário</label>
+    <input type="text" class="login-input" id="loginUser" placeholder="balanca ou admin" autocomplete="off" autocorrect="off" spellcheck="false"
+           onkeydown="if(event.key==='Enter') document.getElementById('loginSenha').focus()">
+    <label class="login-label">Senha</label>
+    <input type="password" class="login-input" id="loginSenha" placeholder="••••••••"
+           onkeydown="if(event.key==='Enter') tentarLogin()">
+    <button class="btn-login" onclick="tentarLogin()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:6px;">
+        <rect x="5" y="11" width="14" height="10" rx="2" fill="white" opacity="0.95"/>
+        <path d="M8 11V7a4 4 0 0 1 8 0v4" stroke="white" stroke-width="2.2" stroke-linecap="round" fill="none" opacity="0.95"/>
+        <circle cx="12" cy="16" r="1.5" fill="#1d4ed8"/>
+      </svg>
+      Entrar
+    </button>
+    <div class="login-erro" id="loginErro">❌ Usuário ou senha incorretos!</div>
+  </div>
+</div>
+
 <!-- LOADING -->
-<div id="loadingState">
+<div id="loadingState" style="display:none;">
   <div class="spinner"></div>
   <div style="font-size:0.85rem;color:var(--muted);font-weight:600;">Conectando ao Firebase...</div>
 </div>
@@ -544,44 +635,77 @@
   </div>
 </div>
 
-<script type="module">
-  import { initializeApp }    from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
-  import {
-    getFirestore, collection, doc, query, where,
-    onSnapshot, getDoc
-  } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+<script>
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyjxrCNfrASZiox6VNzYY2J8_480qrcTH-sPeBEAonfSvar08z8Jr2O-Gzfd5iPALUQzw/exec?dados=true";
 
-  const _fbApp = initializeApp({
-    apiKey:            "AIzaSyCkD415LbF4S97BqRNXHBxnuGUDwzcUAd4",
-    authDomain:        "portaria-savana.firebaseapp.com",
-    projectId:         "portaria-savana",
-    storageBucket:     "portaria-savana.firebasestorage.app",
-    messagingSenderId: "983062289504",
-    appId:             "1:983062289504:web:38ececbd6ec52fafc4f705"
-  });
-  const _db = getFirestore(_fbApp);
+  /* ── LOGIN ── */
+  const LS_PERFIS = 'portaria_perfis_v2';
+  const PERFIS_PADRAO = {
+    balanca: { usuario:'balanca', senha:'balanca123' },
+    admin:   { usuario:'admin',   senha:'admin123'   },
+    portaria:{ usuario:'portaria',senha:'portaria123' },
+  };
+
+  function _getPerfis() {
+    try { const r = localStorage.getItem(LS_PERFIS); return r ? JSON.parse(r) : PERFIS_PADRAO; }
+    catch(e) { return PERFIS_PADRAO; }
+  }
+
+  function tentarLogin() {
+    const user  = document.getElementById('loginUser').value.trim().toLowerCase();
+    const senha = document.getElementById('loginSenha').value;
+    const perfis = _getPerfis();
+    const match = Object.values(perfis).find(p => p.usuario === user && p.senha === senha);
+    if (match) {
+      sessionStorage.setItem('balanca_auth', '1');
+      document.getElementById('telaLogin').classList.add('oculto');
+      document.getElementById('loadingState').style.display = '';
+      iniciarApp();
+    } else {
+      const erro = document.getElementById('loginErro');
+      erro.classList.add('ativo');
+      document.getElementById('loginSenha').value = '';
+      document.getElementById('loginSenha').focus();
+    }
+  }
+  window.tentarLogin = tentarLogin;
+
+  // Se já autenticado nesta sessão, pula login
+  if (sessionStorage.getItem('balanca_auth') === '1') {
+    document.getElementById('telaLogin').classList.add('oculto');
+    document.getElementById('loadingState').style.display = '';
+  }
+
+  function iniciarApp() {
 
   /* ── helpers ── */
   function normStatus(raw) {
     if (!raw) return '';
     const s = String(raw).trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    if (s === 'PATIO')      return 'PÁTIO';
-    if (s === 'CARREGANDO') return 'CARREGANDO';
-    if (s === 'SAIDA')      return 'SAÍDA';
-    if (s === 'CONCLUIDO' || s === 'CONCLUIDO') return 'CONCLUIDO';
+    if (s === 'PATIO')         return 'PÁTIO';
+    if (s === 'CARREGANDO')    return 'CARREGANDO';
+    if (s === 'SAIDA')         return 'SAÍDA';
+    if (s === 'CONCLUIDO')     return 'CONCLUIDO';
     if (s === 'A DESCARREGAR') return 'A DESCARREGAR';
     if (s.includes('AGUARDANDO') || s.includes('NFE')) return 'AGUARDANDO NFE';
     return String(raw).trim().toUpperCase();
   }
 
-  function turnoId() {
-    const d = new Date();
-    return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  function tsFromDataEntrada(dataEntrada) {
+    if (!dataEntrada) return 0;
+    try {
+      const [dp, tp] = dataEntrada.split(' ');
+      const [d,mo,a] = dp.split('/');
+      const [h,mi]   = tp.split(':');
+      return new Date(a,mo-1,d,h,mi).getTime();
+    } catch(e) { return 0; }
   }
 
-  function calcTempo(ts) {
+  function calcTempo(dataEntrada) {
+    const ts = tsFromDataEntrada(dataEntrada);
     if (!ts) return null;
     const mins = Math.floor((Date.now() - ts) / 60000);
+    if (mins < 0) return null;
     if (mins < 60) return { texto: `${mins}min`, cls: 'tempo-ok' };
     const h = Math.floor(mins/60), m = mins%60;
     const texto = `${h}h${m>0?('0'+m).slice(-2):''}`;
@@ -590,163 +714,120 @@
     return { texto, cls: 'tempo-critico' };
   }
 
-  /* ── estado global ── */
+  /* ── estado ── */
   let _registros   = [];
   let _filtroAtivo = 'todos';
-  let _placasAntes = new Set();
+  let _ultimoHash  = '';
 
   /* ── relógio ── */
   function tick() {
-    document.getElementById('relogio').textContent =
-      new Date().toLocaleTimeString('pt-BR');
+    document.getElementById('relogio').textContent = new Date().toLocaleTimeString('pt-BR');
   }
   tick(); setInterval(tick, 1000);
 
-  /* ── turno ── */
-  async function carregarTurno() {
-    try {
-      const snap = await getDoc(doc(_db, 'turno', 'atual'));
-      if (!snap.exists()) return;
-      const t = snap.data();
-      document.getElementById('statPorteiro').textContent = t.porteiro || '—';
-      if (t.inicio) {
-        const d = t.inicio.toDate ? t.inicio.toDate() : new Date(t.inicio);
-        document.getElementById('statTurnoHora').textContent =
-          ' desde ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
-      }
-    } catch(e) {}
-  }
-  carregarTurno();
-  setInterval(carregarTurno, 60000);
-
-  /* ── listener principal Firebase ── */
-  function _ts(r) {
-    if (r.chegadaTimestamp) return r.chegadaTimestamp;
-    if (r.dataEntrada) {
-      try {
-        const [datePart, timePart] = r.dataEntrada.split(' ');
-        const [d,mo,a] = datePart.split('/');
-        const [h,mi]   = timePart.split(':');
-        return new Date(a,mo-1,d,h,mi).getTime();
-      } catch(e) {}
-    }
-    if (r.criadoEm?.toDate) return r.criadoEm.toDate().getTime();
-    return 0;
-  }
-
-  const q = query(
-    collection(_db, 'veiculos'),
-    where('turnoId', '==', turnoId())
-  );
-
   const dot = document.getElementById('syncDot');
 
-  onSnapshot(q, (snap) => {
-    dot.classList.remove('offline');
+  /* ── busca planilha a cada 30s ── */
+  async function buscarDados() {
+    try {
+      const res  = await fetch(WEB_APP_URL + '&_t=' + Date.now());
+      const json = await res.json();
+      dot.classList.remove('offline');
+
+      const hash = JSON.stringify(json.dados || []);
+      if (hash === _ultimoHash) return;
+      _ultimoHash = hash;
+
+      processarDados(json);
+    } catch(e) {
+      dot.classList.add('offline');
+      console.warn('[Planilha]', e);
+    }
+  }
+
+  function processarDados(json) {
+    const dados = json.dados || [];
     const agora = new Date();
     const ocultarSaidas = agora.getHours() >= 19;
 
-    const placasNova = new Set();
-    const lista = [];
+    // Porteiro / turno
+    if (json.turno) {
+      document.getElementById('statPorteiro').textContent = json.turno.porteiro || '—';
+      if (json.turno.inicio) {
+        document.getElementById('statTurnoHora').textContent = ' desde ' + json.turno.inicio;
+      }
+    }
 
-    snap.forEach(docSnap => {
-      const r = { id: docSnap.id, ...docSnap.data() };
+    const lista = [];
+    dados.forEach(r => {
       r.status = normStatus(r.status);
-      if (r.status === 'PÁTIO' && String(r.descarregar||'').trim().toUpperCase() === 'SIM') r.status = 'A DESCARREGAR';
+      if (String(r.descarregar||'').trim().toUpperCase() === 'SIM' && r.status === 'PÁTIO') r.status = 'A DESCARREGAR';
       if (r.status === 'CONCLUIDO') return;
       if (r.status === 'SAÍDA' && ocultarSaidas) return;
-      r._ts = _ts(r);
+      const ts = tsFromDataEntrada(r.dataEntrada);
       r._critico = (r.status === 'PÁTIO' || r.status === 'CARREGANDO' || r.status === 'A DESCARREGAR')
-                && r._ts && (Date.now() - r._ts) > 4 * 3600000;
+                && ts && (Date.now() - ts) > 4*3600000;
       lista.push(r);
-      placasNova.add(r.placa);
     });
 
-    // ordena por chegada
-    lista.sort((a,b) => a._ts - b._ts);
-
-    const novas = [...placasNova].filter(p => !_placasAntes.has(p));
-    _placasAntes = placasNova;
+    lista.sort((a,b) => tsFromDataEntrada(a.dataEntrada) - tsFromDataEntrada(b.dataEntrada));
     _registros = lista;
 
-    renderTabela(novas);
-
-    // atualiza stats
-    const patio   = lista.filter(r => r.status === 'PÁTIO').length;
-    const carga   = lista.filter(r => r.status === 'CARREGANDO' || r.status === 'AGUARDANDO NFE').length;
-    const saida   = lista.filter(r => r.status === 'SAÍDA').length;
-    const critico = lista.filter(r => r._critico).length;
-    document.getElementById('statPatio').textContent   = patio;
-    document.getElementById('statCarga').textContent   = carga;
-    document.getElementById('statSaida').textContent   = saida;
-    document.getElementById('statCritico').textContent = critico;
+    document.getElementById('statPatio').textContent   = lista.filter(r => r.status === 'PÁTIO').length;
+    document.getElementById('statCarga').textContent   = lista.filter(r => r.status === 'CARREGANDO' || r.status === 'AGUARDANDO NFE').length;
+    document.getElementById('statSaida').textContent   = lista.filter(r => r.status === 'SAÍDA').length;
+    document.getElementById('statCritico').textContent = lista.filter(r => r._critico).length;
 
     const hora = agora.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
     document.getElementById('ultimaAtualizacao').textContent = `Atualizado às ${hora} — ${lista.length} registro(s)`;
 
     document.getElementById('loadingState').style.display = 'none';
-    document.getElementById('tableWrap').style.display = '';
+    document.getElementById('tableWrap').style.display    = '';
+    renderTabela();
+  }
 
-  }, (err) => {
-    console.warn('[Firebase]', err);
-    dot.classList.add('offline');
-  });
-
-  /* ── renderiza tabela ── */
-  function renderTabela(placasNovas = []) {
+  function renderTabela() {
     const tbody = document.getElementById('tbodyPrincipal');
     const busca = document.getElementById('searchInput').value.trim().toUpperCase();
-
-    // numera por produto
-    const seqProd = {}, seqGeral = { n: 0 };
-
+    const seqProd = {}, seqGeral = { n:0 };
     tbody.innerHTML = '';
     let visiveis = 0;
 
     _registros.forEach(r => {
       const prod = r.produto || '---';
       if (!seqProd[prod]) seqProd[prod] = 0;
-      seqProd[prod]++;
-      seqGeral.n++;
+      seqProd[prod]++; seqGeral.n++;
       const sg = seqGeral.n, sp = seqProd[prod];
 
-      // filtro de busca
       const haystack = `${r.placa} ${r.motorista||''} ${r.transportadora||''} ${r.produto||''}`.toUpperCase();
       if (busca && !haystack.includes(busca)) return;
-
-      // filtro de status
       if (_filtroAtivo === 'patio'      && r.status !== 'PÁTIO') return;
       if (_filtroAtivo === 'carregando' && r.status !== 'CARREGANDO' && r.status !== 'AGUARDANDO NFE') return;
       if (_filtroAtivo === 'saida'      && r.status !== 'SAÍDA') return;
       if (_filtroAtivo === 'critico'    && !r._critico) return;
 
       visiveis++;
-
-      const tempo  = calcTempo(r._ts);
+      const tempo = calcTempo(r.dataEntrada);
       const [datePart, timePart] = (r.dataEntrada || '').split(' ');
 
-      // badge status
-      let badgeCls = 'badge-patio', badgeTxt = 'Pátio';
+      let badgeCls = 'badge-patio',      badgeTxt = 'Pátio';
       if (r.status === 'CARREGANDO')     { badgeCls = 'badge-carregando';  badgeTxt = 'Carregando'; }
       if (r.status === 'A DESCARREGAR') { badgeCls = 'badge-descarregar'; badgeTxt = 'A Descarregar'; }
-      if (r.status === 'AGUARDANDO NFE'){ badgeCls = 'badge-nfe';          badgeTxt = 'Ag. NF-e'; }
-      if (r.status === 'SAÍDA')         { badgeCls = 'badge-saida';        badgeTxt = 'Saída'; }
+      if (r.status === 'AGUARDANDO NFE'){ badgeCls = 'badge-nfe';         badgeTxt = 'Ag. NF-e'; }
+      if (r.status === 'SAÍDA')         { badgeCls = 'badge-saida';       badgeTxt = 'Saída'; }
 
-      // classe da linha
       let rowCls = 'row-patio';
       if (r.status === 'CARREGANDO')     rowCls = 'row-carregando';
       if (r.status === 'A DESCARREGAR') rowCls = 'row-descarregar';
       if (r.status === 'AGUARDANDO NFE') rowCls = 'row-nfe';
       if (r.status === 'SAÍDA')         rowCls = 'row-saida';
       if (r._critico) rowCls += ' row-critico';
-      if (placasNovas.includes(r.placa)) rowCls += ' novo-registro';
 
       const obs = (r.observacao || '').trim();
       const nfe = r.nfe ? `<div style="font-size:0.62rem;color:var(--muted)">NFe: ${r.nfe}</div>` : '';
 
       const tr = document.createElement('tr');
       tr.className = rowCls;
-      tr.dataset.busca = haystack;
       tr.innerHTML = `
         <td>
           <div class="cell-seq">Nº${String(sg).padStart(2,'0')}</div>
@@ -759,22 +840,14 @@
         </td>
         <td><div class="cell-empresa" title="${r.transportadora||''}">${r.transportadora || '—'}</div></td>
         <td><div class="cell-produto">${r.produto || '—'}</div></td>
-        <td>
-          ${(r.ordem||'').toUpperCase() === 'SIM'
-            ? '<span class="oc-sim">✔ C/OC</span>'
-            : '<span class="oc-nao">S/OC</span>'}
-        </td>
+        <td>${(r.ordem||'').toUpperCase() === 'SIM' ? '<span class="oc-sim">✔ C/OC</span>' : '<span class="oc-nao">S/OC</span>'}</td>
         <td>
           <div class="cell-hora">${timePart || '—'}</div>
           <div style="font-size:0.6rem;color:var(--muted);">${datePart || ''}</div>
         </td>
-        <td>
-          ${tempo ? `<span class="tempo-badge ${tempo.cls}">${tempo.texto}</span>` : '—'}
-        </td>
+        <td>${tempo ? `<span class="tempo-badge ${tempo.cls}">${tempo.texto}</span>` : '—'}</td>
         <td><span class="badge-status ${badgeCls}">${badgeTxt}</span>${nfe}</td>
-        <td>
-          ${obs ? `<div class="obs-badge" title="${obs}">${obs}</div>` : '<span style="color:#e5e7eb;">—</span>'}
-        </td>
+        <td>${obs ? `<div class="obs-badge" title="${obs}">${obs}</div>` : '<span style="color:#e5e7eb;">—</span>'}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -782,15 +855,22 @@
     document.getElementById('emptyState').style.display = visiveis === 0 ? '' : 'none';
   }
 
-  /* ── filtros ── */
   window.setFiltro = function(f) {
     _filtroAtivo = f;
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('fb-' + f)?.classList.add('active');
     renderTabela();
   };
-
   window.filtrar = function() { renderTabela(); };
+
+  /* ── inicia polling ── */
+  buscarDados();
+  setInterval(buscarDados, 30000);
+
+  } // fim iniciarApp()
+
+  // Inicia app se já autenticado
+  if (sessionStorage.getItem('balanca_auth') === '1') iniciarApp();
 </script>
 </body>
 </html>
