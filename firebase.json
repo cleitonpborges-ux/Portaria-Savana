@@ -8,6 +8,10 @@
     ],
     "rewrites": [
       {
+        "source": "/balanca.html",
+        "destination": "/balanca.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
