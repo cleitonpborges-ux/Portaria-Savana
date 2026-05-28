@@ -3274,6 +3274,8 @@
         const usuarioSalvo = perfis[salvo].usuario || salvo;
         _atualizarTituloPerfil(usuarioSalvo);
         document.getElementById('telaLogin').classList.add('oculto');
+        // Re-registra token FCM com o perfil correto (token pode ter ficado como 'desconhecido')
+        _pedirPermissaoNotificacao();
       }
     }
   }
@@ -6298,9 +6300,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         // Salva token no Firestore associado ao perfil logado
         await setDoc(
           doc(_db, 'fcm_tokens', _fcmToken),
-          { token: _fcmToken, perfil: perfilAtual || 'desconhecido', ts: serverTimestamp() },
+          { token: _fcmToken, perfil: perfilAtual || localStorage.getItem('portaria_perfil') || 'desconhecido', atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
           { merge: true }
         );
+        console.log('[FCM] Token registrado para perfil:', perfilAtual);
       }
       // ✅ CORREÇÃO: onMessage DENTRO do try — garante que só roda se a
       // permissão foi concedida e o token obtido com sucesso.
@@ -6436,6 +6439,11 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
+        // Registra o SW do FCM (OBRIGATÓRIO para push com app fechado)
+        navigator.serviceWorker.register('./firebase-messaging-sw.js')
+          .then(r => console.log('[FCM-SW] Registrado:', r.scope))
+          .catch(e => console.warn('[FCM-SW] Falha:', e));
+
         navigator.serviceWorker.register('./service-worker.js')
           .then(reg => {
             console.log('[PWA] SW registrado:', reg.scope);
