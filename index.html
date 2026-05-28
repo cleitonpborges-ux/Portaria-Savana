@@ -1082,6 +1082,77 @@
       border-color: #cbd5e1;
     }
 
+    /* ===================== NFE OK — BOTÃO PISCANTE (balança/admin) ===================== */
+    .btn-nfe-ok {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 26px;
+      padding: 0 10px;
+      border-radius: 13px;
+      font-size: 0.57rem;
+      font-weight: 800;
+      font-family: inherit;
+      text-transform: uppercase;
+      white-space: nowrap;
+      cursor: pointer;
+      border: 1.5px solid #111827;
+      background: #111827;
+      color: #ffffff;
+      letter-spacing: 0.2px;
+      flex-shrink: 0;
+      flex-grow: 0;
+      animation: nfeOkPiscar 0.9s ease-in-out infinite;
+    }
+    @keyframes nfeOkPiscar {
+      0%,100% { background: #111827; color: #fff; border-color: #111827; box-shadow: 0 0 0 0 rgba(17,24,39,0); }
+      50%      { background: #fff;    color: #111827; border-color: #111827; box-shadow: 0 0 8px 2px rgba(17,24,39,0.35); }
+    }
+    body.modo-noite .btn-nfe-ok {
+      border-color: #f1f5f9;
+      animation: nfeOkPiscarNoite 0.9s ease-in-out infinite;
+    }
+    @keyframes nfeOkPiscarNoite {
+      0%,100% { background: #f1f5f9; color: #0f172a; border-color: #f1f5f9; }
+      50%      { background: #0f172a; color: #f1f5f9; border-color: #f1f5f9; box-shadow: 0 0 8px 2px rgba(241,245,249,0.3); }
+    }
+
+    /* Texto "AGUARD. NFE" clicável para admin/balança (passo 2 do fluxo NFE) */
+    .btn-aguard-nfe-texto {
+      display: inline-flex;
+      align-items: center;
+      color: var(--text-muted);
+      font-weight: 700;
+      font-size: 0.62rem;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+      text-decoration: underline dotted;
+      text-underline-offset: 3px;
+      transition: opacity 0.15s;
+    }
+    .btn-aguard-nfe-texto:active { opacity: 0.6; }
+
+    /* Para portaria: NFE OK piscante (confirma que a NFE foi aprovada) */
+    .badge-nfe-ok-portaria {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.57rem;
+      font-weight: 800;
+      color: #111827;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+      animation: nfeOkTextPiscar 0.9s ease-in-out infinite;
+    }
+    @keyframes nfeOkTextPiscar {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.15; }
+    }
+    body.modo-noite .badge-nfe-ok-portaria {
+      color: #f1f5f9;
+    }
+
     /* ===================== BADGES E BOTÕES ===================== */
     /* Token compartilhado: todos os mini-botões da linha têm a mesma altura */
     .row-btns {
@@ -2091,6 +2162,17 @@
       display: flex; align-items: center; justify-content: center;
       transition: all 0.18s; background: var(--card-bg);
     }
+    .permissao-sub .permissao-nome {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+    .permissao-sub .permissao-desc {
+      font-size: 0.6rem;
+    }
+    .permissao-sub.ativa .permissao-nome {
+      color: var(--text-main);
+      font-weight: 700;
+    }
     .permissao-item.ativa .permissao-check {
       background: var(--accent); border-color: var(--accent);
     }
@@ -2253,7 +2335,7 @@
           <span class="gear-item-label">Perfil</span>
         </button>
         <!-- Gerenciar Perfis (só admin vê) -->
-        <button class="gear-item gear-item-admin" id="btnGerenciarPerfis" onclick="abrirGerenciarPerfis(); fecharGear()" title="Gerenciar Perfis" style="display:none">
+        <button class="gear-item gear-item-admin" id="btnGerenciarPerfis" data-permissao="gerenciar_perfis" onclick="abrirGerenciarPerfis(); fecharGear()" title="Gerenciar Perfis" style="display:none">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
             <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/>
             <path d="M4 20c0-4 3.582-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -2279,7 +2361,7 @@
           </div>
         </button>
         <!-- Relatório -->
-        <button class="gear-item" onclick="abrirRelatorio(); fecharGear()" title="Relatório">
+        <button class="gear-item" data-permissao="relatorio" onclick="abrirRelatorio(); fecharGear()" title="Relatório">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2289,7 +2371,7 @@
           <span class="gear-item-label">Relatório</span>
         </button>
         <!-- Planilha -->
-        <button class="gear-item" onclick="abrirPlanilha(); fecharGear()" title="Planilha">
+        <button class="gear-item" data-permissao="planilha" onclick="abrirPlanilha(); fecharGear()" title="Planilha">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
             <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
             <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -2300,7 +2382,7 @@
           <span class="gear-item-label">Planilha</span>
         </button>
         <!-- Gerenciar Produtos (admin) -->
-        <button class="gear-item" id="btnGerenciarProdutos" onclick="abrirGerenciarProdutos(); fecharGear()" title="Gerenciar Produtos" style="display:none">
+        <button class="gear-item" id="btnGerenciarProdutos" data-permissao="gerenciar_perfis" onclick="abrirGerenciarProdutos(); fecharGear()" title="Gerenciar Produtos" style="display:none">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
             <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M16 3H8l-2 4h12l-2-4z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2308,7 +2390,7 @@
           <span class="gear-item-label">Produtos</span>
         </button>
         <!-- Dashboard Desktop (admin e balanca) -->
-        <button class="gear-item" id="btnDashboard" onclick="abrirDashboard(); fecharGear()" title="Dashboard Desktop" style="display:none">
+        <button class="gear-item" id="btnDashboard" data-permissao="dashboard" onclick="abrirDashboard(); fecharGear()" title="Dashboard Desktop" style="display:none">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
             <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/>
             <rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/>
@@ -2318,7 +2400,7 @@
           <span class="gear-item-label">Dashboard</span>
         </button>
         <!-- Janela Flutuante Mini (admin e balanca) -->
-        <button class="gear-item" id="btnJanelaFlutuante" onclick="abrirJanelaFlutuante(); fecharGear()" title="Janela Flutuante Mini" style="display:none">
+        <button class="gear-item" id="btnJanelaFlutuante" data-permissao="janela_mini" onclick="abrirJanelaFlutuante(); fecharGear()" title="Janela Flutuante Mini" style="display:none">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
             <!-- Janela principal (fundo) -->
             <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2329,7 +2411,7 @@
           </svg>
           <span class="gear-item-label">Mini</span>
         </button>
-        <button class="gear-item" id="btnLimparDados" onclick="limparTodosDados(); fecharGear()" title="Limpar Dados" style="color: var(--danger, #dc2626); display:none">
+        <button class="gear-item" id="btnLimparDados" data-permissao="gerenciar_perfis" onclick="limparTodosDados(); fecharGear()" title="Limpar Dados" style="color: var(--danger, #dc2626); display:none">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
             <polyline points="3 6 5 6 21 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2881,30 +2963,96 @@
   }
 
   // Handler do botão "Aguardando NFe" — lê a placa do dataset do <tr>
+  // ── PERSISTÊNCIA NFE OK ────────────────────────────────────────────────────
+  // _nfeOkPlacas: placas já confirmadas pela balança/admin (NFE OK).
+  //   Persiste em sessionStorage → sobrevive a reload mas limpa ao fechar o app.
+  //   Isso garante que addHist() renderize o estado correto ao recarregar.
+  //
+  // _nfeOkAlertadas: placas cujo alerta (toast + vibração) já foi disparado
+  //   para a portaria NA SESSÃO ATUAL. Também usa sessionStorage para que
+  //   um reload dentro da mesma sessão não repita o alerta — mas ao fechar
+  //   e reabrir o app a portaria recebe o alerta novamente (comportamento
+  //   desejado: ela pode ter perdido o aviso original).
+  // ─────────────────────────────────────────────────────────────────────────
+  const _SS_NFE_OK_KEY      = 'nfe_ok_placas_sess';
+  const _SS_NFE_ALERT_KEY   = 'nfe_ok_alertadas_sess';
+
+  function _ssNfeOkGet(key) {
+    try { return new Set(JSON.parse(sessionStorage.getItem(key) || '[]')); }
+    catch(e) { return new Set(); }
+  }
+  function _ssNfeOkAdd(key, placa) {
+    const s = _ssNfeOkGet(key); s.add(placa);
+    try { sessionStorage.setItem(key, JSON.stringify([...s])); } catch(e) {}
+  }
+  function _ssNfeOkHas(key, placa) { return _ssNfeOkGet(key).has(placa); }
+
+  // Proxy de Set que espelha tudo no sessionStorage automaticamente
+  const _nfeOkPlacas = new Proxy({}, {
+    get(_, prop) {
+      if (prop === 'add')  return (p) => { _ssNfeOkAdd(_SS_NFE_OK_KEY, p); };
+      if (prop === 'has')  return (p) => _ssNfeOkHas(_SS_NFE_OK_KEY, p);
+      if (prop === 'clear')return ()  => { try { sessionStorage.removeItem(_SS_NFE_OK_KEY); } catch(e) {} };
+      return undefined;
+    }
+  });
+
+  // PASSO 2: admin/balança clica no texto "AGUARD. NFE" — confirma NFE OK e avisa portaria
+  function registrarNfeOkEl(el) {
+    const tr = el.closest('tr');
+    const placa = tr ? tr.dataset.placa : null;
+    if (!placa) return;
+    const isBalancaOuAdmin = (perfilAtual === 'balanca' || perfilAtual === 'admin' ||
+      (() => { try { const p = _carregarPerfisCustom()[perfilAtual]; return p && p.permissoes && p.permissoes.gerenciar_perfis; } catch(e){return false;} })()
+    );
+    if (!isBalancaOuAdmin) return;
+
+    // Admin/balança: reescreve a linha 2 com texto estático NFE OK (sem piscar)
+    const statusTd2 = tr ? tr.querySelector('.container-status') : null;
+    if (statusTd2) {
+      const linhaStatus = statusTd2.querySelector('div[style*="text-align:right"]');
+      if (linhaStatus) linhaStatus.innerHTML = `<span style="color:var(--success);font-weight:700;font-size:0.62rem;">✅ NFE OK</span>`;
+    }
+
+    // Marca localmente (sessionStorage) e notifica portaria via Firestore
+    _nfeOkPlacas.add(placa);
+    _fbMarcarNfeOk(placa);
+
+    vibrar([60, 40, 60]);
+    mostrarToast(`✅ ${placa} — NFE OK! Portaria será alertada.`, 'success', 4000);
+  }
+
   async function registrarAguardarNfeEl(btn) {
     const tr = btn.closest('tr');
     const placa = tr.dataset.placa;
     if (!placa) return;
 
-    // 1. Botão fica no lugar — bem fraquinho, sem aceitar toque
-    btn.disabled = true;
-    btn.style.opacity = '0.18';
-    btn.style.pointerEvents = 'none';
+    // Somente balança e admin podem clicar — se chegou aqui de outra forma, ignora
+    const isBalancaOuAdmin = (perfilAtual === 'balanca' || perfilAtual === 'admin' ||
+      (() => {
+        try {
+          const perfis = _carregarPerfisCustom();
+          const p = perfis[perfilAtual];
+          return p && p.permissoes && p.permissoes.gerenciar_perfis;
+        } catch(e) { return false; }
+      })()
+    );
+    if (!isBalancaOuAdmin) return;
 
-    // Remove highlight azul de CARREGANDO da linha
+    // PASSO 1: muda status AGUARDANDO NFE — substitui toda a linha 2 pelo texto clicável
     tr.classList.remove('status-carregando');
+    tr.classList.add('status-aguardando-nfe');
 
-    // 2. Badge lado direito — mesmo estilo de CARREGANDO
+    // Reescreve a div da linha 2 com o texto clicável diretamente
     const statusTd = tr.querySelector('.container-status');
     if (statusTd) {
-      const badgeCarr = [...statusTd.querySelectorAll('span')].find(s => s.textContent.includes('CARREGANDO'));
-      const wrapper = badgeCarr ? (badgeCarr.closest('div') || badgeCarr) : null;
-      const html = `<div style="margin-top:6px;text-align:right;"><span style="color:var(--text-muted);font-weight:700;font-size:0.62rem;">AGUARD. NF-e</span></div>`;
-      if (wrapper) wrapper.outerHTML = html;
-      else statusTd.insertAdjacentHTML('beforeend', html);
+      const linhaStatus = statusTd.querySelector('div[style*="text-align:right"]');
+      if (linhaStatus) {
+        linhaStatus.innerHTML = `<span class="btn-aguard-nfe-texto" onclick="registrarNfeOkEl(this)" title="NFE OK? CLIQUE AQUI">AGUARD. NFE</span>`;
+      }
     }
 
-    // 3. Conta no card "Carregados"
+    // 2. Conta no card "Carregados"
     const idx = veiculosPatio.findIndex(v => v.placa === placa);
     if (idx >= 0) {
       const veiculo = veiculosPatio.splice(idx, 1)[0];
@@ -2914,9 +3062,9 @@
     }
 
     vibrar(60);
-    mostrarToast(`${placa} — Aguard. NF-e`, 'info', 3000);
+    mostrarToast(`⏳ ${placa} — Aguardando NFE. Clique em "AGUARD. NFE" para confirmar.`, 'success', 4000);
 
-    // 4. Persiste no backend
+    // 3. Persiste no backend
     try {
       fetch(WEB_APP_POST_URL, {
         method: 'POST', mode: 'no-cors',
@@ -2927,6 +3075,96 @@
     } catch(e) {
       console.warn('[Aguardar NFe] Erro no backend:', e);
     }
+  }
+
+  /* ===================== ALERTA NFE OK PARA PORTARIA =====================
+   * Salva no Firestore doc 'nfeok/ativas' a lista de placas com NF-e confirmada.
+   * A portaria só VÊ o badge piscante — não pode interagir.
+   * Balança/admin dispararam o evento; portaria consome visualmente.
+   */
+  // _nfeOkAlertadas: gerenciado via sessionStorage (veja proxy _nfeOkPlacas acima)
+
+  async function _fbMarcarNfeOk(placa) {
+    try {
+      const docRef = doc(_db, 'nfeok', 'ativas');
+      const snap = await getDoc(docRef);
+      const lista = snap.exists() ? (snap.data().lista || []) : [];
+      if (!lista.includes(placa)) lista.push(placa);
+      await setDoc(docRef, { lista, atualizadoEm: new Date().toISOString() });
+    } catch(e) { console.warn('[NFeOK] Falha ao marcar NFE OK:', e); }
+  }
+
+  async function _fbLimparNfeOk(placa) {
+    try {
+      const docRef = doc(_db, 'nfeok', 'ativas');
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) return;
+      const lista = (snap.data().lista || []).filter(p => p !== placa);
+      await setDoc(docRef, { lista, atualizadoEm: new Date().toISOString() });
+    } catch(e) { console.warn('[NFeOK] Falha ao limpar NFE OK:', e); }
+  }
+
+  // Listener em tempo real para alertas NFE OK (portaria recebe push)
+  function iniciarListenerNfeOk() {
+    try {
+      onSnapshot(doc(_db, 'nfeok', 'ativas'), (snap) => {
+        if (!snap.exists()) return;
+        const lista = snap.data().lista || [];
+        _renderizarAlertasNfeOk(lista);
+      });
+    } catch(e) { console.warn('[NFeOK] Listener falhou:', e); }
+  }
+
+  function _renderizarAlertasNfeOk(placasOk) {
+    // ── Passo 1: sempre popula _nfeOkPlacas (sessionStorage) ─────────────────
+    // Isso garante que addHist() já saiba do estado correto mesmo antes das
+    // linhas do DOM existirem. O Set proxy escreve em sessionStorage.
+    placasOk.forEach(p => _nfeOkPlacas.add(p));
+
+    // ── Passo 2: aplica badge/texto nas linhas que já estão no DOM ────────────
+    const _isBA = (perfilAtual === 'balanca' || perfilAtual === 'admin' ||
+      (() => { try { const p = _carregarPerfisCustom()[perfilAtual]; return p && p.permissoes && p.permissoes.gerenciar_perfis; } catch(e){return false;} })()
+    );
+    const isPortaria = !_isBA;
+
+    document.querySelectorAll('#tabDia tbody tr[data-placa]').forEach(tr => {
+      const placa = tr.dataset.placa;
+      if (!placasOk.includes(placa)) return;
+
+      const statusTd = tr.querySelector('.container-status');
+      if (!statusTd) return;
+      const linhaStatus = statusTd.querySelector('div[style*="text-align:right"]');
+      if (!linhaStatus) return;
+
+      // Verifica se badge já foi injetado no DOM (evita duplicar sem depender de Set)
+      const jaBadge = linhaStatus.querySelector('.badge-nfe-ok-portaria, [data-nfe-ok]');
+
+      if (isPortaria) {
+        if (!jaBadge) {
+          linhaStatus.innerHTML = `<span class="badge-nfe-ok-portaria" data-nfe-ok="1">✅ NFE OK</span>`;
+        }
+        // Toast + vibração apenas 1× por sessão (sessionStorage persiste o reload)
+        if (!_ssNfeOkHas(_SS_NFE_ALERT_KEY, placa)) {
+          _ssNfeOkAdd(_SS_NFE_ALERT_KEY, placa);
+          vibrar([80, 40, 80, 40, 200]);
+          mostrarToast(`🔔 NFE OK — ${placa}! Liberar saída.`, 'success', 8000);
+        }
+      } else {
+        // Balança/admin: garante texto estático (pode ter chegado via outro dispositivo)
+        const jaOk = linhaStatus.querySelector('[data-nfe-ok]') ||
+                     linhaStatus.textContent.includes('NFE OK');
+        if (!jaOk) {
+          linhaStatus.innerHTML = `<span style="color:var(--success);font-weight:700;font-size:0.62rem;" data-nfe-ok="1">✅ NFE OK</span>`;
+        }
+      }
+    });
+  }
+
+  // Chama _renderizarAlertasNfeOk novamente após o DOM ser populado por processarDados.
+  // Resolve o race condition: listener do Firestore dispara antes das linhas existirem.
+  function _reaplicarAlertasNfeOkAposRender() {
+    const placasOk = [..._ssNfeOkGet(_SS_NFE_OK_KEY)];
+    if (placasOk.length > 0) _renderizarAlertasNfeOk(placasOk);
   }
 
   // Atualiza ordem no Firestore
@@ -3992,7 +4230,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       preview.style.background = '';
       preview.style.borderColor = '';
       preview.style.color = '';
-      const extraInfo = veiculo.status === 'AGUARDANDO NFE' ? ' <b style="color:#6b7280;font-size:0.72rem;">Aguard. NF-e</b>' : '';
+      const extraInfo = veiculo.status === 'AGUARDANDO NFE' ? ' <b style="color:#6b7280;font-size:0.72rem;">Aguard. NFE</b>' : '';
       preview.innerHTML = `✅ <b>${veiculo.placa}</b> encontrado${extraInfo}<br><span style="color:var(--accent);font-size:0.78rem;">Motorista: ${veiculo.motorista||'---'} | ${veiculo.produto||'---'} | ${veiculo.transportadora||'---'}</span>`;
     } else if (placa.length >= 7) {
       preview.style.display = 'block';
@@ -4044,7 +4282,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
                         : v.status === 'AGUARDANDO NFE' ? 'ac-status-nfe'
                         : 'ac-status-patio';
       const statusLabel = v.status === 'CARREGANDO' ? 'Carregando'
-                        : v.status === 'AGUARDANDO NFE' ? 'Ag. NF-e'
+                        : v.status === 'AGUARDANDO NFE' ? 'Ag. NFE'
                         : 'Pátio';
 
       return `<div class="autocomplete-item" onmousedown="acSaidaSelecionar('${p}')">
@@ -4274,6 +4512,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
     atualizarDetalhesProdutos();
     atualizarBarraTurno();
+    // Re-aplica badges NFE OK nas linhas recém-renderizadas (resolve race condition
+    // onde o listener do Firestore disparou antes do DOM estar pronto)
+    _reaplicarAlertasNfeOkAposRender();
   }
 
   /* ===================== ADD HISTÓRICO ===================== */
@@ -4342,14 +4583,40 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           ${tipo==='ENTRADA' ? `<button class="btn-edit" title="Editar" onclick="prepararEdicaoEl(this)" style="flex-shrink:0;">${EDIT_ICON_SVG}</button>` : ''}
         </div>
 
-        <!-- LINHA 2: status -->
-        ${tipo==='ENTRADA' ? `
-          <div style="text-align:right;margin-bottom:6px;">
-            ${d.status==='CARREGANDO'    ? `<span style="color:#2563eb;font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8l5 2v6h-5V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>CARREGANDO</span>` : ''}
-            ${d.status==='A DESCARREGAR' ? `<span style="color:#f59e0b;font-weight:800;font-size:0.62rem;white-space:nowrap;">A DESCARREGAR</span>` : ''}
-            ${d.status==='AGUARDANDO NFE'? `<span style="color:var(--text-muted);font-weight:700;font-size:0.62rem;">AGUARD. NF-e</span>` : ''}
-          </div>
-        ` : `
+        <!-- LINHA 2: status + fluxo NFE (tudo aqui, sem linha 3) -->
+        ${tipo==='ENTRADA' ? (() => {
+          const _isBA = (perfilAtual === 'balanca' || perfilAtual === 'admin' || (() => { try { const p = _carregarPerfisCustom()[perfilAtual]; return p && p.permissoes && p.permissoes.gerenciar_perfis; } catch(e){return false;} })());
+          const _jaConfirmado = _nfeOkPlacas.has(d.placa);
+          if (d.status === 'CARREGANDO') {
+            return `<div style="text-align:right;margin-bottom:6px;">
+              <span style="color:#2563eb;font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8l5 2v6h-5V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>CARREGANDO</span>
+              ${_isBA ? `<div style="margin-top:6px;text-align:right;"><button class="btn-aguardar-nfe" onclick="registrarAguardarNfeEl(this)">Aguard. NFE</button></div>` : ''}
+            </div>`;
+          }
+          if (d.status === 'A DESCARREGAR') {
+            return `<div style="text-align:right;margin-bottom:6px;">
+              <span style="color:#f59e0b;font-weight:800;font-size:0.62rem;white-space:nowrap;">A DESCARREGAR</span>
+            </div>`;
+          }
+          if (d.status === 'AGUARDANDO NFE') {
+            if (_isBA) {
+              return `<div style="text-align:right;margin-bottom:6px;">
+                ${_jaConfirmado
+                  ? `<span style="color:var(--success);font-weight:700;font-size:0.62rem;">✅ NFE OK</span>`
+                  : `<span class="btn-aguard-nfe-texto" onclick="registrarNfeOkEl(this)" title="NFE OK? CLIQUE AQUI">AGUARD. NFE</span>`
+                }
+              </div>`;
+            } else {
+              return `<div style="text-align:right;margin-bottom:6px;">
+                ${_jaConfirmado
+                  ? `<span class="badge-nfe-ok-portaria">✅ NFE OK</span>`
+                  : `<span style="color:var(--text-muted);font-weight:700;font-size:0.62rem;">AGUARD. NFE</span>`
+                }
+              </div>`;
+            }
+          }
+          return `<div style="text-align:right;margin-bottom:6px;"></div>`;
+        })() : `
           <div style="text-align:right;margin-bottom:6px;">
             ${d.status==='CARREGANDO'
               ? `<span style="color:#2563eb;font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8l5 2v6h-5V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>CARREGANDO</span>`
@@ -4357,13 +4624,6 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
             }
           </div>
         `}
-
-        <!-- LINHA 3: botão Aguard. NF-e alinhado com row-btns da esquerda -->
-        ${tipo==='ENTRADA' && d.status==='CARREGANDO' ? `
-          <div style="display:flex;justify-content:flex-end;">
-            <button class="btn-aguardar-nfe" onclick="registrarAguardarNfeEl(this)">Aguard. NF-e</button>
-          </div>
-        ` : ''}
 
       </td>`;
 
@@ -4411,6 +4671,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         }
       });
       setTimeout(() => { if (!painel.querySelector('.chamada-card')) painel.classList.remove('ativo'); }, 250);
+      _atualizarTituloAba(0);
       return;
     }
 
@@ -4459,7 +4720,104 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         _dispararNotificacaoChamada(c.placa, c.motorista || 'Motorista não informado', c.hora || '');
       });
     }
+
+    // Atualiza título e favicon com o total de chamadas pendentes
+    _atualizarTituloAba(chamadasVisiveis.length);
   }
+
+  /* ===================== FAVICON BADGE + TÍTULO (estilo WhatsApp) =====================
+   * Quando há chamadas pendentes, mostra o contador na frente do ícone da aba
+   * e no início do título — igual ao WhatsApp Web.
+   * Sem bolinha vermelha: apenas o número desenhado sobre o ícone original.
+   * =================================================================================== */
+  const _TITULO_ORIGINAL = document.title;
+  let _faviconOriginalUrl = 'icons/icon-32.png';
+  let _faviconEl = document.querySelector('link[rel="icon"][sizes="32x32"]');
+  let _piscarInterval = null;
+  let _piscarAlternado = false;
+  let _totalChamadasAtual = 0;
+
+  const _faviconCanvas = document.createElement('canvas');
+  _faviconCanvas.width  = 32;
+  _faviconCanvas.height = 32;
+
+  // Desenha o favicon com o número sobre o ícone original
+  function _aplicarFaviconBadge(total) {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = _faviconOriginalUrl + '?_cb=1';
+    img.onload = () => {
+      const ctx = _faviconCanvas.getContext('2d');
+      ctx.clearRect(0, 0, 32, 32);
+      ctx.drawImage(img, 0, 0, 32, 32);
+
+      const label = total > 99 ? '99+' : String(total);
+      const fontSize = label.length > 1 ? 13 : 15;
+      ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+      ctx.textAlign    = 'right';
+      ctx.textBaseline = 'top';
+      ctx.shadowColor   = 'rgba(0,0,0,0.85)';
+      ctx.shadowBlur    = 3;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(label, 31, 1);
+
+      if (!_faviconEl) {
+        _faviconEl = document.createElement('link');
+        _faviconEl.rel  = 'icon';
+        _faviconEl.type = 'image/png';
+        document.head.appendChild(_faviconEl);
+      }
+      _faviconEl.href = _faviconCanvas.toDataURL('image/png');
+    };
+    if (img.complete) img.onload();
+  }
+
+  function _atualizarTituloAba(totalChamadas) {
+    _totalChamadasAtual = totalChamadas;
+
+    // Para qualquer piscar anterior
+    if (_piscarInterval) { clearInterval(_piscarInterval); _piscarInterval = null; }
+
+    if (totalChamadas <= 0) {
+      // Sem pendências — restaura tudo
+      if (_faviconEl) _faviconEl.href = _faviconOriginalUrl;
+      document.title = _TITULO_ORIGINAL;
+      return;
+    }
+
+    // Favicon sempre mostra o número (independente de foco)
+    _aplicarFaviconBadge(totalChamadas);
+
+    const tituloComContador = `(${totalChamadas}) ${_TITULO_ORIGINAL}`;
+
+    if (document.visibilityState === 'hidden') {
+      // App em background → título pisca
+      _piscarAlternado = false;
+      document.title = tituloComContador;
+      _piscarInterval = setInterval(() => {
+        _piscarAlternado = !_piscarAlternado;
+        document.title = _piscarAlternado ? _TITULO_ORIGINAL : tituloComContador;
+      }, 1000);
+    } else {
+      // App em foco → título estático com contador
+      document.title = tituloComContador;
+    }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      // Voltou ao app — para de piscar, mantém contador se ainda houver chamadas
+      if (_piscarInterval) { clearInterval(_piscarInterval); _piscarInterval = null; }
+      document.title = _totalChamadasAtual > 0
+        ? `(${_totalChamadasAtual}) ${_TITULO_ORIGINAL}`
+        : _TITULO_ORIGINAL;
+    } else if (_totalChamadasAtual > 0) {
+      // Saiu do app com chamadas pendentes — começa a piscar
+      _atualizarTituloAba(_totalChamadasAtual);
+    }
+  });
 
   // Set local de placas dispensadas — impede o onSnapshot de re-exibir
   // enquanto o Firestore ainda não propagou a remoção
@@ -4479,7 +4837,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       setTimeout(() => card.remove(), 200);
     }
     const painel = document.getElementById('painelChamadas');
-    setTimeout(() => { if (!painel.querySelector('.chamada-card')) painel.classList.remove('ativo'); }, 250);
+    setTimeout(() => {
+      if (!painel.querySelector('.chamada-card')) {
+        painel.classList.remove('ativo');
+        _atualizarTituloAba(0);
+      } else {
+        _atualizarTituloAba(painel.querySelectorAll('.chamada-card').length);
+      }
+    }, 250);
     vibrar(80);
 
     // 2. Atualiza histórico visual imediatamente
@@ -4709,6 +5074,16 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(payload) });
       // Firebase (dashboard tempo real)
       _fbSaida(placa, nfe);
+      // Limpa estado NFE OK da sessão e do Firestore ao registrar saída
+      _fbLimparNfeOk(placa);
+      try {
+        const _s1 = _ssNfeOkGet(_SS_NFE_OK_KEY);
+        _s1.delete(placa);
+        sessionStorage.setItem(_SS_NFE_OK_KEY, JSON.stringify([..._s1]));
+        const _s2 = _ssNfeOkGet(_SS_NFE_ALERT_KEY);
+        _s2.delete(placa);
+        sessionStorage.setItem(_SS_NFE_ALERT_KEY, JSON.stringify([..._s2]));
+      } catch(e) {}
       document.getElementById('p_sai').value = "";
       document.getElementById('nfe_sai').value = "";
       document.getElementById('preview_saida').style.display = 'none';
@@ -5019,6 +5394,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
   window.addEventListener('DOMContentLoaded', () => {
     renderProdutosSelect(); // popula o select de produtos
+    _sincronizarPermissoesGear(); // detecta botões novos sem permissão cadastrada
     verificarLoginSalvo();
     carregarTurno(); // async — já chama atualizarBarraTurno() internamente
     carregarObs();
@@ -5029,6 +5405,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     iniciarListenerChamadas();  // push em tempo real para chamadas
     iniciarListenerEntradas();  // notifica admin/balança sobre novas entradas
     iniciarListenerConfig();    // push em tempo real para perfis e produtos
+    iniciarListenerNfeOk();     // push em tempo real para alerta NFE OK → portaria
     atualizarContadorIDB();
     // Mede em múltiplos momentos para garantir que fontes e layout já renderizaram
     ajustarContainerTop();
@@ -5177,16 +5554,60 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   const LS_PERFIS_CUSTOM = 'portaria_perfis_v2';
 
   // Todas as permissões disponíveis com descrição
+  // ┌─────────────────────────────────────────────────────────────────────────────────┐
+  // │  ⚠️  INSTRUÇÃO PERMANENTE — LEIA AO ADICIONAR QUALQUER NOVO BOTÃO/FUNCIONALIDADE │
+  // │                                                                                   │
+  // │  Ao adicionar um novo botão nas Configurações (gear panel) ou qualquer nova       │
+  // │  funcionalidade que deva ser controlada por perfil, SEMPRE adicione uma entrada   │
+  // │  correspondente aqui em TODAS_PERMISSOES com:                                     │
+  // │    { id: 'nome_unico', nome: 'Nome Legível', desc: 'O que faz' }                 │
+  // │                                                                                   │
+  // │  DEPOIS registre o controle em aplicarPermissoes() logo abaixo, no padrão:        │
+  // │    const btnXXX = document.getElementById('btnXXX');                             │
+  // │    if (btnXXX) btnXXX.style.display = perm.nome_unico ? '' : 'none';             │
+  // │                                                                                   │
+  // │  ISSO É AUTOMÁTICO para botões com data-permissao="nome_unico" no HTML            │
+  // │  (o mecanismo _sincronizarPermissoesGear() detecta e sincroniza automaticamente). │
+  // │                                                                                   │
+  // │  Sem isso, o admin NÃO consegue controlar o acesso do novo recurso por perfil.    │
+  // └─────────────────────────────────────────────────────────────────────────────────┘
   const TODAS_PERMISSOES = [
-    { id: 'aba_entrada',    nome: 'Aba Entrada',          desc: 'Registrar entradas de veículos' },
-    { id: 'aba_saida',      nome: 'Aba Saída',            desc: 'Registrar saídas de veículos' },
-    { id: 'aba_historico',  nome: 'Aba Histórico',        desc: 'Visualizar histórico completo' },
-    { id: 'trocar_turno',   nome: 'Trocar Turno',         desc: 'Registrar troca de turno' },
-    { id: 'relatorio',      nome: 'Relatório',            desc: 'Gerar relatório do turno' },
-    { id: 'planilha',       nome: 'Planilha',             desc: 'Acessar planilha Google Sheets' },
-    { id: 'modo_noite',     nome: 'Tema Dia/Noite',       desc: 'Alternar entre tema claro e escuro' },
-    { id: 'gerenciar_perfis', nome: 'Gerenciar Perfis',  desc: 'Criar, editar e apagar perfis (admin)' },
+    { id: 'aba_entrada',      nome: 'Aba Entrada (tudo)',   desc: 'Ativa AMBAS as sub-permissões de entrada abaixo' },
+    { id: 'entrada_cards',    nome: '  ↳ Cards Pátio/Carregados', desc: 'Exibe os cards "No Pátio" e "Carregados" na aba Entrada' },
+    { id: 'entrada_nova',     nome: '  ↳ Nova Entrada',     desc: 'Exibe o formulário para registrar nova entrada de veículo' },
+    { id: 'aba_saida',        nome: 'Aba Saída',            desc: 'Registrar saídas de veículos' },
+    { id: 'aba_historico',    nome: 'Aba Histórico',        desc: 'Visualizar histórico completo' },
+    { id: 'trocar_turno',     nome: 'Trocar Turno',         desc: 'Registrar troca de turno' },
+    { id: 'relatorio',        nome: 'Relatório',            desc: 'Gerar relatório do turno' },
+    { id: 'planilha',         nome: 'Planilha',             desc: 'Acessar planilha Google Sheets' },
+    { id: 'modo_noite',       nome: 'Tema Dia/Noite',       desc: 'Alternar entre tema claro e escuro' },
+    { id: 'gerenciar_perfis', nome: 'Gerenciar Perfis',     desc: 'Criar, editar e apagar perfis (admin)' },
+    { id: 'aguardar_nfe',     nome: 'Botão Aguard. NFE',   desc: 'Confirmar NFE OK para alertar portaria (balança/admin)' },
+    { id: 'dashboard',        nome: 'Dashboard Desktop',     desc: 'Abrir painel dashboard em nova janela (admin/balança)' },
+    { id: 'janela_mini',      nome: 'Janela Mini (PiP)',     desc: 'Abrir janela flutuante sempre no topo (admin/balança)' },
+    // ↑ ADICIONE NOVAS PERMISSÕES AQUI — siga o padrão acima.
+    // Lembre de registrar também em aplicarPermissoes() e, se for botão no gear,
+    // adicione data-permissao="id_da_permissao" no elemento HTML do botão.
   ];
+
+  /* ===================== AUTO-SYNC: gear-items com data-permissao =====================
+   * Qualquer botão no gear panel com atributo data-permissao="id" é automaticamente
+   * detectado e adicionado a TODAS_PERMISSOES se ainda não existir.
+   * Isso evita que um botão novo seja esquecido da lista de controle de acesso.
+   */
+  function _sincronizarPermissoesGear() {
+    const idsExistentes = new Set(TODAS_PERMISSOES.map(p => p.id));
+    document.querySelectorAll('[data-permissao]').forEach(el => {
+      const id = el.dataset.permissao;
+      if (!id || idsExistentes.has(id)) return;
+      // Botão novo encontrado sem entrada em TODAS_PERMISSOES — adiciona automaticamente
+      const label = el.querySelector('.gear-item-label');
+      const nome  = label ? label.textContent.trim() : el.title || id;
+      TODAS_PERMISSOES.push({ id, nome, desc: `Acesso a: ${nome} (adicionado automaticamente)` });
+      idsExistentes.add(id);
+      console.warn(`[Permissões] Nova permissão detectada automaticamente: "${id}" — adicione manualmente em TODAS_PERMISSOES com descrição adequada.`);
+    });
+  }
 
   // Perfis padrão — usados como fallback se não houver nada salvo
   const PERFIS_PADRAO = {
@@ -5231,16 +5652,36 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
   // Aplica permissões dinamicamente na UI
   function aplicarPermissoes(perm) {
+    // Sub-permissões de entrada:
+    // aba_entrada = true → ativa entrada_cards E entrada_nova (retrocompatível)
+    // entrada_cards e entrada_nova podem ser marcadas individualmente
+    const temCards = perm.aba_entrada || perm.entrada_cards;
+    const temNova  = perm.aba_entrada || perm.entrada_nova;
+    const temAbaEnt = temCards || temNova;
+
     // Abas
     const tabEnt = document.getElementById('tabBtnEnt');
     const tabSai = document.querySelectorAll('.tab-btn')[1];
     const tabHist = document.querySelectorAll('.tab-btn')[2];
 
-    if (tabEnt) tabEnt.style.display = perm.aba_entrada ? '' : 'none';
+    if (tabEnt) tabEnt.style.display = temAbaEnt ? '' : 'none';
     if (tabSai) tabSai.style.display = perm.aba_saida ? '' : 'none';
 
-    // Se a aba padrão (Entrada) não está disponível, vai para Histórico
-    if (!perm.aba_entrada) {
+    // Cards de contagem (Pátio / Carregados)
+    const paineisCW = document.querySelector('.paineis-contagem-wrapper');
+    if (paineisCW) paineisCW.style.display = temCards ? '' : 'none';
+
+    // Formulário de nova entrada — oculta o conteúdo se entrada_nova não habilitado
+    const formEnt = document.getElementById('abaEntrada');
+    if (formEnt) {
+      const cabecalho = formEnt.querySelector('.card-header');
+      const conteudoForm = formEnt.querySelectorAll('.campo, .campo-descarregar, .btn-acao, .status-local, #painelChamadas');
+      conteudoForm.forEach(el => { el.style.display = temNova ? '' : 'none'; });
+      if (cabecalho) cabecalho.style.display = temNova ? '' : 'none';
+    }
+
+    // Se a aba entrada não está disponível, vai para Histórico
+    if (!temAbaEnt) {
       if (perm.aba_historico) switchTab('abaHist', tabHist);
       else if (perm.aba_saida) switchTab('abaSaida', tabSai);
     }
@@ -5288,6 +5729,32 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       const isAdminOuBalanca2 = perm.gerenciar_perfis || (!perm.aba_entrada && !perm.aba_saida);
       btnDB.style.display = isAdminOuBalanca2 ? '' : 'none';
     }
+
+    // Botão Aguard. NFE nas linhas do histórico (só balança e admin veem)
+    // A visibilidade é aplicada na renderização de cada linha via addHist(),
+    // mas aqui re-aplica para linhas já renderizadas ao trocar de perfil.
+    const mostraAguardNfe = perm.aguardar_nfe !== false && (
+      perm.gerenciar_perfis || (!perm.aba_entrada && !perm.aba_saida)
+    );
+    document.querySelectorAll('.btn-aguardar-nfe').forEach(b => {
+      b.style.display = mostraAguardNfe ? '' : 'none';
+    });
+
+    // Auto-sync: garante que botões com data-permissao no gear estejam na lista
+    _sincronizarPermissoesGear();
+
+    // Controle genérico: qualquer elemento com data-permissao="id" obedece à permissão
+    // Isso cobre automaticamente botões futuros que usem o atributo
+    document.querySelectorAll('[data-permissao]').forEach(el => {
+      const id = el.dataset.permissao;
+      if (id === undefined) return;
+      // Permissões que dependem de lógica composta (admin/balança) — não sobrescreve
+      const compostos = new Set(['gerenciar_perfis', 'dashboard', 'janela_mini']);
+      if (compostos.has(id)) return; // gerenciados manualmente acima
+      if (perm[id] !== undefined) {
+        el.style.display = perm[id] ? '' : 'none';
+      }
+    });
   }
 
   // Estado do editor
@@ -5368,11 +5835,19 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   function _renderPermissoes(ativas) {
     const lista = document.getElementById('permissoesLista');
     lista.innerHTML = '';
+    // IDs que são "pai" e controlam sub-permissões em cascata
+    const cascata = {
+      'aba_entrada': ['entrada_cards', 'entrada_nova']
+    };
     TODAS_PERMISSOES.forEach(perm => {
       const on = ativas[perm.id] !== false && ativas[perm.id] !== undefined ? ativas[perm.id] : false;
       const item = document.createElement('div');
-      item.className = 'permissao-item' + (on ? ' ativa' : '');
+      const isSub = ['entrada_cards','entrada_nova'].includes(perm.id);
+      item.className = 'permissao-item' + (on ? ' ativa' : '') + (isSub ? ' permissao-sub' : '');
       item.dataset.id = perm.id;
+      item.style.cssText = isSub
+        ? 'margin-left:22px;border-left:2px solid var(--border);padding-left:10px;'
+        : '';
       item.innerHTML = `
         <div class="permissao-check">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -5383,6 +5858,21 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         </div>`;
       item.addEventListener('click', () => {
         item.classList.toggle('ativa');
+        // Se é pai, sincroniza sub-permissões
+        if (cascata[perm.id]) {
+          const pai_ativo = item.classList.contains('ativa');
+          cascata[perm.id].forEach(subId => {
+            const subItem = lista.querySelector('[data-id="' + subId + '"]');
+            if (subItem) subItem.classList.toggle('ativa', pai_ativo);
+          });
+        }
+        // Se é sub, desmarca o pai (pois agora são independentes)
+        for (const [paiId, subs] of Object.entries(cascata)) {
+          if (subs.includes(perm.id)) {
+            const paiItem = lista.querySelector('[data-id="' + paiId + '"]');
+            if (paiItem) paiItem.classList.remove('ativa');
+          }
+        }
       });
       lista.appendChild(item);
     });
@@ -5410,6 +5900,11 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     document.querySelectorAll('#permissoesLista .permissao-item').forEach(item => {
       permissoes[item.dataset.id] = item.classList.contains('ativa');
     });
+    // Se aba_entrada (pai) marcado → garante sub-permissões true
+    if (permissoes.aba_entrada) {
+      permissoes.entrada_cards = true;
+      permissoes.entrada_nova  = true;
+    }
 
     const perfis = _carregarPerfisCustom();
 
@@ -5890,6 +6385,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     onProdutoChange, renderProdutosSelect, onProdutoManualInput,
     toggleDescarregar, registrarSaidaDescarga,
     registrarAguardarNfeEl,
+    registrarNfeOkEl,
     // Janela flutuante mini
     abrirJanelaFlutuante, fecharJanelaFlutuante,
     // Dashboard desktop
