@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sistema-descargas-v30';
+const CACHE_NAME = 'portaria-savana-v1';
 
 // Assets do app que devem funcionar offline
 const ASSETS = [
@@ -96,6 +96,45 @@ self.addEventListener('message', event => {
   if (event.data === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+});
+
+
+// ── Recebe push do FCM quando app está fechado/background ────
+// (O firebase-messaging-sw.js cuida do FCM, mas este fallback
+//  garante que qualquer push genérico seja exibido)
+self.addEventListener('push', event => {
+  if (!event.data) return;
+
+  let titulo = 'Portaria Savana';
+  let corpo  = '';
+  let placa  = '';
+  let tipo   = 'chamada';
+
+  try {
+    const payload = event.data.json();
+    titulo = payload.notification?.title || payload.data?.titulo || titulo;
+    corpo  = payload.notification?.body  || payload.data?.corpo  || corpo;
+    placa  = payload.data?.placa || '';
+    tipo   = payload.data?.tipo  || 'chamada';
+  } catch(e) {
+    titulo = event.data.text() || titulo;
+  }
+
+  const ehChamada = tipo === 'chamada';
+
+  event.waitUntil(
+    self.registration.showNotification(titulo, {
+      body:               corpo,
+      icon:               '/icons/icon-192.png',
+      badge:              '/icons/ic_notification_xxhdpi.png',
+      tag:                `${tipo}-${placa}`,
+      renotify:           true,
+      vibrate:            ehChamada ? [200, 100, 200, 100, 400] : [100, 50, 100],
+      requireInteraction: ehChamada,
+      silent:             false,
+      data:               { placa, tipo, url: self.location.origin + '/' }
+    })
+  );
 });
 
 // ── Clique na notificação: abre/foca o app ───────────────────
