@@ -652,6 +652,21 @@
     body.aba-hist .hist-barra { display: block; }
     .hist-barra-inner { display: flex; flex-direction: column; gap: 4px; }
     .hist-barra .input-busca { width: 100%; box-sizing: border-box; }
+    .hist-barra-row { display: flex; gap: 6px; align-items: center; }
+    .hist-barra-row .input-busca { flex: 1; }
+    .btn-sort-hist {
+      flex-shrink: 0;
+      height: 40px; width: 40px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      color: var(--text-main);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-sort-hist.desc { background: var(--primary); border-color: var(--primary); color: #fff; }
     .hist-barra .turno-header { margin: 0; }
 
     /* ===================== PAINÉIS CONTAGEM ===================== */
@@ -2518,7 +2533,10 @@
   <!-- BARRA DO HISTÓRICO — dentro do sticky header, visível só nessa aba -->
   <div class="hist-barra" id="histBarra">
     <div class="hist-barra-inner">
-      <input type="text" class="input-busca" id="campoBusca" placeholder="🔍 Buscar placa ou motorista..." oninput="filtrarHistorico(this.value)">
+      <div class="hist-barra-row">
+        <input type="text" class="input-busca" id="campoBusca" placeholder="🔍 Buscar placa ou motorista..." oninput="filtrarHistorico(this.value)">
+        <button class="btn-sort-hist desc" id="btnSortHist" onclick="toggleOrdemHistorico()" title="Ordem de exibição">⇅</button>
+      </div>
     </div>
   </div>
 </div>
@@ -4136,7 +4154,7 @@
         } else {
           // PÁTIO — conta na fila com número de posição
           posicaoGlobal++;
-          const oc = (v.ordem||'').toUpperCase().trim() === 'SIM' ? ' O.C - OK' : '';
+          const oc = (v.ordem||'').toUpperCase().trim() === 'SIM' ? ' - C/OC' : ' - S/OC';
           sufixo = oc;
           posStr = `  ${posicaoGlobal}°`;
         }
@@ -4683,10 +4701,28 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   }
 
   /* ===================== BUSCA HISTÓRICO ===================== */
+  let _histOrdemDesc = true; // true = último primeiro (padrão)
+
   function filtrarHistorico(val) {
     const q = val.toUpperCase().trim();
     document.querySelectorAll('#tabDia tbody tr, #tabNoite tbody tr').forEach(tr => {
       tr.classList.toggle('tr-hidden', q.length > 0 && !tr.dataset.busca?.includes(q));
+    });
+  }
+
+  function toggleOrdemHistorico() {
+    _histOrdemDesc = !_histOrdemDesc;
+    const btn = document.getElementById('btnSortHist');
+    if (btn) {
+      btn.classList.toggle('desc', _histOrdemDesc);
+      btn.title = _histOrdemDesc ? 'Mais recente primeiro' : 'Mais antigo primeiro';
+    }
+    // Inverte a ordem das linhas em cada tbody
+    ['tabDia', 'tabNoite'].forEach(id => {
+      const tbody = document.querySelector(`#${id} tbody`);
+      if (!tbody) return;
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      rows.reverse().forEach(tr => tbody.appendChild(tr));
     });
   }
 
@@ -6438,7 +6474,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     prepararEdicao, prepararEdicaoEl, previewSaida, voltarDoEditor,
     acSaidaInput, acSaidaSelecionar, acSaidaFechar, voltarDaSaida,
     abrirModalObsEl,
-    filtrarHistorico, limparTabela,
+    filtrarHistorico, toggleOrdemHistorico, limparTabela,
     ocrConfirmar, ocrFechar, ocrReler,
     mostrarDialog, mostrarToast,
     perfilEditar, perfilApagar, perfilEditarNovo, perfilVoltarLista, perfilSalvar,
