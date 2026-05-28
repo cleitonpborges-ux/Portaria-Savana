@@ -4099,26 +4099,51 @@
     const filaGrupos = {};
     filaAtiva.forEach(v => { const p = v.produto||'---'; if(!filaGrupos[p]) filaGrupos[p]=[]; filaGrupos[p].push(v); });
 
+    // Fila de triagem: conta apenas PÁTIO (exclui AG.NFe, CARREGANDO, SAÍDA)
+    // AG.NFe aparece na lista mas SEM número de posição e SEM contar no total
+    const filaParaAmanha = filaAtiva.filter(v => {
+      const s = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      return s === 'PATIO';
+    });
+
+    let posicaoGlobal = 0;
+
     let detalheFilaStr = '';
     Object.entries(filaGrupos).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([prod, lista]) => {
-      const totalProd = lista.length;
-      detalheFilaStr += `\n  *${prod}: ${String(totalProd).padStart(2,'0')}*\n`;
-      lista.forEach((v, i) => {
+      // Contagem do produto: só PÁTIO
+      const totalProdAtivo = lista.filter(v => {
+        const s = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        return s === 'PATIO';
+      }).length;
+
+      detalheFilaStr += `\n  *${prod}: ${String(totalProdAtivo).padStart(2,'0')}*\n`;
+
+      lista.forEach((v) => {
         const st = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
         let sufixo = '';
+        let posStr = '';
+
         if (st === 'SAIDA') {
           sufixo = v.nfe ? ` | NFe - ${v.nfe}` : ' | SAÍDA';
+          posStr = '   ';
         } else if (st === 'CARREGANDO') {
           sufixo = ' | CARREGANDO';
+          posStr = '   ';
         } else if (st === 'AGUARDANDO NFE') {
+          // Aparece na lista mas sem posição e sem contar no total
           sufixo = ' | AG. NFe';
+          posStr = '   ';
         } else {
+          // PÁTIO — conta na fila com número de posição
+          posicaoGlobal++;
           const oc = (v.ordem||'').toUpperCase().trim() === 'SIM' ? ' O.C - OK' : '';
           sufixo = oc;
+          posStr = `  ${posicaoGlobal}°`;
         }
+
         const obs = observacoesMap[v.placa] || v.observacao || '';
-        const obsStr = obs ? ` ${obs}` : '';
-        detalheFilaStr += `  ${i+1}° ${v.placa} - (${v.transportadora||'---'})${sufixo}${obsStr}\n`;
+        const obsStr = obs ? `\n\`${obs}\`` : '';
+        detalheFilaStr += `${posStr} ${v.placa} - (${v.transportadora||'---'})${sufixo}${obsStr}\n\n`;
       });
     });
     detalheFilaStr = detalheFilaStr.trimEnd() || '  • —';
@@ -4141,7 +4166,7 @@
 `*RELATÓRIO — PORTARIA SAVANA* 
 ${dataStr} às ${horaStr}
 ━━━━━━━━━━━━━━━━━━━━
-*FILA DE TRIAGEM: ${filaAtiva.length}* 
+*FILA DE TRIAGEM: ${filaParaAmanha.length}* 
 ${detalheFilaStr}
 
 AGUARDANDO HÁ +4H:
