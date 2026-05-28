@@ -6500,11 +6500,6 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        // Registra o SW do FCM (OBRIGATÓRIO para push com app fechado)
-        navigator.serviceWorker.register('./firebase-messaging-sw.js')
-          .then(r => console.log('[FCM-SW] Registrado:', r.scope))
-          .catch(e => console.warn('[FCM-SW] Falha:', e));
-
         navigator.serviceWorker.register('./service-worker.js')
           .then(reg => {
             console.log('[PWA] SW registrado:', reg.scope);
@@ -6520,13 +6515,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           })
           .catch(err => console.warn('[PWA] Falha ao registrar SW:', err));
 
-        // Flag evita reload em loop quando múltiplos SWs trocam de controller
-        let _reloadPendente = false;
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-          // Só recarrega se havia realmente um SW aguardando (banner foi mostrado)
-          // e não está já recarregando
-          if (!_swWaiting || _reloadPendente) return;
-          _reloadPendente = true;
+          if (!_swWaiting) return; // só recarrega se foi uma atualização real
           const splash = document.getElementById('_splashAtualizacao');
           if (splash) splash.style.display = 'flex';
           setTimeout(() => window.location.reload(), 1200);
