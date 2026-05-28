@@ -3053,6 +3053,9 @@
     // PASSO 1: muda status AGUARDANDO NFE — substitui toda a linha 2 pelo texto clicável
     tr.classList.remove('status-carregando');
     tr.classList.add('status-aguardando-nfe');
+    // Atualiza data-status para que o listener do Firestore veja o DOM já correto
+    // e não dispare carregarEstado() que destruiria o texto clicável.
+    tr.dataset.status = 'AGUARDANDO NFE';
 
     // Reescreve a div da linha 2 com o texto clicável diretamente
     const statusTd = tr.querySelector('.container-status');
@@ -3118,7 +3121,12 @@
   // Listener em tempo real para alertas NFE OK (portaria recebe push)
   function iniciarListenerNfeOk() {
     try {
+      let _primeiroSnapNfe = true;
       onSnapshot(doc(_db, 'nfeok', 'ativas'), (snap) => {
+        // Ignora o snapshot inicial — o estado já foi carregado pelo carregarEstado().
+        // Isso evita que placas antigas em nfeok/ativas pre-populem _nfeOkPlacas e
+        // causem renderização prematura de "NFE OK" antes do usuário confirmar.
+        if (_primeiroSnapNfe) { _primeiroSnapNfe = false; return; }
         if (!snap.exists()) return;
         const lista = snap.data().lista || [];
         _renderizarAlertasNfeOk(lista);
