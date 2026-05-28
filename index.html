@@ -6520,8 +6520,13 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           })
           .catch(err => console.warn('[PWA] Falha ao registrar SW:', err));
 
+        // Flag evita reload em loop quando múltiplos SWs trocam de controller
+        let _reloadPendente = false;
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-          // Mostra "Instalando atualização..." antes de recarregar
+          // Só recarrega se havia realmente um SW aguardando (banner foi mostrado)
+          // e não está já recarregando
+          if (!_swWaiting || _reloadPendente) return;
+          _reloadPendente = true;
           const splash = document.getElementById('_splashAtualizacao');
           if (splash) splash.style.display = 'flex';
           setTimeout(() => window.location.reload(), 1200);
