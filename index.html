@@ -1164,7 +1164,7 @@
       gap: 4px;
       font-size: 0.57rem;
       font-weight: 800;
-      color: #111827;
+      color: var(--text-main);
       text-transform: uppercase;
       letter-spacing: 0.2px;
       animation: nfeOkTextPiscar 0.9s ease-in-out infinite;
@@ -1174,7 +1174,7 @@
       50%      { opacity: 0.15; }
     }
     body.modo-noite .badge-nfe-ok-portaria {
-      color: #f1f5f9;
+      color: #ffffff;
     }
 
     /* ===================== BADGES E BOTÕES ===================== */
@@ -3023,8 +3023,8 @@
     // Admin/balança: reescreve a linha 2 com texto estático NFE OK (sem piscar)
     const statusTd2 = tr ? tr.querySelector('.container-status') : null;
     if (statusTd2) {
-      const linhaStatus = statusTd2.querySelector('div[style*="text-align:right"]');
-      if (linhaStatus) linhaStatus.innerHTML = `<span style="color:var(--success);font-weight:700;font-size:0.62rem;">✅ NFE OK</span>`;
+      const linhaStatus = statusTd2.querySelector('.linha-status-nfe, div[style*="text-align:right"]');
+      if (linhaStatus) linhaStatus.innerHTML = `<span style="color:var(--text-main);font-weight:700;font-size:0.62rem;">NFE OK</span>`;
     }
 
     // Marca localmente (sessionStorage) e notifica portaria via Firestore
@@ -3062,7 +3062,7 @@
     // Reescreve a div da linha 2 com o texto clicável diretamente
     const statusTd = tr.querySelector('.container-status');
     if (statusTd) {
-      const linhaStatus = statusTd.querySelector('div[style*="text-align:right"]');
+      const linhaStatus = statusTd.querySelector('.linha-status-nfe, div[style*="text-align:right"]');
       if (linhaStatus) {
         linhaStatus.innerHTML = `<span class="btn-aguard-nfe-texto" onclick="registrarNfeOkEl(this)" title="NFE OK? CLIQUE AQUI">AGUARD. NFE</span>`;
       }
@@ -3152,14 +3152,14 @@
 
       const statusTd = tr.querySelector('.container-status');
       if (!statusTd) return;
-      const linhaStatus = statusTd.querySelector('div[style*="text-align:right"]');
+      const linhaStatus = statusTd.querySelector('.linha-status-nfe, div[style*="text-align:right"]');
       if (!linhaStatus) return;
 
       // Não sobrescreve se já tem badge
       if (linhaStatus.querySelector('.badge-nfe-ok-portaria, [data-nfe-ok]')) return;
 
       // Aplica badge piscante
-      linhaStatus.innerHTML = `<span class="badge-nfe-ok-portaria" data-nfe-ok="1">NFE OK</span>`;
+      linhaStatus.innerHTML = `<span class="badge-nfe-ok-portaria" data-nfe-ok="1">✅ NFE OK</span>`;
 
       // Toast + vibração apenas 1× por sessão por placa
       if (!_ssNfeOkHas(_SS_NFE_ALERT_KEY, placa)) {
@@ -3191,14 +3191,14 @@
 
         const statusTd = tr.querySelector('.container-status');
         if (!statusTd) return;
-        const linhaStatus = statusTd.querySelector('div[style*="text-align:right"]');
+        const linhaStatus = statusTd.querySelector('.linha-status-nfe, div[style*="text-align:right"]');
         if (!linhaStatus) return;
         if (linhaStatus.querySelector('.badge-nfe-ok-portaria, [data-nfe-ok]')) return;
 
         if (_isBA) {
-          linhaStatus.innerHTML = `<span style="color:var(--success);font-weight:700;font-size:0.62rem;" data-nfe-ok="1">NFE OK</span>`;
+          linhaStatus.innerHTML = `<span style="color:var(--text-main);font-weight:700;font-size:0.62rem;" data-nfe-ok="1">NFE OK</span>`;
         } else {
-          linhaStatus.innerHTML = `<span class="badge-nfe-ok-portaria" data-nfe-ok="1">NFE OK</span>`;
+          linhaStatus.innerHTML = `<span class="badge-nfe-ok-portaria" data-nfe-ok="1">✅ NFE OK</span>`;
           if (!_ssNfeOkHas(_SS_NFE_ALERT_KEY, placa)) {
             _ssNfeOkAdd(_SS_NFE_ALERT_KEY, placa);
             vibrar([80, 40, 80, 40, 200]);
@@ -4738,11 +4738,11 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
             // O estado NFE OK chega depois via _reaplicarAlertasNfeOkAposRender
             // que consulta o Firestore diretamente, sem sessionStorage.
             if (_isBA) {
-              return `<div style="text-align:right;margin-bottom:6px;">
+              return `<div class="linha-status-nfe" style="text-align:right;margin-bottom:6px;">
                 <span class="btn-aguard-nfe-texto" onclick="registrarNfeOkEl(this)" title="NFE OK? CLIQUE AQUI">AGUARD. NFE</span>
               </div>`;
             } else {
-              return `<div style="text-align:right;margin-bottom:6px;">
+              return `<div class="linha-status-nfe" style="text-align:right;margin-bottom:6px;">
                 <span style="color:var(--text-muted);font-weight:700;font-size:0.62rem;">AGUARD. NFE</span>
               </div>`;
             }
