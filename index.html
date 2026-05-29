@@ -2750,7 +2750,7 @@
   import { initializeApp }       from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
   import {
     getFirestore, collection, doc, addDoc, updateDoc, setDoc, getDoc,
-    getDocs, query, where, orderBy, serverTimestamp, onSnapshot,
+    getDocs, deleteDoc, query, where, orderBy, serverTimestamp, onSnapshot,
     enableIndexedDbPersistence
   } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
   import {
@@ -2930,26 +2930,28 @@
 
   // Atualiza saída no Firestore
   async function _fbSaida(placa, nfe) {
+    // Deleta TODOS os documentos da placa na coleção 'veiculos',
+    // independente do status. Garante zero vícios para a próxima entrada.
     try {
-      let docRef = null;
-      for (const st of ['PÁTIO', 'CARREGANDO', 'AGUARDANDO NFE']) {
-        const q = query(
-          collection(_db, 'veiculos'),
-          where('placa', '==', placa),
-          where('status', '==', st),
-          orderBy('criadoEm', 'desc')
-        );
-        const snap = await getDocs(q);
-        if (!snap.empty) { docRef = snap.docs[0].ref; break; }
+      const q = query(
+        collection(_db, 'veiculos'),
+        where('placa', '==', placa)
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
       }
-      if (docRef) {
-        await updateDoc(docRef, {
-          status: 'SAÍDA', nfe,
-          saida: serverTimestamp(),
-          atualizadoEm: serverTimestamp()
-        });
+    } catch(e) { console.warn('[Firebase] Saída (delete veiculos) falhou:', e); }
+
+    // Limpa nfeok/ativas para a placa
+    try {
+      const docRef = doc(_db, 'nfeok', 'ativas');
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const lista = (snap.data().lista || []).filter(p => p !== placa);
+        await setDoc(docRef, { lista, atualizadoEm: new Date().toISOString() });
       }
-    } catch(e) { console.warn('[Firebase] Saída falhou:', e); }
+    } catch(e) { console.warn('[Firebase] Saída (limpar nfeok) falhou:', e); }
   }
 
   // Grava AGUARDANDO NFE no Firestore
@@ -3076,7 +3078,7 @@
     }
 
     vibrar(60);
-    mostrarToast(`⏳ ${placa} — Aguardando NFE. Clique em "AGUARD. NFE" para confirmar.`, 'success', 4000);
+    mostrarToast(`${placa} - AGUARDANDO NFE`, 'success', 4000);
 
     // 3. Persiste no backend
     try {
@@ -3119,87 +3121,92 @@
   }
 
   // Listener em tempo real para alertas NFE OK (portaria recebe push)
+  // REGRA: só reage a mudanças APÓS o login. Ignora o snapshot inicial
+  // para não processar placas de turnos anteriores que ainda estão no Firestore.
   function iniciarListenerNfeOk() {
     try {
       let _primeiroSnapNfe = true;
       onSnapshot(doc(_db, 'nfeok', 'ativas'), (snap) => {
-        // Ignora o snapshot inicial — o estado já foi carregado pelo carregarEstado().
-        // Isso evita que placas antigas em nfeok/ativas pre-populem _nfeOkPlacas e
-        // causem renderização prematura de "NFE OK" antes do usuário confirmar.
         if (_primeiroSnapNfe) { _primeiroSnapNfe = false; return; }
         if (!snap.exists()) return;
         const lista = snap.data().lista || [];
-        _renderizarAlertasNfeOk(lista);
+        _alertarPortariaNfeOk(lista);
       });
     } catch(e) { console.warn('[NFeOK] Listener falhou:', e); }
   }
 
-  function _renderizarAlertasNfeOk(placasOk) {
-    // ── Passo 1: sempre popula _nfeOkPlacas (sessionStorage) ─────────────────
-    placasOk.forEach(p => _nfeOkPlacas.add(p));
-
-    // ── Passo 2: aplica badge/texto nas linhas que já estão no DOM ────────────
+  // Alerta a portaria quando recebe push do Firestore de que NFE foi confirmada.
+  // NÃO popula sessionStorage nem altera o DOM de balança — apenas avisa portaria.
+  // SÓ dispara se: (1) perfil é portaria, (2) linha está em AGUARDANDO NFE no DOM.
+  function _alertarPortariaNfeOk(placasOk) {
     const _isBA = (perfilAtual === 'balanca' || perfilAtual === 'admin' ||
       (() => { try { const p = _carregarPerfisCustom()[perfilAtual]; return p && p.permissoes && p.permissoes.gerenciar_perfis; } catch(e){return false;} })()
     );
-    const isPortaria = !_isBA;
+    if (_isBA) return; // balança/admin não recebe alerta por aqui — já vê o texto clicável
 
-    // Verifica se alguma placa com NFE OK tem a linha com status desatualizado
-    // (Apps Script ainda não refletiu AGUARDANDO NFE). Força recarregamento imediato.
-    let statusDesatualizado = false;
     placasOk.forEach(placa => {
+      // CONDIÇÃO OBRIGATÓRIA: a linha deve existir no DOM E estar em AGUARDANDO NFE.
+      // Se o DOM ainda mostra PÁTIO ou CARREGANDO, ignora — o estado ainda não chegou.
       const tr = document.querySelector(`#tabDia tbody tr[data-placa="${placa}"]`);
-      if (tr && tr.dataset.status !== 'AGUARDANDO NFE') statusDesatualizado = true;
-    });
-    if (statusDesatualizado) {
-      clearTimeout(_recarregarTimer);
-      _recarregarTimer = setTimeout(carregarEstado, 300);
-      // Aplica toast+vibração já agora para a portaria não perder o aviso
-      if (isPortaria) {
-        placasOk.forEach(placa => {
-          if (!_ssNfeOkHas(_SS_NFE_ALERT_KEY, placa)) {
-            _ssNfeOkAdd(_SS_NFE_ALERT_KEY, placa);
-            vibrar([80, 40, 80, 40, 200]);
-            mostrarToast(`🔔 NFE OK — ${placa}! Liberar saída.`, 'success', 8000);
-          }
-        });
-      }
-      return; // o badge será aplicado pelo _reaplicarAlertasNfeOkAposRender após o reload
-    }
-
-    document.querySelectorAll('#tabDia tbody tr[data-placa]').forEach(tr => {
-      const placa = tr.dataset.placa;
-      if (!placasOk.includes(placa)) return;
-      // Só aplica badge se o veículo realmente está aguardando NFE — nunca em PÁTIO/CARREGANDO
-      if (tr.dataset.status !== 'AGUARDANDO NFE') return;
+      if (!tr || tr.dataset.status !== 'AGUARDANDO NFE') return;
 
       const statusTd = tr.querySelector('.container-status');
       if (!statusTd) return;
       const linhaStatus = statusTd.querySelector('div[style*="text-align:right"]');
       if (!linhaStatus) return;
 
-      // Verifica se badge já foi injetado no DOM (evita duplicar sem depender de Set)
-      const jaBadge = linhaStatus.querySelector('.badge-nfe-ok-portaria, [data-nfe-ok]');
+      // Não sobrescreve se já tem badge
+      if (linhaStatus.querySelector('.badge-nfe-ok-portaria, [data-nfe-ok]')) return;
 
-      if (isPortaria) {
-        if (!jaBadge) {
-          linhaStatus.innerHTML = `<span class="badge-nfe-ok-portaria" data-nfe-ok="1">✅ NFE OK</span>`;
-        }
-        // Toast + vibração apenas 1× por sessão
-        if (!_ssNfeOkHas(_SS_NFE_ALERT_KEY, placa)) {
-          _ssNfeOkAdd(_SS_NFE_ALERT_KEY, placa);
-          vibrar([80, 40, 80, 40, 200]);
-          mostrarToast(`🔔 NFE OK — ${placa}! Liberar saída.`, 'success', 8000);
-        }
-      } else {
-        // Balança/admin: garante texto estático
-        const jaOk = linhaStatus.querySelector('[data-nfe-ok]') ||
-                     linhaStatus.textContent.includes('NFE OK');
-        if (!jaOk) {
-          linhaStatus.innerHTML = `<span style="color:var(--success);font-weight:700;font-size:0.62rem;" data-nfe-ok="1">✅ NFE OK</span>`;
-        }
+      // Aplica badge piscante
+      linhaStatus.innerHTML = `<span class="badge-nfe-ok-portaria" data-nfe-ok="1">NFE OK</span>`;
+
+      // Toast + vibração apenas 1× por sessão por placa
+      if (!_ssNfeOkHas(_SS_NFE_ALERT_KEY, placa)) {
+        _ssNfeOkAdd(_SS_NFE_ALERT_KEY, placa);
+        vibrar([80, 40, 80, 40, 200]);
+        mostrarToast(`PLACA: ${placa} - LIBERAÇÃO OK`, 'success', 8000);
       }
     });
+  }
+
+  // Chamado pelo processarDados após cada reload do DOM.
+  // Consulta o Firestore (nfeok/ativas) diretamente — sem sessionStorage, sem cache.
+  // Só aplica NFE OK se a placa está confirmada no Firestore E em AGUARDANDO NFE no DOM.
+  async function _reaplicarAlertasNfeOkAposRender() {
+    try {
+      const snap = await getDoc(doc(_db, 'nfeok', 'ativas'));
+      if (!snap.exists()) return;
+      const placasOk = snap.data().lista || [];
+      if (placasOk.length === 0) return;
+
+      const _isBA = (perfilAtual === 'balanca' || perfilAtual === 'admin' ||
+        (() => { try { const p = _carregarPerfisCustom()[perfilAtual]; return p && p.permissoes && p.permissoes.gerenciar_perfis; } catch(e){return false;} })()
+      );
+
+      document.querySelectorAll('#tabDia tbody tr[data-placa]').forEach(tr => {
+        const placa = tr.dataset.placa;
+        if (!placasOk.includes(placa)) return;
+        if (tr.dataset.status !== 'AGUARDANDO NFE') return;
+
+        const statusTd = tr.querySelector('.container-status');
+        if (!statusTd) return;
+        const linhaStatus = statusTd.querySelector('div[style*="text-align:right"]');
+        if (!linhaStatus) return;
+        if (linhaStatus.querySelector('.badge-nfe-ok-portaria, [data-nfe-ok]')) return;
+
+        if (_isBA) {
+          linhaStatus.innerHTML = `<span style="color:var(--success);font-weight:700;font-size:0.62rem;" data-nfe-ok="1">NFE OK</span>`;
+        } else {
+          linhaStatus.innerHTML = `<span class="badge-nfe-ok-portaria" data-nfe-ok="1">NFE OK</span>`;
+          if (!_ssNfeOkHas(_SS_NFE_ALERT_KEY, placa)) {
+            _ssNfeOkAdd(_SS_NFE_ALERT_KEY, placa);
+            vibrar([80, 40, 80, 40, 200]);
+            mostrarToast(`PLACA: ${placa} - LIBERAÇÃO OK`, 'success', 8000);
+          }
+        }
+      });
+    } catch(e) { console.warn('[NFeOK] _reaplicarAlertasNfeOkAposRender falhou:', e); }
   }
 
   /* ===================== LISTENER TEMPO REAL — STATUS VEÍCULOS =====================
@@ -3250,9 +3257,11 @@
           }
 
           // ── Status mudou (ex: PÁTIO → AGUARDANDO NFE): recarrega ────────────
+          // Exceção: AGUARDANDO NFE já foi atualizado localmente pelo registrarAguardarNfeEl
+          // (DOM e dataset.status já corretos). Recarregar aqui destruiria o texto clicável.
           const trExistente = document.querySelector(`#tabDia tbody tr[data-placa="${placa}"]`);
           if (trExistente && trExistente.dataset.status !== status) {
-            precisaRecarregar = true;
+            if (status !== 'AGUARDANDO NFE') precisaRecarregar = true;
           }
         });
 
@@ -3267,12 +3276,7 @@
     } catch(e) { console.warn('[Firebase] iniciarListenerVeiculos falhou:', e); }
   }
 
-  // Chama _renderizarAlertasNfeOk novamente após o DOM ser populado por processarDados.
-  // Resolve o race condition: listener do Firestore dispara antes das linhas existirem.
-  function _reaplicarAlertasNfeOkAposRender() {
-    const placasOk = [..._ssNfeOkGet(_SS_NFE_OK_KEY)];
-    if (placasOk.length > 0) _renderizarAlertasNfeOk(placasOk);
-  }
+  // _reaplicarAlertasNfeOkAposRender está definida no bloco NFE OK acima.
 
   // Atualiza ordem no Firestore
   async function _fbOrdem(placa, ordem) {
@@ -3316,6 +3320,12 @@
     }
     perfilAtual = perfil.key;
     localStorage.setItem(LS_PERFIL_KEY, perfilAtual);
+    // Limpa sessionStorage NFE ao fazer login — evita que dados de sessão
+    // anterior (mesma placa, outro turno) causem badge/toast indevido.
+    try {
+      sessionStorage.removeItem(_SS_NFE_OK_KEY);
+      sessionStorage.removeItem(_SS_NFE_ALERT_KEY);
+    } catch(e) {}
     aplicarPermissoes(perfil.permissoes || {});
     _atualizarTituloPerfil(usuario);
     document.getElementById('telaLogin').classList.add('oculto');
@@ -3329,6 +3339,12 @@
     localStorage.removeItem(LS_PERFIL_KEY);
     perfilAtual = null;
     ultimoDadosHash = '';
+    // Limpa sessionStorage NFE ao trocar perfil — impede que dados da sessão
+    // do perfil anterior (ex: balança) contaminem o próximo perfil (ex: portaria).
+    try {
+      sessionStorage.removeItem(_SS_NFE_OK_KEY);
+      sessionStorage.removeItem(_SS_NFE_ALERT_KEY);
+    } catch(e) {}
     document.getElementById('loginUsuario').value = '';
     document.getElementById('loginSenha').value = '';
     document.getElementById('telaLogin').classList.remove('oculto');
@@ -4706,7 +4722,6 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         <!-- LINHA 2: status + fluxo NFE (tudo aqui, sem linha 3) -->
         ${tipo==='ENTRADA' ? (() => {
           const _isBA = (perfilAtual === 'balanca' || perfilAtual === 'admin' || (() => { try { const p = _carregarPerfisCustom()[perfilAtual]; return p && p.permissoes && p.permissoes.gerenciar_perfis; } catch(e){return false;} })());
-          const _jaConfirmado = d.status === 'AGUARDANDO NFE' && _nfeOkPlacas.has(d.placa);
           if (d.status === 'CARREGANDO') {
             return `<div style="text-align:right;margin-bottom:6px;">
               <span style="color:#2563eb;font-weight:700;font-size:0.62rem;display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8l5 2v6h-5V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>CARREGANDO</span>
@@ -4719,19 +4734,16 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
             </div>`;
           }
           if (d.status === 'AGUARDANDO NFE') {
+            // addHist NUNCA decide mostrar NFE OK — sempre renderiza AGUARD. NFE.
+            // O estado NFE OK chega depois via _reaplicarAlertasNfeOkAposRender
+            // que consulta o Firestore diretamente, sem sessionStorage.
             if (_isBA) {
               return `<div style="text-align:right;margin-bottom:6px;">
-                ${_jaConfirmado
-                  ? `<span style="color:var(--success);font-weight:700;font-size:0.62rem;">✅ NFE OK</span>`
-                  : `<span class="btn-aguard-nfe-texto" onclick="registrarNfeOkEl(this)" title="NFE OK? CLIQUE AQUI">AGUARD. NFE</span>`
-                }
+                <span class="btn-aguard-nfe-texto" onclick="registrarNfeOkEl(this)" title="NFE OK? CLIQUE AQUI">AGUARD. NFE</span>
               </div>`;
             } else {
               return `<div style="text-align:right;margin-bottom:6px;">
-                ${_jaConfirmado
-                  ? `<span class="badge-nfe-ok-portaria">✅ NFE OK</span>`
-                  : `<span style="color:var(--text-muted);font-weight:700;font-size:0.62rem;">AGUARD. NFE</span>`
-                }
+                <span style="color:var(--text-muted);font-weight:700;font-size:0.62rem;">AGUARD. NFE</span>
               </div>`;
             }
           }
@@ -5243,9 +5255,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       if (!navigator.onLine) { await idbAdicionarPendente(payload); throw new Error('offline'); }
       await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(payload) });
       // Firebase (dashboard tempo real)
-      _fbSaida(placa, nfe);
-      // Limpa estado NFE OK da sessão e do Firestore ao registrar saída
-      _fbLimparNfeOk(placa);
+      _fbSaida(placa, nfe); // deleta docs do veículo e limpa nfeok/ativas
       try {
         const _s1 = _ssNfeOkGet(_SS_NFE_OK_KEY);
         _s1.delete(placa);
@@ -5299,11 +5309,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         docRef = docs[0].ref;
       }
       if (docRef) {
-        await updateDoc(docRef, {
-          status: 'CONCLUIDO',
-          saida: serverTimestamp(),
-          atualizadoEm: serverTimestamp()
-        });
+        // Deleta o documento — elimina qualquer vício para próxima entrada da placa
+        await deleteDoc(docRef);
       }
       fetch(WEB_APP_POST_URL, {
         method: "POST", mode: "no-cors",
