@@ -4683,6 +4683,25 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       // CONCLUIDO: ignorado
     });
 
+    // ── Reordenar histórico: produto alfabético, dentro do produto por chegada cronológica ──
+    const tbodyDia = document.querySelector("#tabDia tbody");
+    const linhasPrincipais = Array.from(tbodyDia.querySelectorAll('tr:not(.obs-row-full)'));
+    // Vincula cada obs à sua tr pelo data-obsplaca (imune a reordenação do DOM)
+    const pares = linhasPrincipais.map(tr => ({
+      tr,
+      obs: tbodyDia.querySelector(`tr.obs-row-full[data-obsplaca="${tr.dataset.placa}"]`) || null
+    }));
+    pares.sort((a, b) => {
+      const pa = (a.tr.dataset.produto || '').toUpperCase();
+      const pb = (b.tr.dataset.produto || '').toUpperCase();
+      if (pa !== pb) return pa.localeCompare(pb, 'pt-BR');
+      return (parseInt(a.tr.dataset.chegadats) || 0) - (parseInt(b.tr.dataset.chegadats) || 0);
+    });
+    pares.forEach(({ tr, obs }) => {
+      tbodyDia.appendChild(tr);
+      if (obs) tbodyDia.appendChild(obs);
+    });
+
     atualizarDetalhesProdutos();
     atualizarBarraTurno();
     // Re-aplica badges NFE OK nas linhas recém-renderizadas (resolve race condition
@@ -4716,6 +4735,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     tr.dataset.data           = d.dataEntrada     || '';
     tr.dataset.seqgeral       = d.seqGeral        || '';
     tr.dataset.seqproduto     = d.seqProduto      || '';
+    tr.dataset.chegadats      = d.chegadaTimestamp || '';
 
     const chamadaInfo = historicoChamadas.find(c => c.placa === d.placa);
     const chamadaBadge = chamadaInfo
@@ -4801,6 +4821,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     if (obsFirebase && tipo === 'ENTRADA') {
       const trObs = document.createElement('tr');
       trObs.className = 'obs-row-full';
+      trObs.dataset.obsplaca = d.placa || '';
       trObs.innerHTML = `<td colspan="3" style="padding:0 12px 10px;border-top:none;">
         <div class="obs-linha-full">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
