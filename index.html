@@ -4196,33 +4196,56 @@
         if (s === 'CONCLUIDO') return false;
         if (s === 'SAIDA' && ocultarSaidasRel) return false;
         return s === 'PATIO' || s === 'CARREGANDO' || s === 'SAIDA' || s === 'AGUARDANDO NFE';
-      })
-      .sort((a,b) => (a.chegada||0) - (b.chegada||0));
+      });
 
     const emPatio = dadosFrescos.filter(v => v.status === 'PÁTIO' || v.status === 'CARREGANDO');
+
+    // ── Mesma lógica do processarDados: número baseado no campo `chegada` da planilha ──
+    // chegada > 0 → tem posição; chegada vazio/zero → script já limpou, sem número.
+    // Sequência gerada ordenando por produto (alfabético) + dataEntrada (cronológico).
+    const elegiveisRel = filaAtiva.filter(v => v.status !== 'SAÍDA' && (v.chegada||0) > 0);
+    elegiveisRel.sort((a, b) => {
+      const pa = (a.produto||'---'), pb = (b.produto||'---');
+      if (pa !== pb) return pa.localeCompare(pb);
+      return (a.chegadaTimestamp||0) - (b.chegadaTimestamp||0);
+    });
+    const seqPorProdutoRel = {};
+    let seqGeralRel = 0;
+    filaAtiva.forEach(v => { v._seqGeral = 0; v._seqProduto = 0; });
+    elegiveisRel.forEach(v => {
+      seqGeralRel++;
+      v._seqGeral = seqGeralRel;
+      const prod = v.produto || '---';
+      if (!seqPorProdutoRel[prod]) seqPorProdutoRel[prod] = 0;
+      seqPorProdutoRel[prod]++;
+      v._seqProduto = seqPorProdutoRel[prod];
+    });
 
     // ── Agrupar fila ativa por produto ──
     const filaGrupos = {};
     filaAtiva.forEach(v => { const p = v.produto||'---'; if(!filaGrupos[p]) filaGrupos[p]=[]; filaGrupos[p].push(v); });
 
-    // Fila de triagem: conta apenas PÁTIO (exclui AG.NFe, CARREGANDO, SAÍDA)
-    // AG.NFe aparece na lista mas SEM número de posição e SEM contar no total
+    // Fila de triagem: conta apenas PÁTIO com chegada válida
     const filaParaAmanha = filaAtiva.filter(v => {
       const s = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-      return s === 'PATIO';
+      return s === 'PATIO' && (v.chegada||0) > 0;
     });
-
-    let posicaoGlobal = 0;
 
     let detalheFilaStr = '';
     Object.entries(filaGrupos).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([prod, lista]) => {
-      // Contagem do produto: só PÁTIO
-      const totalProdAtivo = lista.filter(v => {
-        const s = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        return s === 'PATIO';
-      }).length;
+      // Contagem: só PÁTIO com chegada válida
+      // Conta todos com chegada válida (PÁTIO + CARREGANDO + AGUARDANDO NFE ainda no dia)
+      const totalProdAtivo = lista.filter(v => (v.chegada||0) > 0 && v.status !== 'SAÍDA').length;
 
       detalheFilaStr += `\n  *${prod}: ${String(totalProdAtivo).padStart(2,'0')}*\n`;
+
+      // Ordena: com número primeiro (por seqProduto), sem número por último
+      lista.sort((a, b) => {
+        if (a._seqProduto && b._seqProduto) return a._seqProduto - b._seqProduto;
+        if (a._seqProduto) return -1;
+        if (b._seqProduto) return 1;
+        return 0;
+      });
 
       lista.forEach((v) => {
         const st = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -4232,22 +4255,23 @@
         if (st === 'SAIDA') {
           sufixo = v.nfe ? ` | NFe - ${v.nfe}` : ' | SAÍDA';
           posStr = '   ';
-        } else if (st === 'CARREGANDO') {
-          sufixo = ' | CARREGANDO';
-          posStr = '   ';
-        } else if (st === 'AGUARDANDO NFE') {
-          // Aparece na lista mas sem posição e sem contar no total
-          sufixo = ' | AG. NFe';
-          posStr = '   ';
+        } else if (v._seqProduto) {
+          // Tem número: PÁTIO, CARREGANDO ou AGUARDANDO NFE ainda com chegada
+          if (st === 'CARREGANDO') sufixo = ' | CARREGANDO';
+          else if (st === 'AGUARDANDO NFE') sufixo = ' | AG. NFe';
+          else sufixo = (v.ordem||'').toUpperCase().trim() === 'SIM' ? ' - C/OC' : ' - S/OC';
+          posStr = `${v._seqProduto}°`;
         } else {
-          // PÁTIO — conta na fila com número de posição
-          posicaoGlobal++;
-          const oc = (v.ordem||'').toUpperCase().trim() === 'SIM' ? ' - C/OC' : ' - S/OC';
-          sufixo = oc;
-          posStr = `  ${posicaoGlobal}°`;
+          // Sem chegada: script já limpou, aparece sem número
+          if (st === 'CARREGANDO') sufixo = ' | CARREGANDO';
+          else if (st === 'AGUARDANDO NFE') sufixo = ' | AG. NFe';
+          posStr = '   ';
         }
 
-        const obsStr = '';
+        // Observação: só exibe para quem tem número na fila
+        // Cobre variações do nome do campo vindas da planilha
+        const obsVal = v.observacao || v.obs || v.observação || v['OBSERVAÇÃO'] || v['OBSERVACAO'] || '';
+        const obsStr = (v._seqProduto && obsVal) ? `\n${obsVal}` : '';
         detalheFilaStr += `${posStr} ${v.placa} - (${v.transportadora||'---'})${sufixo}${obsStr}\n\n`;
       });
     });
@@ -4605,21 +4629,32 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
                 || (r.status === 'SAÍDA' && !ocultarSaidas);
     });
 
+    // Numeração: o script do Google Planilhas controla o campo `chegada` (N° chegada).
+    // Regra: se `chegada` existe e é > 0, o veículo ainda está na fila do dia → recebe número.
+    //        se `chegada` foi apagado pelo script (vazio/zero) → perdeu a posição, sem número.
+    // A sequência (seqGeral e seqProduto) é gerada ordenando por dataEntrada dentro de cada produto,
+    // refletindo a ordem cronológica real independente de como o script reorganizou as linhas.
+
+    // Zera todos primeiro
+    dados.forEach(r => { r.seqGeral = 0; r.seqProduto = 0; });
+
+    // Filtra apenas quem tem chegada válida, é visível e não é SAÍDA
+    const elegiveisParaNumero = dados.filter(r =>
+      r._visivel
+      && r.status !== 'SAÍDA'
+      && r.chegada > 0
+    );
+
+    // Ordena: por produto (alfabético) e dentro do produto por dataEntrada (cronológico)
+    elegiveisParaNumero.sort((a, b) => {
+      const pa = (a.produto || '---'), pb = (b.produto || '---');
+      if (pa !== pb) return pa.localeCompare(pb);
+      return (a.chegadaTimestamp || 0) - (b.chegadaTimestamp || 0);
+    });
+
     const seqPorProduto = {};
     let seqGeral = 0;
-    // Durante o dia, PÁTIO + CARREGANDO + AGUARDANDO NFE mantêm seu número de chegada.
-    // Após a limpeza das 19h (virada do dia), AGUARDANDO NFE perde o número para não
-    // confundir a fila do dia seguinte. SAÍDA nunca recebe número.
-    const limpezaJaFeita = localStorage.getItem(LS_LIMPEZA_KEY) === new Date().toLocaleDateString('pt-BR');
-    dados.forEach(r => {
-      const semNumero = !r._visivel
-        || r.status === 'SAÍDA'
-        || (r.status === 'AGUARDANDO NFE' && limpezaJaFeita);
-      if (semNumero) {
-        r.seqProduto = 0;
-        r.seqGeral = 0;
-        return;
-      }
+    elegiveisParaNumero.forEach(r => {
       seqGeral++;
       r.seqGeral = seqGeral;
       const prod = r.produto || '---';
