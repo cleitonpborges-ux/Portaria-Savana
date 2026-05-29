@@ -4202,8 +4202,8 @@
 
     // ── Mesma lógica do processarDados: número baseado no campo `chegada` da planilha ──
     // chegada > 0 → tem posição; chegada vazio/zero → script já limpou, sem número.
-    // Sequência gerada ordenando por produto (alfabético) + dataEntrada (cronológico).
-    const elegiveisRel = filaAtiva.filter(v => v.status !== 'SAÍDA' && (v.chegada||0) > 0);
+    // SAÍDA também mantém o número enquanto chegada > 0 (o Google Sheets remove da lista na limpeza)
+    const elegiveisRel = filaAtiva.filter(v => (v.chegada||0) > 0);
     elegiveisRel.sort((a, b) => {
       const pa = (a.produto||'---'), pb = (b.produto||'---');
       if (pa !== pb) return pa.localeCompare(pb);
@@ -4252,18 +4252,17 @@
         let sufixo = '';
         let posStr = '';
 
-        if (st === 'SAIDA') {
-          sufixo = v.nfe ? ` | NFe - ${v.nfe}` : ' | SAÍDA';
-          posStr = '   ';
-        } else if (v._seqProduto) {
-          // Tem número: PÁTIO, CARREGANDO ou AGUARDANDO NFE ainda com chegada
-          if (st === 'CARREGANDO') sufixo = ' | CARREGANDO';
+        if (v._seqProduto) {
+          // Tem número (chegada > 0 na planilha): mostra posição independente do status
+          if (st === 'SAIDA') sufixo = v.nfe ? ` | NFe - ${v.nfe}` : ' | SAÍDA';
+          else if (st === 'CARREGANDO') sufixo = ' | CARREGANDO';
           else if (st === 'AGUARDANDO NFE') sufixo = ' | AG. NFe';
           else sufixo = (v.ordem||'').toUpperCase().trim() === 'SIM' ? ' - C/OC' : ' - S/OC';
           posStr = `${v._seqProduto}°`;
         } else {
           // Sem chegada: script já limpou, aparece sem número
-          if (st === 'CARREGANDO') sufixo = ' | CARREGANDO';
+          if (st === 'SAIDA') sufixo = v.nfe ? ` | NFe - ${v.nfe}` : ' | SAÍDA';
+          else if (st === 'CARREGANDO') sufixo = ' | CARREGANDO';
           else if (st === 'AGUARDANDO NFE') sufixo = ' | AG. NFe';
           posStr = '   ';
         }
@@ -4638,10 +4637,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // Zera todos primeiro
     dados.forEach(r => { r.seqGeral = 0; r.seqProduto = 0; });
 
-    // Filtra apenas quem tem chegada válida, é visível e não é SAÍDA
+    // Filtra apenas quem tem chegada válida e é visível
+    // SAÍDA também mantém o número enquanto chegada > 0 (o Google Sheets remove da lista na limpeza)
     const elegiveisParaNumero = dados.filter(r =>
       r._visivel
-      && r.status !== 'SAÍDA'
       && r.chegada > 0
     );
 
