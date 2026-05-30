@@ -6517,25 +6517,52 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     }
   }
 
-  // Exibe notificação local via SW (foreground e background, app aberto)
+  // Exibe notificação local via SW (foreground, background e tela bloqueada)
+  // Compatível com Samsung One UI, Motorola (My UX), MIUI e Android puro.
   async function _exibirNotificacaoLocal(titulo, corpo, placa, tipo = 'chamada') {
     if (Notification.permission !== 'granted') return;
     const ehChamada = tipo === 'chamada';
     try {
       const reg = await navigator.serviceWorker.ready;
+
+      // ── Cancela notificação anterior da mesma placa/tipo para forçar heads-up ──
+      // Samsung e Motorola às vezes agrupam silenciosamente sem renotify;
+      // fechar antes garante que a nova apareça flutuante (heads-up).
+      try {
+        const existentes = await reg.getNotifications({ tag: `${tipo}-${placa}` });
+        existentes.forEach(n => n.close());
+      } catch(_) {}
+
       await reg.showNotification(titulo, {
-        body:               corpo,
-        icon:               'icons/icon-192.png',
-        badge:              'icons/icon-32.png',
-        tag:                `${tipo}-${placa}`,
-        renotify:           true,
-        vibrate:            ehChamada ? [200, 100, 200, 100, 400] : [100, 50, 100],
-        requireInteraction: ehChamada,   // chamada fica na tela; entrada some sozinha
-        silent:             false,
-        data:               { placa, tipo, url: location.href }
+        body:    corpo,
+        icon:    'icons/icon-192.png',
+        badge:   'icons/icon-32.png',
+
+        // Tag + renotify = sempre mostra mesmo que já exista uma igual
+        tag:      `${tipo}-${placa}`,
+        renotify: true,
+
+        // Padrão de vibração chamativo (Samsung e Motorola respeitam)
+        vibrate: ehChamada ? [300, 150, 300, 150, 600] : [150, 75, 150],
+
+        // requireInteraction: true em AMBOS os tipos
+        // → notificação não some automaticamente (essencial em tela bloqueada)
+        requireInteraction: true,
+
+        // silent: false + som padrão garante heads-up no One UI / My UX
+        silent: false,
+
+        // actions aparecem na notificação expandida (Android 7+)
+        actions: ehChamada
+          ? [{ action: 'ok',   title: '✔ OK — Dispensar' },
+             { action: 'abrir', title: '📋 Abrir App' }]
+          : [{ action: 'abrir', title: '📋 Abrir App' }],
+
+        // Dados para o SW tratar o clique mesmo com app fechado
+        data: { placa, tipo, url: location.href }
       });
     } catch(e) {
-      console.warn('[FCM] Falha ao exibir notificação local:', e);
+      console.warn('[Notificação] Falha ao exibir notificação local:', e);
     }
   }
 
