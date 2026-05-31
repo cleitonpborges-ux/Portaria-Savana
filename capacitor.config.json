@@ -1,8 +1,7 @@
 {
   "appId": "io.github.cleitonpborges_ux.portaria_savana",
   "appName": "Portaria Savana",
-  "webDir": ".",
-  "bundledWebRuntime": false,
+  "webDir": "www",
   "android": {
     "buildOptions": {
       "releaseType": "APK"
