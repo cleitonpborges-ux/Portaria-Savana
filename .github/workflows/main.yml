@@ -1,32 +1,37 @@
 name: Gerar APK Portaria Savana
+
 on:
   push:
     branches: [ main ]
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
+      # ── 1. Checkout ──────────────────────────────────────────
       - name: Checkout do código
         uses: actions/checkout@v4.2.2
 
+      # ── 2. Java 17 ───────────────────────────────────────────
       - name: Configurar Java (JDK 17)
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
+      # ── 3. Node 20 ───────────────────────────────────────────
       - name: Configurar Node
         uses: actions/setup-node@v4.2.0
         with:
-          node-version: '24'
+          node-version: '20'
 
+      # ── 4. Android SDK ───────────────────────────────────────
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Instalar Bubblewrap e Firebase CLI
-        run: npm install -g @bubblewrap/cli firebase-tools
-
-      # ── Deploy Firebase PRIMEIRO (APK será gerado sobre o site atualizado) ──
+      # ── 5. Deploy Firebase Hosting PRIMEIRO ──────────────────
+      #    O APK aponta para o site ao vivo — sobe o site antes
       - name: Deploy Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
@@ -38,104 +43,91 @@ jobs:
       - name: Aguardar propagação do Firebase (30s)
         run: sleep 30
 
-      - name: Criar twa-manifest.json
-        run: |
-          cat > twa-manifest.json << 'EOF'
-          {
-            "packageId": "io.github.cleitonpborges_ux.portaria_savana",
-            "host": "portaria-savana.web.app",
-            "name": "Portaria Savana",
-            "launcherName": "Portaria",
-            "display": "standalone",
-            "themeColor": "#0f2040",
-            "navigationColor": "#0f2040",
-            "navigationColorDark": "#0f2040",
-            "navigationDividerColor": "#0f2040",
-            "navigationDividerColorDark": "#0f2040",
-            "backgroundColor": "#0f2040",
-            "enableNotifications": true,
-            "startUrl": "/index.html",
-            "iconUrl": "https://portaria-savana.web.app/icons/icon-512.png",
-            "maskableIconUrl": "https://portaria-savana.web.app/icons/icon-512.png",
-            "monochromeIconUrl": "https://portaria-savana.web.app/icons/icon-192.png",
-            "appVersion": "1",
-            "appVersionCode": 1,
-            "signingKey": {
-              "path": "./portaria-savana.keystore",
-              "alias": "portaria"
-            },
-            "splashScreenFadeOutDuration": 300,
-            "enableSiteSettingsShortcut": true,
-            "isChromeOSOnly": false,
-            "isMetaQuest": false,
-            "fullScopeUrl": "https://portaria-savana.web.app/",
-            "minSdkVersion": 21,
-            "orientation": "portrait",
-            "fingerprints": [
-              {
-                "type": "SHA256",
-                "value": "6F:EA:7A:3D:30:8F:5E:6D:BF:78:94:18:95:61:5C:66:65:25:61:54:AE:F1:3A:DC:6E:C0:C7:B4:E3:F7:6B:1D"
-              }
-            ],
-            "alphaDependencies": { "enabled": false },
-            "generatorApp": "bubblewrap-cli",
-            "webManifestUrl": "https://portaria-savana.web.app/manifest.json",
-            "serviceWorkerUrl": null,
-            "shortcuts": []
-          }
-          EOF
+      # ── 6. Instalar dependências Capacitor ───────────────────
+      - name: Instalar dependências npm
+        run: npm install
 
-      - name: Configurar Bubblewrap com SDK do Actions
-        run: |
-          mkdir -p ~/.bubblewrap
-          cat > ~/.bubblewrap/config.json << EOF
-          {
-            "jdkPath": "$JAVA_HOME",
-            "androidSdkPath": "$ANDROID_SDK_ROOT"
-          }
-          EOF
+      # ── 7. Adicionar plataforma Android ─────────────────────
+      - name: Adicionar Android ao Capacitor
+        run: npx cap add android || echo "Android já adicionado"
 
-      - name: Restaurar Keystore
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > portaria-savana.keystore
+      # ── 8. Sync Capacitor (copia web → android) ──────────────
+      - name: Sync Capacitor
+        run: npx cap sync android
 
-      - name: Gerar projeto Android
+      # ── 9. google-services.json (FCM nativo) ─────────────────
+      #    Sem esse arquivo o FCM não funciona com app fechado.
+      #    O conteúdo fica no secret GOOGLE_SERVICES_JSON do GitHub.
+      - name: Restaurar google-services.json
         run: |
-          sudo apt-get install -y expect
-          expect << EOF || true
-          spawn bubblewrap update
-          expect "*(Y/n)*"
-          send "y\r"
-          expect eof
-          EOF
+          echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > android/app/google-services.json
+          echo "✅ google-services.json restaurado"
 
+      # ── 10. Permissão POST_NOTIFICATIONS (Android 13+) ───────
       - name: Injetar POST_NOTIFICATIONS no AndroidManifest
         run: |
-          MANIFEST="app/src/main/AndroidManifest.xml"
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
             if ! grep -q "POST_NOTIFICATIONS" "$MANIFEST"; then
-              sed -i 's|<uses-permission android:name="android.permission.INTERNET"/>|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>|' "$MANIFEST"
+              sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>|' "$MANIFEST"
               echo "✅ POST_NOTIFICATIONS adicionado"
             else
               echo "ℹ️  POST_NOTIFICATIONS já presente"
             fi
-            grep "uses-permission" "$MANIFEST"
           else
-            echo "❌ AndroidManifest.xml não encontrado"
+            echo "❌ AndroidManifest.xml não encontrado em $MANIFEST"
             find . -name "AndroidManifest.xml" 2>/dev/null
           fi
 
-      - name: Construir APK não assinado
+      # ── 11. Canal FCM high_importance_channel ────────────────
+      #    Cria o canal de alta prioridade que o FCM usa para
+      #    heads-up e tela bloqueada em Samsung e Motorola.
+      #    Injeta no MainActivity.java gerado pelo Capacitor.
+      - name: Injetar canal FCM de alta prioridade
         run: |
-          printf "n\n" | bubblewrap build --skipSigning 2>/dev/null || true
-          ls ./app/build/outputs/apk/release/ || echo "APK não encontrado"
+          MAIN_ACTIVITY=$(find android -name "MainActivity.java" | head -1)
+          if [ -z "$MAIN_ACTIVITY" ]; then
+            echo "❌ MainActivity.java não encontrado"
+            exit 1
+          fi
+          echo "📄 MainActivity encontrada: $MAIN_ACTIVITY"
 
+          # Verifica se já foi injetado
+          if grep -q "high_importance_channel" "$MAIN_ACTIVITY"; then
+            echo "ℹ️  Canal FCM já presente"
+          else
+            # Adiciona imports e criação do canal logo após super.onCreate
+            sed -i 's/import com.getcapacitor.BridgeActivity;/import com.getcapacitor.BridgeActivity;\nimport android.app.NotificationChannel;\nimport android.app.NotificationManager;\nimport android.os.Build;/' "$MAIN_ACTIVITY"
+
+            sed -i 's/super.onCreate(savedInstanceState);/super.onCreate(savedInstanceState);\n        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {\n            NotificationChannel channel = new NotificationChannel(\n                "high_importance_channel",\n                "Portaria Savana",\n                NotificationManager.IMPORTANCE_HIGH\n            );\n            channel.setDescription("Notificações de chamadas e entradas");\n            channel.enableVibration(true);\n            channel.setShowBadge(true);\n            channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);\n            NotificationManager manager = getSystemService(NotificationManager.class);\n            if (manager != null) manager.createNotificationChannel(channel);\n        }/' "$MAIN_ACTIVITY"
+
+            echo "✅ Canal high_importance_channel injetado"
+          fi
+          cat "$MAIN_ACTIVITY"
+
+      # ── 12. Restaurar Keystore ────────────────────────────────
+      - name: Restaurar Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > portaria-savana.keystore
+          cp portaria-savana.keystore android/app/portaria-savana.keystore
+          echo "✅ Keystore restaurada"
+
+      # ── 13. Build APK release ────────────────────────────────
+      - name: Build APK release (não assinado)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease
+          echo "📦 APKs gerados:"
+          find . -name "*.apk" 2>/dev/null
+
+      # ── 14. Assinar APK ──────────────────────────────────────
       - name: Assinar APK com apksigner
         env:
           KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASS: ${{ secrets.KEY_PASSWORD }}
         run: |
-          APK=$(find ./app/build/outputs/apk/release -name "*.apk" | head -1)
+          APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
           echo "APK encontrado: $APK"
           $ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner sign \
             --ks ./portaria-savana.keystore \
@@ -144,8 +136,9 @@ jobs:
             --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
             "$APK"
           cp "$APK" ./portaria-savana-signed.apk
-          echo "✅ APK assinado"
+          echo "✅ APK assinado com sucesso"
 
+      # ── 15. Upload do APK ────────────────────────────────────
       - name: Salvar APK para Download
         uses: actions/upload-artifact@v4.6.0
         with:
