@@ -31,7 +31,6 @@ jobs:
         uses: android-actions/setup-android@v3
 
       # ── 5. Deploy Firebase Hosting PRIMEIRO ──────────────────
-      #    O APK aponta para o site ao vivo — sobe o site antes
       - name: Deploy Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
@@ -47,23 +46,45 @@ jobs:
       - name: Instalar dependências npm
         run: npm install
 
-      # ── 7. Adicionar plataforma Android ─────────────────────
+      # ── 7. Criar pasta www ANTES do cap add ──────────────────
+      #    O Capacitor exige que www/ exista com index.html
+      #    antes de qualquer comando cap
+      - name: Preparar pasta www
+        run: |
+          mkdir -p www
+          rsync -av --exclude='www' \
+                    --exclude='android' \
+                    --exclude='node_modules' \
+                    --exclude='.git' \
+                    --exclude='.github' \
+                    --exclude='*.keystore' \
+                    --exclude='*.yml' \
+                    --exclude='*.yaml' \
+                    --exclude='package*.json' \
+                    --exclude='capacitor.config.json' \
+                    --exclude='twa-manifest.json' \
+                    --exclude='functions-index.js' \
+                    --exclude='google-services.json' \
+                    . www/
+          echo "📁 Conteúdo de www/:"
+          ls www/
+          echo "✅ index.html presente: $(ls www/index.html)"
+
+      # ── 8. Adicionar plataforma Android ─────────────────────
       - name: Adicionar Android ao Capacitor
         run: npx cap add android || echo "Android já adicionado"
 
-      # ── 8. Sync Capacitor (copia web → android) ──────────────
+      # ── 9. Sync Capacitor (copia www → android/assets) ───────
       - name: Sync Capacitor
         run: npx cap sync android
 
-      # ── 9. google-services.json (FCM nativo) ─────────────────
-      #    Sem esse arquivo o FCM não funciona com app fechado.
-      #    O conteúdo fica no secret GOOGLE_SERVICES_JSON do GitHub.
+      # ── 10. google-services.json (FCM nativo) ────────────────
       - name: Restaurar google-services.json
         run: |
           echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > android/app/google-services.json
           echo "✅ google-services.json restaurado"
 
-      # ── 10. Permissão POST_NOTIFICATIONS (Android 13+) ───────
+      # ── 11. Permissão POST_NOTIFICATIONS (Android 13+) ───────
       - name: Injetar POST_NOTIFICATIONS no AndroidManifest
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
@@ -75,14 +96,11 @@ jobs:
               echo "ℹ️  POST_NOTIFICATIONS já presente"
             fi
           else
-            echo "❌ AndroidManifest.xml não encontrado em $MANIFEST"
+            echo "❌ AndroidManifest.xml não encontrado"
             find . -name "AndroidManifest.xml" 2>/dev/null
           fi
 
-      # ── 11. Canal FCM high_importance_channel ────────────────
-      #    Cria o canal de alta prioridade que o FCM usa para
-      #    heads-up e tela bloqueada em Samsung e Motorola.
-      #    Injeta no MainActivity.java gerado pelo Capacitor.
+      # ── 12. Canal FCM high_importance_channel ────────────────
       - name: Injetar canal FCM de alta prioridade
         run: |
           MAIN_ACTIVITY=$(find android -name "MainActivity.java" | head -1)
@@ -90,30 +108,26 @@ jobs:
             echo "❌ MainActivity.java não encontrado"
             exit 1
           fi
-          echo "📄 MainActivity encontrada: $MAIN_ACTIVITY"
+          echo "📄 MainActivity: $MAIN_ACTIVITY"
 
-          # Verifica se já foi injetado
           if grep -q "high_importance_channel" "$MAIN_ACTIVITY"; then
             echo "ℹ️  Canal FCM já presente"
           else
-            # Adiciona imports e criação do canal logo após super.onCreate
             sed -i 's/import com.getcapacitor.BridgeActivity;/import com.getcapacitor.BridgeActivity;\nimport android.app.NotificationChannel;\nimport android.app.NotificationManager;\nimport android.os.Build;/' "$MAIN_ACTIVITY"
 
             sed -i 's/super.onCreate(savedInstanceState);/super.onCreate(savedInstanceState);\n        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {\n            NotificationChannel channel = new NotificationChannel(\n                "high_importance_channel",\n                "Portaria Savana",\n                NotificationManager.IMPORTANCE_HIGH\n            );\n            channel.setDescription("Notificações de chamadas e entradas");\n            channel.enableVibration(true);\n            channel.setShowBadge(true);\n            channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);\n            NotificationManager manager = getSystemService(NotificationManager.class);\n            if (manager != null) manager.createNotificationChannel(channel);\n        }/' "$MAIN_ACTIVITY"
 
             echo "✅ Canal high_importance_channel injetado"
           fi
-          cat "$MAIN_ACTIVITY"
 
-      # ── 12. Restaurar Keystore ────────────────────────────────
+      # ── 13. Restaurar Keystore ────────────────────────────────
       - name: Restaurar Keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > portaria-savana.keystore
-          cp portaria-savana.keystore android/app/portaria-savana.keystore
           echo "✅ Keystore restaurada"
 
-      # ── 13. Build APK release ────────────────────────────────
-      - name: Build APK release (não assinado)
+      # ── 14. Build APK release ────────────────────────────────
+      - name: Build APK release
         working-directory: android
         run: |
           chmod +x gradlew
@@ -121,7 +135,7 @@ jobs:
           echo "📦 APKs gerados:"
           find . -name "*.apk" 2>/dev/null
 
-      # ── 14. Assinar APK ──────────────────────────────────────
+      # ── 15. Assinar APK ──────────────────────────────────────
       - name: Assinar APK com apksigner
         env:
           KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -136,9 +150,9 @@ jobs:
             --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
             "$APK"
           cp "$APK" ./portaria-savana-signed.apk
-          echo "✅ APK assinado com sucesso"
+          echo "✅ APK assinado"
 
-      # ── 15. Upload do APK ────────────────────────────────────
+      # ── 16. Upload do APK ────────────────────────────────────
       - name: Salvar APK para Download
         uses: actions/upload-artifact@v4.6.0
         with:
