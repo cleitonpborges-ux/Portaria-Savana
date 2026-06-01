@@ -4221,25 +4221,33 @@
       v._seqProduto = seqPorProdutoRel[prod];
     });
 
-    // ── Agrupar fila ativa por produto ──
-    const filaGrupos = {};
-    filaAtiva.forEach(v => { const p = v.produto||'---'; if(!filaGrupos[p]) filaGrupos[p]=[]; filaGrupos[p].push(v); });
-
-    // Fila de triagem: conta apenas PÁTIO com chegada válida
-    const filaParaAmanha = filaAtiva.filter(v => {
-      const s = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-      return s === 'PATIO' && (v.chegada||0) > 0;
+    // ── Separar carregamento x outros (descarga) ──
+    // "Outros" = veículos com descarregar=SIM ou status A DESCARREGAR
+    // Esses NÃO entram na fila de triagem nem na contagem
+    const filaCarregamento = filaAtiva.filter(v => {
+      const desc = String(v.descarregar || '').trim().toUpperCase();
+      const st   = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      return desc !== 'SIM' && st !== 'A DESCARREGAR' && st !== 'DESCARREGANDO';
     });
+    const filaOutros = filaAtiva.filter(v => {
+      const desc = String(v.descarregar || '').trim().toUpperCase();
+      const st   = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      return desc === 'SIM' || st === 'A DESCARREGAR' || st === 'DESCARREGANDO';
+    });
+
+    // ── Agrupar carregamento por produto ──
+    const filaGrupos = {};
+    filaCarregamento.forEach(v => { const p = v.produto||'---'; if(!filaGrupos[p]) filaGrupos[p]=[]; filaGrupos[p].push(v); });
+
+    // Fila de triagem: TOTAL de entradas para carregamento com chegada válida
+    // (PÁTIO + CARREGANDO + AG. NFe — todos que estão no processo de carregamento)
+    const filaParaAmanha = filaCarregamento.filter(v => (v.chegada||0) > 0);
 
     let detalheFilaStr = '';
     Object.entries(filaGrupos).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([prod, lista]) => {
-      // Contagem: só PÁTIO com chegada válida
-      // Conta todos com chegada válida (PÁTIO + CARREGANDO + AGUARDANDO NFE ainda no dia)
       const totalProdAtivo = lista.filter(v => (v.chegada||0) > 0 && v.status !== 'SAÍDA').length;
-
       detalheFilaStr += `\n  *${prod}: ${String(totalProdAtivo).padStart(2,'0')}*\n`;
 
-      // Ordena: com número primeiro (por seqProduto), sem número por último
       lista.sort((a, b) => {
         if (a._seqProduto && b._seqProduto) return a._seqProduto - b._seqProduto;
         if (a._seqProduto) return -1;
@@ -4253,28 +4261,46 @@
         let posStr = '';
 
         if (v._seqProduto) {
-          // Tem número (chegada > 0 na planilha): mostra posição independente do status
           if (st === 'SAIDA') sufixo = v.nfe ? ` | NFe - ${v.nfe}` : ' | SAÍDA';
           else if (st === 'CARREGANDO') sufixo = ' | CARREGANDO';
           else if (st === 'AGUARDANDO NFE') sufixo = ' | AG. NFe';
           else sufixo = (v.ordem||'').toUpperCase().trim() === 'SIM' ? ' - C/OC' : ' - S/OC';
           posStr = `${v._seqProduto}°`;
         } else {
-          // Sem chegada: script já limpou, aparece sem número
           if (st === 'SAIDA') sufixo = v.nfe ? ` | NFe - ${v.nfe}` : ' | SAÍDA';
           else if (st === 'CARREGANDO') sufixo = ' | CARREGANDO';
           else if (st === 'AGUARDANDO NFE') sufixo = ' | AG. NFe';
           posStr = '   ';
         }
 
-        // Observação: só exibe para quem tem número na fila
-        // Cobre variações do nome do campo vindas da planilha
         const obsVal = v.observacao || v.obs || v.observação || v['OBSERVAÇÃO'] || v['OBSERVACAO'] || '';
         const obsStr = (v._seqProduto && obsVal) ? `\n${obsVal}` : '';
         detalheFilaStr += `${posStr} ${v.placa} - (${v.transportadora||'---'})${sufixo}${obsStr}\n\n`;
       });
     });
     detalheFilaStr = detalheFilaStr.trimEnd() || '  • —';
+
+    // ── Seção OUTROS (descarga: ureia, cloreto, graxa etc.) ──
+    let outrosStr = '';
+    if (filaOutros.length > 0) {
+      // Agrupa por produto
+      const outrosGrupos = {};
+      filaOutros.forEach(v => { const p = v.produto||'---'; if(!outrosGrupos[p]) outrosGrupos[p]=[]; outrosGrupos[p].push(v); });
+      Object.entries(outrosGrupos).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([prod, lista]) => {
+        outrosStr += `\n  *${prod}: ${String(lista.length).padStart(2,'0')}*\n`;
+        lista.forEach(v => {
+          const st = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+          let sufixo = '';
+          if (st === 'SAIDA') sufixo = v.nfe ? ` | NFe - ${v.nfe}` : ' | SAÍDA';
+          else if (st === 'A DESCARREGAR' || st === 'DESCARREGANDO') sufixo = ' | DESCARREGANDO';
+          else if (st === 'AGUARDANDO NFE') sufixo = ' | AG. NFe';
+          outrosStr += `   ${v.placa} - (${v.transportadora||'---'})${sufixo}\n\n`;
+        });
+      });
+      outrosStr = outrosStr.trimEnd();
+    } else {
+      outrosStr = '  • —';
+    }
 
     // ── Críticos +4h ──
     emPatio.forEach(v => {
@@ -4296,6 +4322,10 @@ ${dataStr} às ${horaStr}
 ━━━━━━━━━━━━━━━━━━━━
 *FILA DE TRIAGEM: ${filaParaAmanha.length}* 
 ${detalheFilaStr}
+
+━━━━━━━━━━━━━━━━━━━━
+*OUTROS (DESCARGA):*
+${outrosStr}
 
 AGUARDANDO HÁ +4H:
 ${criticosStr}
@@ -5242,7 +5272,11 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       // Apps Script (planilha)
       await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(d) });
       // Firebase — edição atualiza doc existente; entrada cria novo
-      if (isEdit) { _fbEditar(d); } else { _fbEntrada(d); }
+      if (isEdit) { _fbEditar(d); } else {
+        _fbEntrada(d);
+        // Notifica admin e balanca sobre nova entrada
+        _notificarNovaEntrada(d.placa, d.motorista, d.produto);
+      }
     };
 
     try {
