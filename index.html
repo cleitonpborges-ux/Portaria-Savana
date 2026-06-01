@@ -6490,13 +6490,12 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         // O plugin FirebaseMessaging do Capacitor é quem solicita a permissão
         // nativa do Android (o diálogo "Permitir notificações") e obtém o
         // token FCM diretamente, sem precisar do Service Worker.
-        const { FirebaseMessaging } = await import('https://cdn.jsdelivr.net/npm/@capacitor-firebase/messaging/dist/esm/index.js').catch(() => {
-          // Fallback: tenta pelo objeto global injetado pelo Capacitor
-          return { FirebaseMessaging: window?.CapacitorFirebaseMessaging?.FirebaseMessaging };
-        });
+        // O Capacitor injeta todos os plugins em window.Capacitor.Plugins
+        // automaticamente quando o APK carrega — não precisa de import/CDN
+        const FirebaseMessaging = window?.Capacitor?.Plugins?.FirebaseMessaging;
 
         if (!FirebaseMessaging) {
-          console.warn('[FCM] Plugin FirebaseMessaging não encontrado no Capacitor');
+          console.warn('[FCM] Plugin FirebaseMessaging não encontrado');
           return;
         }
 
