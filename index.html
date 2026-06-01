@@ -6610,10 +6610,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         silent: false,
 
         // actions aparecem na notificação expandida (Android 7+)
-        actions: ehChamada
-          ? [{ action: 'ok',   title: '✔ OK — Dispensar' },
-             { action: 'abrir', title: '📋 Abrir App' }]
-          : [{ action: 'abrir', title: '📋 Abrir App' }],
+        // Sem actions — toque na notificação abre o app diretamente
 
         // Dados para o SW tratar o clique mesmo com app fechado
         data: { placa, tipo, url: location.href }

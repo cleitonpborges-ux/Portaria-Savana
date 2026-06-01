@@ -20,6 +20,8 @@ exports.enviarPushNotificacao = onDocumentCreated(
     const placa  = data.placa  || "";
     const tipo   = data.tipo   || "chamada";
 
+    const ehChamada = tipo === "chamada";
+
     const mensagemBase = {
       notification: {
         title: titulo,
@@ -28,14 +30,18 @@ exports.enviarPushNotificacao = onDocumentCreated(
       android: {
         priority: "high",
         notification: {
-          channelId:            "portaria_chamadas",
-          // icon removido — Android usa o ícone do app automaticamente
-          color:                "#0f2040",
-          sound:                "default",
-          vibrateTimingsMillis: [0, 200, 100, 200, 100, 400],
+          // high_importance_channel é criado automaticamente pelo Firebase SDK
+          // Android em todos os dispositivos (Samsung, Motorola, etc.)
+          channelId:             "high_importance_channel",
+          color:                 "#0f2040",
+          sound:                 "default",
+          vibrateTimingsMillis:  ehChamada ? [0, 300, 150, 300, 150, 600] : [0, 150, 75, 150],
           defaultVibrateTimings: false,
-          tag:                  `${tipo}-${placa}`,
-          sticky:               tipo === "chamada",
+          tag:                   `${tipo}-${placa}`,
+          sticky:                true,
+          notificationPriority:  "PRIORITY_HIGH",
+          visibility:            "PUBLIC",
+          // Sem actions — toque na notificação abre o app diretamente
         },
       },
       webpush: {
@@ -47,8 +53,10 @@ exports.enviarPushNotificacao = onDocumentCreated(
           badge:              "/icons/ic_notification_xxhdpi.png",
           tag:                `${tipo}-${placa}`,
           renotify:           true,
-          requireInteraction: tipo === "chamada",
-          vibrate:            [200, 100, 200, 100, 400],
+          requireInteraction: true,
+          vibrate:            ehChamada ? [300, 150, 300, 150, 600] : [150, 75, 150],
+          silent:             false,
+          // Sem actions — toque na notificação abre o app diretamente
           data:               { placa, tipo, url: "/" },
         },
         fcmOptions: { link: "/" },
@@ -61,7 +69,8 @@ exports.enviarPushNotificacao = onDocumentCreated(
         await getMessaging().send({ ...mensagemBase, token: data.token });
         console.log(`[FCM] Push enviado para token ${data.token.slice(-8)} — ${titulo}`);
       } else {
-        const perfisAlvo = data.perfis || (tipo === "chamada" ? ["porteiro", "admin"] : ["admin", "balanca"]);
+        // Chamada: todos os perfis recebem. Entrada: só admin e balança.
+        const perfisAlvo = data.perfis || (ehChamada ? ["porteiro", "admin", "balanca"] : ["admin", "balanca"]);
 
         const tokensSnap = await db
           .collection("fcm_tokens")
