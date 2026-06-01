@@ -4,9 +4,7 @@
   "description": "Sistema de controle de acesso com leitura de placa",
   "main": "index.html",
   "scripts": {
-    "build": "echo 'Static site - no build step'",
-    "cap:sync": "npx cap sync android",
-    "cap:open": "npx cap open android"
+    "build": "echo 'Static site - no build step'"
   },
   "dependencies": {
     "@capacitor/android": "^6.0.0",
