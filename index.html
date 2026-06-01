@@ -4222,17 +4222,18 @@
     });
 
     // ── Separar carregamento x outros (descarga) ──
-    // "Outros" = veículos com descarregar=SIM ou status A DESCARREGAR
-    // Esses NÃO entram na fila de triagem nem na contagem
+    // filaCarregamento: veículos normais para carregar (fila de triagem)
     const filaCarregamento = filaAtiva.filter(v => {
       const desc = String(v.descarregar || '').trim().toUpperCase();
       const st   = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
       return desc !== 'SIM' && st !== 'A DESCARREGAR' && st !== 'DESCARREGANDO';
     });
-    const filaOutros = filaAtiva.filter(v => {
-      const desc = String(v.descarregar || '').trim().toUpperCase();
-      const st   = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-      return desc === 'SIM' || st === 'A DESCARREGAR' || st === 'DESCARREGANDO';
+
+    // filaOutros: busca direto dos dadosFrescos (planilha) pelo status
+    // A DESCARREGAR ou CONCLUIDO — assim aparece mesmo após sair do Firestore
+    const filaOutros = dadosFrescos.filter(v => {
+      const st = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      return st === 'A DESCARREGAR' || st === 'DESCARREGANDO' || st === 'CONCLUIDO';
     });
 
     // ── Agrupar carregamento por produto ──
@@ -4291,7 +4292,8 @@
         lista.forEach(v => {
           const st = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
           let sufixo = '';
-          if (st === 'SAIDA') sufixo = v.nfe ? ` | NFe - ${v.nfe}` : ' | SAÍDA';
+          if (st === 'CONCLUIDO') sufixo = v.nfe ? ` | NFe - ${v.nfe}` : ' | CONCLUÍDO';
+          else if (st === 'SAIDA') sufixo = v.nfe ? ` | NFe - ${v.nfe}` : ' | SAÍDA';
           else if (st === 'A DESCARREGAR' || st === 'DESCARREGANDO') sufixo = ' | DESCARREGANDO';
           else if (st === 'AGUARDANDO NFE') sufixo = ' | AG. NFe';
           outrosStr += `   ${v.placa} - (${v.transportadora||'---'})${sufixo}\n\n`;
