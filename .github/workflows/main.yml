@@ -89,9 +89,23 @@ jobs:
           cp icons/drawable/ic_stat_portaria.png android/app/src/main/res/drawable/ic_stat_portaria.png
           echo "✅ Ícones copiados"
 
+      # ── 10b. Corrigir android:icon/roundIcon no AndroidManifest ──
+      #  O Capacitor gera o manifest apontando para os ícones dele.
+      #  Este passo substitui para os ícones que copiamos no passo 10.
+      - name: Corrigir ícone do app no AndroidManifest
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST" ]; then
+            # Substituir android:icon apontando para qualquer @mipmap/... pelo nosso
+            sed -i 's|android:icon="@mipmap/[^"]*"|android:icon="@mipmap/ic_launcher"|g' "$MANIFEST"
+            sed -i 's|android:roundIcon="@mipmap/[^"]*"|android:roundIcon="@mipmap/ic_launcher_round"|g' "$MANIFEST"
+            echo "✅ android:icon e android:roundIcon corrigidos"
+            grep -E "android:(icon|roundIcon)" "$MANIFEST" || echo "⚠️  Atributos não encontrados no manifest"
+          else
+            echo "❌ AndroidManifest.xml não encontrado"
+          fi
+
       # ── 11. Injetar meta-data FCM no AndroidManifest ─────────
-      #    APENAS adiciona os meta-data do FCM antes de </application>
-      #    NÃO mexe em android:icon/roundIcon/label (Capacitor já define)
       - name: Configurar ícone de notificação no AndroidManifest
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
