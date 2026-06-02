@@ -78,13 +78,50 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      # ── 10. google-services.json (FCM nativo) ────────────────
+      # ── 10. Ícones do app Android ────────────────────────────
+      #    Copia os ícones gerados para as pastas mipmap do Android
+      #    e o ícone de notificação (branco transparente) para drawable
+      - name: Copiar ícones Android
+        run: |
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            DIR="android/app/src/main/res/mipmap-${density}"
+            mkdir -p "$DIR"
+            cp "icons/mipmap-${density}/ic_launcher.png"       "$DIR/ic_launcher.png"
+            cp "icons/mipmap-${density}/ic_launcher_round.png" "$DIR/ic_launcher_round.png"
+          done
+
+          # Ícone de notificação branco transparente
+          mkdir -p android/app/src/main/res/drawable
+          cp icons/drawable/ic_stat_portaria.png android/app/src/main/res/drawable/ic_stat_portaria.png
+          echo "✅ Ícones copiados"
+
+      # ── 11. Corrigir ícone de notificação no AndroidManifest ──
+      - name: Configurar ícone de notificação no AndroidManifest
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST" ]; then
+            # Adiciona meta-data para FCM usar ic_stat_portaria (branco) nas notificações
+            if ! grep -q "com.google.firebase.messaging.default_notification_icon" "$MANIFEST"; then
+              sed -i 's|<application|<application
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="Portaria Savana"|' "$MANIFEST"
+              sed -i 's|</application>|    <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_portaria"/>
+        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/colorPrimary"/>
+    </application>|' "$MANIFEST"
+              echo "✅ Ícone de notificação FCM configurado"
+            else
+              echo "ℹ️  Ícone FCM já configurado"
+            fi
+          fi
+
+      # ── 12. google-services.json (FCM nativo) ────────────────
       - name: Restaurar google-services.json
         run: |
           echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > android/app/google-services.json
           echo "✅ google-services.json restaurado"
 
-      # ── 11. Permissão POST_NOTIFICATIONS (Android 13+) ───────
+      # ── 13. Permissão POST_NOTIFICATIONS (Android 13+) ───────
       - name: Injetar POST_NOTIFICATIONS no AndroidManifest
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
@@ -100,7 +137,7 @@ jobs:
             find . -name "AndroidManifest.xml" 2>/dev/null
           fi
 
-      # ── 12. Canal FCM high_importance_channel ────────────────
+      # ── 14. Canal FCM high_importance_channel ────────────────
       - name: Injetar canal FCM de alta prioridade
         run: |
           MAIN_ACTIVITY=$(find android -name "MainActivity.java" | head -1)
@@ -120,13 +157,13 @@ jobs:
             echo "✅ Canal high_importance_channel injetado"
           fi
 
-      # ── 13. Restaurar Keystore ────────────────────────────────
+      # ── 15. Restaurar Keystore ────────────────────────────────
       - name: Restaurar Keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > portaria-savana.keystore
           echo "✅ Keystore restaurada"
 
-      # ── 14. Build APK release ────────────────────────────────
+      # ── 16. Build APK release ────────────────────────────────
       - name: Build APK release
         working-directory: android
         run: |
@@ -135,7 +172,7 @@ jobs:
           echo "📦 APKs gerados:"
           find . -name "*.apk" 2>/dev/null
 
-      # ── 15. Assinar APK ──────────────────────────────────────
+      # ── 17. Assinar APK ──────────────────────────────────────
       - name: Assinar APK com apksigner
         env:
           KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -152,7 +189,7 @@ jobs:
           cp "$APK" ./portaria-savana-signed.apk
           echo "✅ APK assinado"
 
-      # ── 16. Upload do APK ────────────────────────────────────
+      # ── 18. Upload do APK ────────────────────────────────────
       - name: Salvar APK para Download
         uses: actions/upload-artifact@v4.6.0
         with:
