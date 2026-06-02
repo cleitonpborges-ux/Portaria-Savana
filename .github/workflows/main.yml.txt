@@ -1,0 +1,197 @@
+name: Gerar APK Portaria Savana
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────
+      - name: Checkout do código
+        uses: actions/checkout@v4.2.2
+
+      # ── 2. Java 17 ───────────────────────────────────────────
+      - name: Configurar Java (JDK 17)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # ── 3. Node 20 ───────────────────────────────────────────
+      - name: Configurar Node
+        uses: actions/setup-node@v4.2.0
+        with:
+          node-version: '20'
+
+      # ── 4. Android SDK ───────────────────────────────────────
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      # ── 5. Deploy Firebase Hosting PRIMEIRO ──────────────────
+      - name: Deploy Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PORTARIA_SAVANA }}
+          channelId: live
+          projectId: portaria-savana
+
+      - name: Aguardar propagação do Firebase (30s)
+        run: sleep 30
+
+      # ── 6. Instalar dependências Capacitor ───────────────────
+      - name: Instalar dependências npm
+        run: npm install
+
+      # ── 7. Criar pasta www ANTES do cap add ──────────────────
+      #    O Capacitor exige que www/ exista com index.html
+      #    antes de qualquer comando cap
+      - name: Preparar pasta www
+        run: |
+          mkdir -p www
+          rsync -av --exclude='www' \
+                    --exclude='android' \
+                    --exclude='node_modules' \
+                    --exclude='.git' \
+                    --exclude='.github' \
+                    --exclude='*.keystore' \
+                    --exclude='*.yml' \
+                    --exclude='*.yaml' \
+                    --exclude='package*.json' \
+                    --exclude='capacitor.config.json' \
+                    --exclude='twa-manifest.json' \
+                    --exclude='functions-index.js' \
+                    --exclude='google-services.json' \
+                    . www/
+          echo "📁 Conteúdo de www/:"
+          ls www/
+          echo "✅ index.html presente: $(ls www/index.html)"
+
+      # ── 8. Adicionar plataforma Android ─────────────────────
+      - name: Adicionar Android ao Capacitor
+        run: npx cap add android || echo "Android já adicionado"
+
+      # ── 9. Sync Capacitor (copia www → android/assets) ───────
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      # ── 10. Ícones do app Android ────────────────────────────
+      #    Copia os ícones gerados para as pastas mipmap do Android
+      #    e o ícone de notificação (branco transparente) para drawable
+      - name: Copiar ícones Android
+        run: |
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            DIR="android/app/src/main/res/mipmap-${density}"
+            mkdir -p "$DIR"
+            cp "icons/mipmap-${density}/ic_launcher.png"       "$DIR/ic_launcher.png"
+            cp "icons/mipmap-${density}/ic_launcher_round.png" "$DIR/ic_launcher_round.png"
+          done
+
+          # Ícone de notificação branco transparente
+          mkdir -p android/app/src/main/res/drawable
+          cp icons/drawable/ic_stat_portaria.png android/app/src/main/res/drawable/ic_stat_portaria.png
+          echo "✅ Ícones copiados"
+
+      # ── 11. Corrigir ícone de notificação no AndroidManifest ──
+      - name: Configurar ícone de notificação no AndroidManifest
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST" ]; then
+            # Adiciona meta-data para FCM usar ic_stat_portaria (branco) nas notificações
+            if ! grep -q "com.google.firebase.messaging.default_notification_icon" "$MANIFEST"; then
+              sed -i 's|<application|<application
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="Portaria Savana"|' "$MANIFEST"
+              sed -i 's|</application>|    <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_portaria"/>
+        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/colorPrimary"/>
+    </application>|' "$MANIFEST"
+              echo "✅ Ícone de notificação FCM configurado"
+            else
+              echo "ℹ️  Ícone FCM já configurado"
+            fi
+          fi
+
+      # ── 12. google-services.json (FCM nativo) ────────────────
+      - name: Restaurar google-services.json
+        run: |
+          echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > android/app/google-services.json
+          echo "✅ google-services.json restaurado"
+
+      # ── 13. Permissão POST_NOTIFICATIONS (Android 13+) ───────
+      - name: Injetar POST_NOTIFICATIONS no AndroidManifest
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST" ]; then
+            if ! grep -q "POST_NOTIFICATIONS" "$MANIFEST"; then
+              sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>|' "$MANIFEST"
+              echo "✅ POST_NOTIFICATIONS adicionado"
+            else
+              echo "ℹ️  POST_NOTIFICATIONS já presente"
+            fi
+          else
+            echo "❌ AndroidManifest.xml não encontrado"
+            find . -name "AndroidManifest.xml" 2>/dev/null
+          fi
+
+      # ── 14. Canal FCM high_importance_channel ────────────────
+      - name: Injetar canal FCM de alta prioridade
+        run: |
+          MAIN_ACTIVITY=$(find android -name "MainActivity.java" | head -1)
+          if [ -z "$MAIN_ACTIVITY" ]; then
+            echo "❌ MainActivity.java não encontrado"
+            exit 1
+          fi
+          echo "📄 MainActivity: $MAIN_ACTIVITY"
+
+          if grep -q "high_importance_channel" "$MAIN_ACTIVITY"; then
+            echo "ℹ️  Canal FCM já presente"
+          else
+            sed -i 's/import com.getcapacitor.BridgeActivity;/import com.getcapacitor.BridgeActivity;\nimport android.app.NotificationChannel;\nimport android.app.NotificationManager;\nimport android.os.Build;/' "$MAIN_ACTIVITY"
+
+            sed -i 's/super.onCreate(savedInstanceState);/super.onCreate(savedInstanceState);\n        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {\n            NotificationChannel channel = new NotificationChannel(\n                "high_importance_channel",\n                "Portaria Savana",\n                NotificationManager.IMPORTANCE_HIGH\n            );\n            channel.setDescription("Notificações de chamadas e entradas");\n            channel.enableVibration(true);\n            channel.setShowBadge(true);\n            channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);\n            NotificationManager manager = getSystemService(NotificationManager.class);\n            if (manager != null) manager.createNotificationChannel(channel);\n        }/' "$MAIN_ACTIVITY"
+
+            echo "✅ Canal high_importance_channel injetado"
+          fi
+
+      # ── 15. Restaurar Keystore ────────────────────────────────
+      - name: Restaurar Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > portaria-savana.keystore
+          echo "✅ Keystore restaurada"
+
+      # ── 16. Build APK release ────────────────────────────────
+      - name: Build APK release
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease
+          echo "📦 APKs gerados:"
+          find . -name "*.apk" 2>/dev/null
+
+      # ── 17. Assinar APK ──────────────────────────────────────
+      - name: Assinar APK com apksigner
+        env:
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          echo "APK encontrado: $APK"
+          $ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner sign \
+            --ks ./portaria-savana.keystore \
+            --ks-pass env:KS_PASS \
+            --key-pass env:KEY_PASS \
+            --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
+            "$APK"
+          cp "$APK" ./portaria-savana-signed.apk
+          echo "✅ APK assinado"
+
+      # ── 18. Upload do APK ────────────────────────────────────
+      - name: Salvar APK para Download
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: App-Portaria-Savana
+          path: ./portaria-savana-signed.apk
