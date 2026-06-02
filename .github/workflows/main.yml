@@ -89,18 +89,21 @@ jobs:
           cp icons/drawable/ic_stat_portaria.png android/app/src/main/res/drawable/ic_stat_portaria.png
           echo "✅ Ícones copiados"
 
-      # ── 11. Corrigir ícone de notificação no AndroidManifest ──
+      # ── 11. Injetar meta-data FCM no AndroidManifest ─────────
+      #    APENAS adiciona os meta-data do FCM antes de </application>
+      #    NÃO mexe em android:icon/roundIcon/label (Capacitor já define)
       - name: Configurar ícone de notificação no AndroidManifest
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
             if ! grep -q "com.google.firebase.messaging.default_notification_icon" "$MANIFEST"; then
-              sed -i 's|<application|<application android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:label="Portaria Savana"|' "$MANIFEST"
               sed -i 's|</application>|    <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_portaria"/>\n        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/colorPrimary"/>\n    </application>|' "$MANIFEST"
               echo "✅ Ícone de notificação FCM configurado"
             else
               echo "ℹ️  Ícone FCM já configurado"
             fi
+          else
+            echo "❌ AndroidManifest.xml não encontrado"
           fi
 
       # ── 12. google-services.json (FCM nativo) ────────────────
