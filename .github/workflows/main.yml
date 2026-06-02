@@ -47,8 +47,6 @@ jobs:
         run: npm install
 
       # ── 7. Criar pasta www ANTES do cap add ──────────────────
-      #    O Capacitor exige que www/ exista com index.html
-      #    antes de qualquer comando cap
       - name: Preparar pasta www
         run: |
           mkdir -p www
@@ -79,8 +77,6 @@ jobs:
         run: npx cap sync android
 
       # ── 10. Ícones do app Android ────────────────────────────
-      #    Copia os ícones gerados para as pastas mipmap do Android
-      #    e o ícone de notificação (branco transparente) para drawable
       - name: Copiar ícones Android
         run: |
           for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
@@ -89,8 +85,6 @@ jobs:
             cp "icons/mipmap-${density}/ic_launcher.png"       "$DIR/ic_launcher.png"
             cp "icons/mipmap-${density}/ic_launcher_round.png" "$DIR/ic_launcher_round.png"
           done
-
-          # Ícone de notificação branco transparente
           mkdir -p android/app/src/main/res/drawable
           cp icons/drawable/ic_stat_portaria.png android/app/src/main/res/drawable/ic_stat_portaria.png
           echo "✅ Ícones copiados"
@@ -100,15 +94,9 @@ jobs:
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
-            # Adiciona meta-data para FCM usar ic_stat_portaria (branco) nas notificações
             if ! grep -q "com.google.firebase.messaging.default_notification_icon" "$MANIFEST"; then
-              sed -i 's|<application|<application
-        android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round"
-        android:label="Portaria Savana"|' "$MANIFEST"
-              sed -i 's|</application>|    <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_portaria"/>
-        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/colorPrimary"/>
-    </application>|' "$MANIFEST"
+              sed -i 's|<application|<application android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:label="Portaria Savana"|' "$MANIFEST"
+              sed -i 's|</application>|    <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_portaria"/>\n        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/colorPrimary"/>\n    </application>|' "$MANIFEST"
               echo "✅ Ícone de notificação FCM configurado"
             else
               echo "ℹ️  Ícone FCM já configurado"
@@ -195,4 +183,3 @@ jobs:
         with:
           name: App-Portaria-Savana
           path: ./portaria-savana-signed.apk
-          
