@@ -105,30 +105,24 @@ jobs:
             echo "❌ AndroidManifest.xml não encontrado"
           fi
 
-      # ── 10c. Remover adaptive icons do Capacitor (têm prioridade sobre PNGs) ──
-      #  Android 8+ usa mipmap-anydpi-v26/ic_launcher.xml (adaptive icon) antes dos PNGs.
-      #  O Capacitor gera esses XMLs apontando para recursos vetoriais dele.
-      #  Removendo essa pasta, o sistema cai para os nossos PNGs em mipmap-*/
+      # ── 10c. Remover adaptive icons do Capacitor ──────────────
       - name: Remover adaptive icons do Capacitor
         run: |
-          ANYDPI="android/app/src/main/res/mipmap-anydpi-v26"
-          if [ -d "$ANYDPI" ]; then
-            echo "📁 Conteúdo de $ANYDPI antes da remoção:"
-            ls "$ANYDPI"
-            rm -rf "$ANYDPI"
-            echo "✅ Pasta mipmap-anydpi-v26 removida"
-          else
-            echo "ℹ️  mipmap-anydpi-v26 não existe, nada a fazer"
-          fi
-          # Remover também recursos vetoriais do Capacitor usados pelos adaptive icons
-          for f in android/app/src/main/res/drawable/ic_launcher_background.xml \
-                   android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml \
-                   android/app/src/main/res/drawable/ic_launcher_foreground.xml; do
-            if [ -f "$f" ]; then
-              rm "$f"
-              echo "🗑️  Removido: $f"
-            fi
-          done
+          # O Capacitor gera ic_launcher_foreground.png em cada mipmap - e esse e o icone azul dele
+          find android/app/src/main/res -name "ic_launcher_foreground.png" -delete
+          echo "Removidos: ic_launcher_foreground.png"
+
+          # Remover pasta anydpi-v26 se existir
+          rm -rf android/app/src/main/res/mipmap-anydpi-v26
+
+          # Remover XMLs de adaptive icon
+          rm -f android/app/src/main/res/values/ic_launcher_background.xml
+          rm -f android/app/src/main/res/drawable/ic_launcher_background.xml
+          rm -f android/app/src/main/res/drawable/ic_launcher_foreground.xml
+          rm -f android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml
+          echo "OK - adaptive icons do Capacitor eliminados"
+          echo "=== ic_launcher* restantes ==="
+          find android/app/src/main/res -name "ic_launcher*" | sort
 
       # ── 10d. Diagnóstico: listar todos os recursos de ícone ─────
       - name: Diagnóstico de ícones Android
