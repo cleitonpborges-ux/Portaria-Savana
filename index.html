@@ -6882,27 +6882,30 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   // Notifica perfis admin e balanca quando uma nova entrada é cadastrada
   async function _notificarNovaEntrada(placa, motorista, produto) {
     dbg('_notificarNovaEntrada() placa=' + placa, '#ffcc00');
+    const titulo = `🚛 NOVA ENTRADA — ${placa}`;
+    const corpo  = `${motorista || 'Motorista não informado'}${produto ? '  ·  ' + produto : ''}`;
+
+    // Grava na push_queue PRIMEIRO — não depende do SW nem da permissão local
+    // Cloud Function envia para todos os dispositivos
     try {
-      const titulo = `🚛 NOVA ENTRADA — ${placa}`;
-      const corpo  = `${motorista || 'Motorista não informado'}${produto ? '  ·  ' + produto : ''}`;
-
-      // Exibe localmente (app aberto)
-      await _exibirNotificacaoLocal(titulo, corpo, placa, 'entrada');
-
-      // Grava na push_queue → Cloud Function envia para todos os dispositivos
       await setDoc(
         doc(_db, 'push_queue', `entrada-${placa}-${Date.now()}`),
         {
           titulo, corpo, placa,
           tipo:    'entrada',
-          perfis:  ['admin', 'balanca'],   // quem recebe
+          perfis:  ['admin', 'balanca'],
           ts:      serverTimestamp(),
           enviado: false
         }
       );
+      dbg('push_queue gravado ✅ entrada', '#00ff88');
     } catch(e) {
-      console.warn('[FCM] Erro ao notificar nova entrada:', e);
+      dbg('❌ ERRO setDoc push_queue entrada: ' + e.message, '#ff4444');
+      console.warn('[FCM] Erro ao gravar push_queue entrada:', e);
     }
+
+    // Exibe localmente (apenas web/PWA — não bloqueia o fluxo)
+    _exibirNotificacaoLocal(titulo, corpo, placa, 'entrada');
   }
 
   // Dispara notificação para chamada nova
@@ -6911,24 +6914,26 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const titulo = `📢 CHAMADA — ${placa}`;
     const corpo  = `${motorista || 'Motorista não informado'}${hora ? '  ·  ' + hora : ''}`;
 
-    // Exibe localmente (app aberto/background)
-    await _exibirNotificacaoLocal(titulo, corpo, placa, 'chamada');
-
-    // Grava na push_queue → Cloud Function envia para todos os porteiros
+    // Grava na push_queue PRIMEIRO — não depende do SW nem da permissão local
     try {
       await setDoc(
         doc(_db, 'push_queue', `chamada-${placa}-${Date.now()}`),
         {
           titulo, corpo, placa,
           tipo:    'chamada',
-          perfis:  ['porteiro', 'admin'],  // quem recebe
+          perfis:  ['porteiro', 'admin'],
           ts:      serverTimestamp(),
           enviado: false
         }
       );
+      dbg('push_queue gravado ✅ chamada', '#00ff88');
     } catch(e) {
+      dbg('❌ ERRO setDoc push_queue chamada: ' + e.message, '#ff4444');
       console.warn('[FCM] Erro ao enfileirar chamada:', e);
     }
+
+    // Exibe localmente (apenas web/PWA — não bloqueia o fluxo)
+    _exibirNotificacaoLocal(titulo, corpo, placa, 'chamada');
   }
 
   /* ───────────────────────────────────────────────────────────────────────
