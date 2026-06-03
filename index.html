@@ -2630,6 +2630,15 @@
   </div>
 </div>
 
+<!-- ══ PAINEL DEBUG NOTIFICAÇÕES (remover após testes) ══ -->
+<div id="debugPanel" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#0a0a0a;color:#00ff88;font-family:monospace;font-size:11px;max-height:45vh;overflow-y:auto;border-top:2px solid #00ff88;padding:6px 8px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+    <b style="color:#ffcc00;">🔔 DEBUG NOTIFICAÇÕES</b>
+    <button onclick="document.getElementById('debugPanel').style.display='none'" style="background:#333;color:#fff;border:none;padding:2px 10px;border-radius:4px;cursor:pointer;font-size:13px;">✕</button>
+  </div>
+  <div id="debugLog"></div>
+</div>
+
 <!-- CONTAINER PRINCIPAL -->
 <div class="container">
 
@@ -6678,6 +6687,29 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
    * O Android reconhece o FCM como canal legítimo — resolve o bloqueio do MIUI.
    * =================================================================== */
 
+  // ── DEBUG HELPER ──────────────────────────────────────────────────────────
+  function dbg(msg, cor) {
+    const panel = document.getElementById('debugPanel');
+    const log   = document.getElementById('debugLog');
+    if (!panel || !log) return;
+    panel.style.display = 'block';
+    const linha = document.createElement('div');
+    linha.style.cssText = `color:${cor||'#00ff88'};border-bottom:1px solid #222;padding:2px 0;`;
+    linha.textContent = new Date().toLocaleTimeString() + ' — ' + msg;
+    log.prepend(linha);
+    // Limita a 50 linhas
+    while (log.children.length > 50) log.removeChild(log.lastChild);
+  }
+  // Botão flutuante para abrir o painel
+  window.addEventListener('DOMContentLoaded', () => {
+    const btn = document.createElement('button');
+    btn.textContent = '🔔';
+    btn.title = 'Debug Notificações';
+    btn.style.cssText = 'position:fixed;bottom:80px;right:12px;z-index:99998;width:38px;height:38px;border-radius:50%;background:#0a0a0a;color:#00ff88;border:2px solid #00ff88;font-size:18px;cursor:pointer;opacity:0.85;';
+    btn.onclick = () => { document.getElementById('debugPanel').style.display = 'block'; };
+    document.body.appendChild(btn);
+  });
+
   const FCM_VAPID_KEY = 'BCQpD1Tb_xTWFO5K7Os_EPfln6eHTAzazoY5DVjt5BCs_w7bvlQpBAYfLEpgCZZ0_GipLh50xTByl4yR7KYMySg';
   let   _fcmToken            = null;
   let   _onMessageRegistrado = false; // ✅ evita registrar onMessage múltiplas vezes
@@ -6693,6 +6725,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   //   • Capacitor (APK nativo) → usa plugin @capacitor-firebase/messaging
   //   • Navegador / PWA        → usa Notification.requestPermission() + SW
   async function _pedirPermissaoNotificacao() {
+    dbg('_pedirPermissaoNotificacao() chamada', '#ffcc00');
+    dbg('isCapacitor: ' + _isCapacitor(), '#ffcc00');
     try {
       if (_isCapacitor()) {
         // ── AMBIENTE NATIVO (APK Capacitor) ──────────────────────────────
@@ -6703,6 +6737,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         // automaticamente quando o APK carrega — não precisa de import/CDN
         const FirebaseMessaging = window?.Capacitor?.Plugins?.FirebaseMessaging;
 
+        dbg('FirebaseMessaging plugin: ' + (FirebaseMessaging ? 'ENCONTRADO ✅' : 'NÃO ENCONTRADO ❌'), FirebaseMessaging ? '#00ff88' : '#ff4444');
         if (!FirebaseMessaging) {
           console.warn('[FCM] Plugin FirebaseMessaging não encontrado');
           return;
@@ -6710,6 +6745,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
         // Solicita permissão nativa Android — exibe o diálogo do sistema
         const { receive } = await FirebaseMessaging.requestPermissions();
+        dbg('Permissão FCM nativo: ' + receive, receive === 'granted' ? '#00ff88' : '#ff4444');
         if (receive !== 'granted') {
           console.warn('[FCM] Permissão negada pelo usuário (nativo)');
           return;
@@ -6720,6 +6756,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         const { token } = await FirebaseMessaging.getToken({ vapidKey: FCM_VAPID_KEY });
         _fcmToken = token;
 
+        dbg('Token FCM: ' + (_fcmToken ? _fcmToken.substring(0,20)+'...' : 'VAZIO ❌'), _fcmToken ? '#00ff88' : '#ff4444');
         if (_fcmToken) {
           console.log('[FCM] Token nativo obtido:', _fcmToken);
           await setDoc(
@@ -6727,17 +6764,21 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
             { token: _fcmToken, perfil: perfilAtual || localStorage.getItem('portaria_perfil') || 'desconhecido', atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
             { merge: true }
           );
+          dbg('Token registrado para perfil: ' + perfilAtual, '#00ff88');
           console.log('[FCM] Token nativo registrado para perfil:', perfilAtual);
         }
 
         // Listener de mensagens com app aberto (foreground) — nativo
         if (!_onMessageRegistrado) {
           _onMessageRegistrado = true;
+          dbg('Listener notificationReceived registrado ✅', '#00ff88');
           FirebaseMessaging.addListener('notificationReceived', (notification) => {
             const placa = notification.notification?.data?.placa || '';
             const tipo  = notification.notification?.data?.tipo  || 'chamada';
             const title = notification.notification?.title || '';
             const body  = notification.notification?.body  || '';
+            dbg('🔔 notificationReceived! tipo=' + tipo + ' placa=' + placa, '#ffcc00');
+            dbg('title=' + title + ' body=' + body, '#aaaaaa');
             _exibirNotificacaoLocal(
               title || (tipo === 'entrada' ? `🚛 NOVA ENTRADA — ${placa}` : `📢 CHAMADA — ${placa}`),
               body, placa, tipo
@@ -6786,10 +6827,17 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   // Exibe notificação local via SW (foreground, background e tela bloqueada)
   // Compatível com Samsung One UI, Motorola (My UX), MIUI e Android puro.
   async function _exibirNotificacaoLocal(titulo, corpo, placa, tipo = 'chamada') {
-    if (Notification.permission !== 'granted') return;
+    dbg('_exibirNotificacaoLocal() tipo=' + tipo + ' placa=' + placa, '#88ccff');
+    dbg('Notification.permission=' + Notification.permission, Notification.permission === 'granted' ? '#00ff88' : '#ff4444');
+    if (Notification.permission !== 'granted') {
+      dbg('❌ BLOQUEADO — permission não é granted', '#ff4444');
+      return;
+    }
     const ehChamada = tipo === 'chamada';
     try {
+      dbg('Aguardando serviceWorker.ready...', '#aaaaaa');
       const reg = await navigator.serviceWorker.ready;
+      dbg('SW ready ✅', '#00ff88');
 
       // ── Cancela notificação anterior da mesma placa/tipo para forçar heads-up ──
       // Samsung e Motorola às vezes agrupam silenciosamente sem renotify;
@@ -6799,6 +6847,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         existentes.forEach(n => n.close());
       } catch(_) {}
 
+      dbg('Chamando reg.showNotification()...', '#aaaaaa');
       await reg.showNotification(titulo, {
         body:    corpo,
         icon:    'icons/icon-192.png',
@@ -6825,12 +6874,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         data: { placa, tipo, url: location.href }
       });
     } catch(e) {
+      dbg('❌ ERRO _exibirNotificacaoLocal: ' + e.message, '#ff4444');
       console.warn('[Notificação] Falha ao exibir notificação local:', e);
     }
   }
 
   // Notifica perfis admin e balanca quando uma nova entrada é cadastrada
   async function _notificarNovaEntrada(placa, motorista, produto) {
+    dbg('_notificarNovaEntrada() placa=' + placa, '#ffcc00');
     try {
       const titulo = `🚛 NOVA ENTRADA — ${placa}`;
       const corpo  = `${motorista || 'Motorista não informado'}${produto ? '  ·  ' + produto : ''}`;
@@ -6856,6 +6907,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
   // Dispara notificação para chamada nova
   async function _dispararNotificacaoChamada(placa, motorista, hora) {
+    dbg('_dispararNotificacaoChamada() placa=' + placa, '#ffcc00');
     const titulo = `📢 CHAMADA — ${placa}`;
     const corpo  = `${motorista || 'Motorista não informado'}${hora ? '  ·  ' + hora : ''}`;
 
