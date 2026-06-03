@@ -820,6 +820,13 @@
     .card.active { display: block; }
 
     /* ===================== PS4 LIGHT BAR SWEEP ===================== */
+    /* Animação pulsante na seta quando há dados em DIVERSOS */
+    @keyframes pulseArrow {
+      0%,100% { transform: translateY(0); opacity: 1; }
+      50%      { transform: translateY(-4px); opacity: .6; }
+    }
+    .arrow-pulse { animation: pulseArrow 1.4s ease-in-out infinite; }
+
     .mini-card { position: relative; overflow: hidden; }
 
     .mini-card::after {
@@ -1442,7 +1449,18 @@
       overflow-y: auto;
     }
 
-    /* ===================== RELATÓRIO ===================== */
+    /* ===================== CHECKBOX DIVERSOS ===================== */
+  function toggleChkDiversos() {
+    const chk  = document.getElementById('chkDiversos');
+    const tick = document.getElementById('chkDiversosTick');
+    const box  = document.getElementById('chkDiversosBox');
+    chk.checked = !chk.checked;
+    tick.style.display = chk.checked ? '' : 'none';
+    box.style.borderColor = chk.checked ? 'var(--border)' : 'var(--border)';
+    abrirRelatorio();
+  }
+
+  /* ===================== RELATÓRIO ===================== */
     .rel-box {
       background: var(--bg);
       border: 1.5px solid var(--border);
@@ -2563,6 +2581,13 @@
     <div class="modal-handle"></div>
     <h3>📋 Relatório do Turno</h3>
     <div class="rel-box" id="relatorioTexto"></div>
+    <div id="divChkDiversos" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:6px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;font-size:0.82rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;user-select:none;" onclick="toggleChkDiversos()">
+      <div id="chkDiversosBox" style="width:18px;height:18px;border-radius:4px;border:2px solid var(--border);background:var(--card-bg);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:border-color 0.15s;">
+        <svg id="chkDiversosTick" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="var(--text-main)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <input type="checkbox" id="chkDiversos" checked style="display:none;">
+      Adicionar Diversos
+    </div>
     <button class="btn-copiar" id="btnCopiar" onclick="copiarRelatorio()">📋 Copiar para WhatsApp</button>
     <button onclick="fecharModal('modalRelatorio')" style="width:100%;margin-top:8px;padding:12px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;font-size:0.82rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Fechar</button>
   </div>
@@ -2627,6 +2652,23 @@
       <div class="detalhe-produto" id="detalheCarga"></div>
     </div>
   </div>
+
+  <!-- CARD DIVERSOS (descarregados) — dentro do wrapper para sumir junto nas outras abas -->
+  <div id="cardDiversos" style="display:none;margin:0 0 10px;background:var(--card-bg);border-radius:var(--radius-md);border:1.5px solid var(--border);border-bottom:4px solid var(--border);overflow:hidden;transition:max-height .35s cubic-bezier(.4,0,.2,1);">
+    <!-- Cabeçalho com seta animada -->
+    <div id="divArrowUp" onclick="toggleDiversos()" style="display:flex;align-items:center;justify-content:center;padding:7px 0 2px;cursor:pointer;gap:6px;">
+      <span style="font-size:0.72rem;font-weight:700;color:var(--text-muted);letter-spacing:.05em;text-transform:uppercase;">Descarregados</span>
+      <span id="arrowUp" style="font-size:1.1rem;color:var(--text-muted);" class="arrow-pulse">&#8593;</span>
+    </div>
+    <!-- Lista colapsável -->
+    <div id="listaDiversos" style="max-height:0;overflow:hidden;transition:max-height .35s cubic-bezier(.4,0,.2,1);">
+      <div style="padding:4px 12px 10px;">
+        <div class="resumo-produto" id="resumoDiversos"></div>
+        <div class="detalhe-produto" id="detalheDiversos" style="font-size:0.78rem;color:var(--text-muted);"></div>
+      </div>
+    </div>
+  </div>
+
   </div><!-- /paineis-contagem-wrapper -->
 
   <!-- ABA ENTRADA -->
@@ -2851,9 +2893,30 @@
         const perfis = JSON.parse(snap.data().dados);
         // Atualiza localStorage para que _carregarPerfisCustom() sempre leia o dado fresco
         localStorage.setItem(LS_PERFIS_CUSTOM, JSON.stringify(perfis));
-        // Re-aplica permissões do perfil logado se ele foi alterado
-        if (perfilAtual && perfis[perfilAtual]) {
-          aplicarPermissoes(perfis[perfilAtual].permissoes || {});
+
+        // Re-aplica permissões do perfil logado assim que chega a atualização.
+        // Busca pelo campo `usuario` (resistente a mudança de chave) e também
+        // pela chave direta (retrocompatibilidade).
+        if (perfilAtual) {
+          // 1. Tenta pela chave direta
+          let perfilAtualizado = perfis[perfilAtual];
+          // 2. Se não achou (chave mudou), busca pelo campo usuario
+          if (!perfilAtualizado) {
+            const usuarioLogado = localStorage.getItem(LS_PERFIL_KEY);
+            const keyEncontrada = Object.keys(perfis).find(k =>
+              perfis[k].usuario === usuarioLogado || k === usuarioLogado
+            );
+            if (keyEncontrada) {
+              perfilAtualizado = perfis[keyEncontrada];
+              perfilAtual = keyEncontrada; // atualiza a chave em memória
+              localStorage.setItem(LS_PERFIL_KEY, keyEncontrada);
+            }
+          }
+          if (perfilAtualizado) {
+            aplicarPermissoes(perfilAtualizado.permissoes || {});
+            // Atualiza título no header se o nome/label do perfil mudou
+            _atualizarTituloPerfil(perfilAtualizado.usuario || perfilAtual);
+          }
         }
       } catch(e) { console.warn('[Firebase] Erro ao processar perfis:', e); }
     }, (err) => { console.warn('[Firebase] onSnapshot perfis erro:', err); });
@@ -2864,7 +2927,14 @@
       try {
         const lista = JSON.parse(snap.data().dados);
         localStorage.setItem(LS_PRODUTOS_KEY, JSON.stringify(lista));
+        // Atualiza o select do formulário de entrada em todos os dispositivos
         renderProdutosSelect();
+        // Se o modal de gerenciar produtos estiver aberto, atualiza a lista também
+        const modalProd = document.getElementById('modalGerenciarProdutos');
+        if (modalProd && modalProd.classList.contains('open')) {
+          _renderListaProdutos();
+          mostrarToast('🔄 Lista de produtos atualizada!', 'info', 2000);
+        }
       } catch(e) { console.warn('[Firebase] Erro ao processar produtos:', e); }
     }, (err) => { console.warn('[Firebase] onSnapshot produtos erro:', err); });
   }
@@ -3853,6 +3923,7 @@
 
   let veiculosPatio = [];
   let veiculosCarregados = [];
+  let veiculosDiversos = []; // A DESCARREGAR, DESCARREGANDO, CONCLUIDO
   let historicoChamadas = [];
   let turnoAtual = { porteiro: '', inicio: null, trocas: [] };
   // observacoesMap removido: obs vai apenas para a planilha, não é armazenado localmente
@@ -4168,6 +4239,17 @@
     document.getElementById('turnoPorteiroAtual').innerText = `Desde ${horaStr} — ${duracao} em turno`;
   }
 
+  /* ===================== CHECKBOX DIVERSOS ===================== */
+  function toggleChkDiversos() {
+    const chk  = document.getElementById('chkDiversos');
+    const tick = document.getElementById('chkDiversosTick');
+    const box  = document.getElementById('chkDiversosBox');
+    chk.checked = !chk.checked;
+    tick.style.display = chk.checked ? '' : 'none';
+    box.style.borderColor = chk.checked ? 'var(--border)' : 'var(--border)';
+    abrirRelatorio();
+  }
+
   /* ===================== RELATÓRIO ===================== */
   async function abrirRelatorio() {
     document.getElementById('relatorioTexto').innerText = '⏳ Buscando dados da planilha...';
@@ -4177,7 +4259,11 @@
 
     let dadosFrescos = [];
     try {
-      const res = await fetch(WEB_APP_URL);
+      // Timeout de 8s para não travar o relatório se a planilha demorar
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(WEB_APP_URL, { signal: controller.signal });
+      clearTimeout(timeout);
       const json = await res.json();
       dadosFrescos = json.dados || [];
     } catch(e) {
@@ -4193,9 +4279,11 @@
     const filaAtiva = dadosFrescos
       .filter(v => {
         const s = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        if (s === 'CONCLUIDO') return false;
         if (s === 'SAIDA' && ocultarSaidasRel) return false;
-        return s === 'PATIO' || s === 'CARREGANDO' || s === 'SAIDA' || s === 'AGUARDANDO NFE';
+        // Inclui A DESCARREGAR para que filaOutros consiga filtrar corretamente
+        return s === 'PATIO' || s === 'CARREGANDO' || s === 'SAIDA' ||
+               s === 'AGUARDANDO NFE' || s === 'A DESCARREGAR' ||
+               s === 'DESCARREGANDO' || s === 'CONCLUIDO';
       });
 
     const emPatio = dadosFrescos.filter(v => v.status === 'PÁTIO' || v.status === 'CARREGANDO');
@@ -4222,16 +4310,18 @@
     });
 
     // ── Separar carregamento x outros (descarga) ──
-    // filaCarregamento: veículos normais para carregar (fila de triagem)
+    // filaCarregamento: apenas veículos para CARREGAR — exclui todos de descarga
     const filaCarregamento = filaAtiva.filter(v => {
       const desc = String(v.descarregar || '').trim().toUpperCase();
       const st   = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-      return desc !== 'SIM' && st !== 'A DESCARREGAR' && st !== 'DESCARREGANDO';
+      return desc !== 'SIM' &&
+             st !== 'A DESCARREGAR' &&
+             st !== 'DESCARREGANDO' &&
+             st !== 'CONCLUIDO';
     });
 
-    // filaOutros: busca direto dos dadosFrescos (planilha) pelo status
-    // A DESCARREGAR ou CONCLUIDO — assim aparece mesmo após sair do Firestore
-    const filaOutros = dadosFrescos.filter(v => {
+    // filaOutros: filtra da filaAtiva (que já inclui A DESCARREGAR e CONCLUIDO)
+    const filaOutros = filaAtiva.filter(v => {
       const st = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
       return st === 'A DESCARREGAR' || st === 'DESCARREGANDO' || st === 'CONCLUIDO';
     });
@@ -4292,9 +4382,11 @@
         lista.forEach(v => {
           const st = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
           let sufixo = '';
+          // Sem ordem (S/OC ou C/OC) — não se aplica para descarga
           if (st === 'CONCLUIDO') sufixo = v.nfe ? ` | NFe - ${v.nfe}` : ' | CONCLUÍDO';
           else if (st === 'SAIDA') sufixo = v.nfe ? ` | NFe - ${v.nfe}` : ' | SAÍDA';
-          else if (st === 'A DESCARREGAR' || st === 'DESCARREGANDO') sufixo = ' | DESCARREGANDO';
+          else if (st === 'A DESCARREGAR') sufixo = ' | A DESCARREGAR';
+          else if (st === 'DESCARREGANDO') sufixo = ' | DESCARREGANDO';
           else if (st === 'AGUARDANDO NFE') sufixo = ' | AG. NFe';
           outrosStr += `   ${v.placa} - (${v.transportadora||'---'})${sufixo}\n\n`;
         });
@@ -4318,17 +4410,24 @@
       ? turnoAtual.trocas[turnoAtual.trocas.length - 1].porteiro
       : (turnoAtual.porteiro || '');
 
+    const incluirDiversos = document.getElementById('chkDiversos')?.checked ?? true;
+    const blocoDiv = incluirDiversos && outrosStr !== '  • —'
+      ? `
+━━━━━━━━━━━━━━━━━━━━
+*DIVERSOS (DESCARGA):*
+${outrosStr}
+`
+      : (incluirDiversos ? `
+━━━━━━━━━━━━━━━━━━━━
+*DIVERSOS (DESCARGA):*
+  • —
+` : '');
     const texto =
 `*RELATÓRIO — PORTARIA SAVANA* 
 ${dataStr} às ${horaStr}
 ━━━━━━━━━━━━━━━━━━━━
 *FILA DE TRIAGEM: ${filaParaAmanha.length}* 
-${detalheFilaStr}
-
-━━━━━━━━━━━━━━━━━━━━
-*OUTROS (DESCARGA):*
-${outrosStr}
-
+${detalheFilaStr}${blocoDiv}
 AGUARDANDO HÁ +4H:
 ${criticosStr}
 
@@ -4512,10 +4611,29 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     setTimeout(() => card.classList.remove('ps4-sweep'), 1000);
   }
 
+  /* ===================== CARD DIVERSOS ===================== */
+  let _diversosAberto = false;
+  function toggleDiversos() {
+    _diversosAberto = !_diversosAberto;
+    const lista = document.getElementById('listaDiversos');
+    const arrow = document.getElementById('arrowUp');
+    if (_diversosAberto) {
+      lista.style.maxHeight = lista.scrollHeight + 400 + 'px';
+      arrow.textContent = '\u2193'; // ↓
+      arrow.classList.add('arrow-pulse');
+    } else {
+      lista.style.maxHeight = '0';
+      arrow.textContent = '\u2191'; // ↑
+      if (veiculosDiversos.length > 0) arrow.classList.add('arrow-pulse');
+      else arrow.classList.remove('arrow-pulse');
+    }
+  }
+
   /* ===================== CONTAGENS ===================== */
   function atualizarDetalhesProdutos(tipoPulsado) {
     const anteriorPatio = parseInt(document.getElementById('contPatio').innerText) || 0;
     const anteriorCarga = parseInt(document.getElementById('contCarga').innerText) || 0;
+    const anteriorDiv   = veiculosDiversos.length;
 
     document.getElementById('contPatio').innerText = veiculosPatio.length;
     document.getElementById('contCarga').innerText = veiculosCarregados.length;
@@ -4553,6 +4671,42 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     let htmlC = '';
     Object.values(cargaPT).sort((a,b)=>a.p.localeCompare(b.p)).forEach(i => { htmlC += `<div>${i.q} ${i.p} — ${i.t}</div>`; });
     document.getElementById('detalheCarga').innerHTML = htmlC || '<div style="color:var(--text-muted)">—</div>';
+
+    // ── Diversos (descarregados) ──────────────────────────────
+    const cardDiv = document.getElementById('cardDiversos');
+    const arrowUp = document.getElementById('arrowUp');
+    if (veiculosDiversos.length > 0) {
+      cardDiv.style.display = '';
+      // Pills por produto
+      const divPorProd = {};
+      veiculosDiversos.forEach(v => { divPorProd[v.produto] = (divPorProd[v.produto]||0)+1; });
+      const pillsDiv = Object.entries(divPorProd).sort((a,b)=>b[1]-a[1])
+        .map(([p,q]) => `<span class="prod-pill" style="border-color:#b05a00;color:#b05a00;">${q} ${p}</span>`).join('');
+      document.getElementById('resumoDiversos').innerHTML = pillsDiv || '';
+      // Detalhe por produto-transportadora
+      const divPT = {};
+      veiculosDiversos.forEach(v => {
+        const k = `${v.produto}-${v.transportadora}`;
+        if (!divPT[k]) divPT[k] = { p:v.produto, t:v.transportadora, q:0 };
+        divPT[k].q++;
+      });
+      let htmlDiv = '';
+      Object.values(divPT).sort((a,b)=>a.p.localeCompare(b.p)).forEach(i => {
+        htmlDiv += `<div>${i.q} ${i.p} — ${i.t}</div>`;
+      });
+      document.getElementById('detalheDiversos').innerHTML = htmlDiv || '';
+      // Seta pulsa se houver dados e lista estiver fechada
+      if (!_diversosAberto) arrowUp.classList.add('arrow-pulse');
+      else arrowUp.classList.remove('arrow-pulse');
+      // Reajusta altura se aberto
+      if (_diversosAberto) {
+        const lista = document.getElementById('listaDiversos');
+        lista.style.maxHeight = lista.scrollHeight + 400 + 'px';
+      }
+    } else {
+      cardDiv.style.display = 'none';
+      arrowUp.classList.remove('arrow-pulse');
+    }
 
     // Dispara sweep somente quando o número realmente mudou
     if (tipoPulsado) {
@@ -4620,7 +4774,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
     document.querySelector("#tabDia tbody").innerHTML = "";
     document.querySelector("#tabNoite tbody").innerHTML = "";
-    veiculosPatio = []; veiculosCarregados = [];
+    veiculosPatio = []; veiculosCarregados = []; veiculosDiversos = [];
 
     dados.sort((a, b) => a.chegada - b.chegada);
 
@@ -4694,15 +4848,23 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       r.seqProduto = seqPorProduto[prod];
     });
 
+    veiculosDiversos = []; // limpa antes de repopular
+
     dados.forEach(r => {
       if (r.status === 'PÁTIO' || r.status === 'CARREGANDO') {
         veiculosPatio.push(r);
         addHist(r, 'ENTRADA', r.dataEntrada);
-      } else if (r.status === 'A DESCARREGAR') {
-        // Aparece no histórico mas NÃO nos cards de pátio
+      } else if (r.status === 'A DESCARREGAR' || r.status === 'DESCARREGANDO') {
+        // Aparece no histórico E no card DIVERSOS (não nos cards de pátio)
+        veiculosDiversos.push(r);
         addHist(r, 'ENTRADA', r.dataEntrada);
+      } else if (r.status === 'CONCLUIDO') {
+        // Some na virada das 19h igual SAÍDA; antes disso fica em DIVERSOS
+        if (!ocultarSaidas) {
+          veiculosDiversos.push(r);
+        }
+        // Não aparece no histórico
       } else if (r.status === 'AGUARDANDO NFE') {
-        // Conta no card "Carregados" (carga física concluída) mas permanece visível na lista (fundo branco)
         veiculosCarregados.push(r);
         addHist(r, 'ENTRADA', r.dataEntrada);
       } else if (r.status === 'SAÍDA') {
@@ -4711,7 +4873,6 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           addHist(r, 'SAÍDA', r.dataEntrada);
         }
       }
-      // CONCLUIDO: ignorado
     });
 
     // ── Reordenar histórico: produto alfabético, dentro do produto por chegada cronológica ──
@@ -5605,6 +5766,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // veiculosPatio é preservado — quem ainda está no pátio continua visível
     // AGUARDANDO NFE: sai do card "Carregados" (reset do dia), mas permanece visível na lista
     veiculosCarregados = [];
+    veiculosDiversos = [];
     ultimoDadosHash = '';
 
     // Re-renderiza o histórico mostrando APENAS quem ainda está no pátio
@@ -5838,6 +6000,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     { id: 'aba_entrada',      nome: 'Aba Entrada (tudo)',   desc: 'Ativa AMBAS as sub-permissões de entrada abaixo' },
     { id: 'entrada_cards',    nome: '  ↳ Cards Pátio/Carregados', desc: 'Exibe os cards "No Pátio" e "Carregados" na aba Entrada' },
     { id: 'entrada_nova',     nome: '  ↳ Nova Entrada',     desc: 'Exibe o formulário para registrar nova entrada de veículo' },
+    { id: 'card_descarregados', nome: '  ↳ Card Descarregados', desc: 'Exibe o card de veículos descarregados na aba Entrada' },
     { id: 'aba_saida',        nome: 'Aba Saída',            desc: 'Registrar saídas de veículos' },
     { id: 'aba_historico',    nome: 'Aba Histórico',        desc: 'Visualizar histórico completo' },
     { id: 'trocar_turno',     nome: 'Trocar Turno',         desc: 'Registrar troca de turno' },
@@ -5876,15 +6039,15 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   const PERFIS_PADRAO = {
     portaria: {
       label: '🚛 Portaria', usuario: 'portaria', senha: 'portaria123',
-      permissoes: { aba_entrada:true, aba_saida:true, aba_historico:true, trocar_turno:true, relatorio:true, planilha:false, modo_noite:true, gerenciar_perfis:false }
+      permissoes: { aba_entrada:true, aba_saida:true, aba_historico:true, trocar_turno:true, relatorio:true, planilha:false, modo_noite:true, gerenciar_perfis:false, card_descarregados:true }
     },
     balanca: {
       label: '⚖️ Balança', usuario: 'balanca', senha: 'balanca123',
-      permissoes: { aba_entrada:false, aba_saida:false, aba_historico:true, trocar_turno:false, relatorio:false, planilha:false, modo_noite:true, gerenciar_perfis:false }
+      permissoes: { aba_entrada:false, aba_saida:false, aba_historico:true, trocar_turno:false, relatorio:false, planilha:false, modo_noite:true, gerenciar_perfis:false, card_descarregados:false }
     },
     admin: {
       label: '⚙️ Admin', usuario: 'admin', senha: 'admin123',
-      permissoes: { aba_entrada:true, aba_saida:true, aba_historico:true, trocar_turno:true, relatorio:true, planilha:true, modo_noite:true, gerenciar_perfis:true }
+      permissoes: { aba_entrada:true, aba_saida:true, aba_historico:true, trocar_turno:true, relatorio:true, planilha:true, modo_noite:true, gerenciar_perfis:true, card_descarregados:true }
     }
   };
 
@@ -5933,6 +6096,16 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // Cards de contagem (Pátio / Carregados)
     const paineisCW = document.querySelector('.paineis-contagem-wrapper');
     if (paineisCW) paineisCW.style.display = temCards ? '' : 'none';
+
+    // Card Descarregados
+    const cardDescEl = document.getElementById('cardDiversos');
+    if (cardDescEl) {
+      // Só altera display se a permissão foi explicitamente definida
+      if (perm.card_descarregados === false) {
+        cardDescEl.style.display = 'none';
+      }
+      // Se true ou undefined, deixa o comportamento natural (controlado por veiculosDiversos.length)
+    }
 
     // Formulário de nova entrada — oculta o conteúdo se entrada_nova não habilitado
     const formEnt = document.getElementById('abaEntrada');
@@ -6612,9 +6785,18 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
   // Exibe notificação local via SW (foreground, background e tela bloqueada)
   // Compatível com Samsung One UI, Motorola (My UX), MIUI e Android puro.
+  const _notifRecentes = new Map(); // tag → timestamp — evita duplo disparo SW+onMessage no PC
   async function _exibirNotificacaoLocal(titulo, corpo, placa, tipo = 'chamada') {
     if (Notification.permission !== 'granted') return;
     const ehChamada = tipo === 'chamada';
+
+    // Dedup: no PC o onMessage (foreground) E o SW podem disparar ao mesmo tempo.
+    // Se a mesma tag foi exibida há menos de 3 s, ignora a duplicata.
+    const tag = `${tipo}-${placa}`;
+    const agora = Date.now();
+    if (_notifRecentes.has(tag) && agora - _notifRecentes.get(tag) < 3000) return;
+    _notifRecentes.set(tag, agora);
+
     try {
       const reg = await navigator.serviceWorker.ready;
 
@@ -6727,7 +6909,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     abrirGerenciarProdutos, fecharGerenciarProdutos,
     produtoEditar, produtoApagar, produtoEditarNovo, produtoVoltarLista, produtoSalvar,
     onProdutoChange, renderProdutosSelect, onProdutoManualInput,
-    toggleDescarregar, registrarSaidaDescarga,
+    toggleDescarregar, registrarSaidaDescarga, toggleDiversos, toggleChkDiversos,
     registrarAguardarNfeEl,
     registrarNfeOkEl,
     // Janela flutuante mini
