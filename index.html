@@ -6769,20 +6769,39 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         }
 
         // Listener de mensagens com app aberto (foreground) — nativo
+        // Background/fechado: SO exibe automaticamente via FCM.
+        // Foreground: Capacitor suprime o banner — usamos LocalNotifications.
         if (!_onMessageRegistrado) {
           _onMessageRegistrado = true;
           dbg('Listener notificationReceived registrado ✅', '#00ff88');
-          FirebaseMessaging.addListener('notificationReceived', (notification) => {
-            const placa = notification.notification?.data?.placa || '';
-            const tipo  = notification.notification?.data?.tipo  || 'chamada';
-            const title = notification.notification?.title || '';
-            const body  = notification.notification?.body  || '';
+          FirebaseMessaging.addListener('notificationReceived', async (event) => {
+            const n     = event.notification || {};
+            const placa = n.data?.placa || '';
+            const tipo  = n.data?.tipo  || 'chamada';
+            const title = n.title || (tipo === 'entrada' ? `🚛 NOVA ENTRADA — ${placa}` : `📢 CHAMADA — ${placa}`);
+            const body  = n.body  || '';
             dbg('🔔 notificationReceived! tipo=' + tipo + ' placa=' + placa, '#ffcc00');
             dbg('title=' + title + ' body=' + body, '#aaaaaa');
-            _exibirNotificacaoLocal(
-              title || (tipo === 'entrada' ? `🚛 NOVA ENTRADA — ${placa}` : `📢 CHAMADA — ${placa}`),
-              body, placa, tipo
-            );
+
+            const LocalNotifications = window?.Capacitor?.Plugins?.LocalNotifications;
+            dbg('LocalNotifications: ' + (LocalNotifications ? 'DISPONÍVEL ✅' : 'NÃO DISPONÍVEL ❌'), LocalNotifications ? '#00ff88' : '#ff4444');
+            if (LocalNotifications) {
+              try {
+                await LocalNotifications.schedule({
+                  notifications: [{
+                    title,
+                    body,
+                    id:        Math.abs(Date.now() & 0x7fffffff),
+                    channelId: 'high_importance_channel',
+                    sound:     'default',
+                    extra:     { placa, tipo }
+                  }]
+                });
+                dbg('LocalNotifications disparado ✅', '#00ff88');
+              } catch(e) {
+                dbg('❌ LocalNotifications erro: ' + e.message, '#ff4444');
+              }
+            }
           });
         }
 
