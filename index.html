@@ -6730,48 +6730,18 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           console.log('[FCM] Token nativo registrado para perfil:', perfilAtual);
         }
 
-        // ── Listeners nativos FCM (Capacitor) ────────────────────────────
-        // IMPORTANTE: no Android o FCM já exibe a notificação automaticamente
-        // via canal de sistema de alta prioridade — NÃO chamar _exibirNotificacaoLocal
-        // aqui, pois isso causaria duplo disparo e bloqueio pelo dedup.
-        //
-        // notificationReceived   → app ABERTO (foreground): FCM entrega mas NÃO
-        //                          exibe banner — precisamos mostrar manualmente.
-        // pushNotificationActionPerformed → usuário tocou na notificação
-        //                          (app fechado, background ou foreground).
+        // Listener de mensagens com app aberto (foreground) — nativo
         if (!_onMessageRegistrado) {
           _onMessageRegistrado = true;
-
-          // Foreground: app aberto → FCM NÃO mostra banner automaticamente no Android
-          // nesse caso precisamos chamar _exibirNotificacaoLocal para exibir.
-          // Background/fechado: Android mostra sozinho via FCM de alta prioridade.
-          FirebaseMessaging.addListener('notificationReceived', async (event) => {
-            const notif = event.notification || event;
-            const placa = notif?.data?.placa || '';
-            const tipo  = notif?.data?.tipo  || 'chamada';
-            const title = notif?.title || notif?.notification?.title || '';
-            const body  = notif?.body  || notif?.notification?.body  || '';
-
-            // Vibração tátil (funciona mesmo em foreground)
-            vibrar(tipo === 'chamada' ? [300, 150, 300, 150, 600] : [150, 75, 150]);
-
-            // Exibe banner local no foreground via SW (o FCM não exibe sozinho quando app está aberto)
-            // O dedup de 3 s protege contra disparo duplo
-            await _exibirNotificacaoLocal(
+          FirebaseMessaging.addListener('notificationReceived', (notification) => {
+            const placa = notification.notification?.data?.placa || '';
+            const tipo  = notification.notification?.data?.tipo  || 'chamada';
+            const title = notification.notification?.title || '';
+            const body  = notification.notification?.body  || '';
+            _exibirNotificacaoLocal(
               title || (tipo === 'entrada' ? `🚛 NOVA ENTRADA — ${placa}` : `📢 CHAMADA — ${placa}`),
               body, placa, tipo
             );
-
-            // Pisca título da aba para entrada
-            if (tipo === 'entrada') _piscarTituloEntrada(`🚛 NOVA ENTRADA — ${placa}`);
-          });
-
-          // Usuário tocou na notificação (vindo de background ou app fechado)
-          FirebaseMessaging.addListener('pushNotificationActionPerformed', (action) => {
-            const data = action?.notification?.data || action?.data || {};
-            const placa = data.placa || '';
-            console.log('[FCM] Notificação tocada, placa:', placa, 'tipo:', data.tipo);
-            // Aqui pode-se navegar para a tela relevante se necessário
           });
         }
 
@@ -6813,56 +6783,19 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     }
   }
 
-  // Exibe notificação de alta prioridade.
-  // • APK Capacitor foreground  → LocalNotifications (heads-up garantido)
-  // • APK Capacitor background/fechado → FCM já entrega pelo Android (não passa por aqui)
-  // • Web / PWA                 → Service Worker showNotification
-  const _notifRecentes = new Map(); // tag → timestamp — evita duplo disparo
+  // Exibe notificação local via SW (foreground, background e tela bloqueada)
+  // Compatível com Samsung One UI, Motorola (My UX), MIUI e Android puro.
   async function _exibirNotificacaoLocal(titulo, corpo, placa, tipo = 'chamada') {
-    const ehChamada = tipo === 'chamada';
-    const tag   = `${tipo}-${placa}`;
-    const agora = Date.now();
-
-    // Dedup: bloqueia mesmo payload dentro de 3 s
-    if (_notifRecentes.has(tag) && agora - _notifRecentes.get(tag) < 3000) return;
-    _notifRecentes.set(tag, agora);
-
-    // ── NATIVO (APK Capacitor) — foreground ──────────────────────────────────
-    // LocalNotifications exibe banner de ALTA PRIORIDADE mesmo com app aberto.
-    // Background/fechado: o FCM de alta prioridade já cuida — não precisa fazer nada aqui.
-    if (_isCapacitor()) {
-      try {
-        const LocalNotifications = window?.Capacitor?.Plugins?.LocalNotifications;
-        if (LocalNotifications) {
-          // Solicita permissão se necessário (Android 13+)
-          await LocalNotifications.requestPermissions().catch(() => {});
-          await LocalNotifications.schedule({
-            notifications: [{
-              id:        Math.floor(Math.random() * 2147483647),
-              title:     titulo,
-              body:      corpo,
-              // Canal criado no capacitor.config.ts com importance: 5 (IMPORTANCE_HIGH)
-              channelId: ehChamada ? 'portaria-chamada' : 'portaria-entrada',
-              iconColor: '#0f2040',
-              sound:     'default',
-              extra:     { placa, tipo },
-            }]
-          });
-          return; // não cai no caminho SW
-        }
-      } catch(e) {
-        console.warn('[Notificação] LocalNotifications falhou, tentando SW:', e);
-      }
-    }
-
-    // ── WEB / PWA — via Service Worker ──────────────────────────────────────
     if (Notification.permission !== 'granted') return;
+    const ehChamada = tipo === 'chamada';
     try {
       const reg = await navigator.serviceWorker.ready;
 
-      // Fecha banner anterior da mesma tag para forçar novo heads-up
+      // ── Cancela notificação anterior da mesma placa/tipo para forçar heads-up ──
+      // Samsung e Motorola às vezes agrupam silenciosamente sem renotify;
+      // fechar antes garante que a nova apareça flutuante (heads-up).
       try {
-        const existentes = await reg.getNotifications({ tag });
+        const existentes = await reg.getNotifications({ tag: `${tipo}-${placa}` });
         existentes.forEach(n => n.close());
       } catch(_) {}
 
@@ -6870,15 +6803,29 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         body:    corpo,
         icon:    'icons/icon-192.png',
         badge:   'icons/icon-32.png',
-        tag,
-        renotify:           true,
-        vibrate:            ehChamada ? [300, 150, 300, 150, 600] : [150, 75, 150],
-        requireInteraction: true,  // não some — essencial em tela bloqueada
-        silent:             false, // força som + heads-up no One UI / My UX
-        data:               { placa, tipo, url: location.href }
+
+        // Tag + renotify = sempre mostra mesmo que já exista uma igual
+        tag:      `${tipo}-${placa}`,
+        renotify: true,
+
+        // Padrão de vibração chamativo (Samsung e Motorola respeitam)
+        vibrate: ehChamada ? [300, 150, 300, 150, 600] : [150, 75, 150],
+
+        // requireInteraction: true em AMBOS os tipos
+        // → notificação não some automaticamente (essencial em tela bloqueada)
+        requireInteraction: true,
+
+        // silent: false + som padrão garante heads-up no One UI / My UX
+        silent: false,
+
+        // actions aparecem na notificação expandida (Android 7+)
+        // Sem actions — toque na notificação abre o app diretamente
+
+        // Dados para o SW tratar o clique mesmo com app fechado
+        data: { placa, tipo, url: location.href }
       });
     } catch(e) {
-      console.warn('[Notificação] Falha via SW:', e);
+      console.warn('[Notificação] Falha ao exibir notificação local:', e);
     }
   }
 
@@ -6892,26 +6839,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       await _exibirNotificacaoLocal(titulo, corpo, placa, 'entrada');
 
       // Grava na push_queue → Cloud Function envia para todos os dispositivos
-      // priority:'high' + android.priority:'high' garante wake-lock no Android
       await setDoc(
         doc(_db, 'push_queue', `entrada-${placa}-${Date.now()}`),
         {
           titulo, corpo, placa,
-          tipo:      'entrada',
-          perfis:    ['admin', 'balanca'],
-          priority:  'high',               // FCM: acorda dispositivo em doze/idle
-          android: {
-            priority:     'high',
-            notification: {
-              channelId:          'portaria-entrada',
-              priority:           'high',
-              defaultSound:       true,
-              defaultVibrateTimings: true,
-              vibrateTimingsMillis: [0, 150, 75, 150],
-            }
-          },
-          ts:        serverTimestamp(),
-          enviado:   false
+          tipo:    'entrada',
+          perfis:  ['admin', 'balanca'],   // quem recebe
+          ts:      serverTimestamp(),
+          enviado: false
         }
       );
     } catch(e) {
@@ -6929,26 +6864,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
     // Grava na push_queue → Cloud Function envia para todos os porteiros
     try {
-      // priority:'high' garante que o Android acorde o dispositivo (doze mode)
       await setDoc(
         doc(_db, 'push_queue', `chamada-${placa}-${Date.now()}`),
         {
           titulo, corpo, placa,
-          tipo:      'chamada',
-          perfis:    ['porteiro', 'admin'],
-          priority:  'high',
-          android: {
-            priority:     'high',
-            notification: {
-              channelId:             'portaria-chamada',
-              priority:              'high',
-              defaultSound:          true,
-              defaultVibrateTimings: true,
-              vibrateTimingsMillis:  [0, 300, 150, 300, 150, 600],
-            }
-          },
-          ts:        serverTimestamp(),
-          enviado:   false
+          tipo:    'chamada',
+          perfis:  ['porteiro', 'admin'],  // quem recebe
+          ts:      serverTimestamp(),
+          enviado: false
         }
       );
     } catch(e) {
