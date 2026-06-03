@@ -6752,6 +6752,27 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         }
         console.log('[FCM] Permissão concedida (nativo)');
 
+        // Cria canal de alta prioridade ANTES de qualquer notificação
+        // Sem canal criado o Android descarta silenciosamente
+        try {
+          await FirebaseMessaging.createChannel({
+            id:          'high_importance_channel',
+            name:        'Portaria Savana',
+            description: 'Notificações de chamadas e entradas',
+            importance:  5,
+            visibility:  1,
+            vibration:   true,
+            sound:       'default',
+          });
+          dbg('Canal high_importance_channel criado ✅', '#00ff88');
+        } catch(e) {
+          dbg('Canal já existe ou erro: ' + e.message, '#888888');
+        }
+
+        // Deleta token antigo antes de pedir novo — garante token fresco
+        try { await FirebaseMessaging.deleteToken(); } catch(_) {}
+        dbg('Token antigo deletado, obtendo novo...', '#aaaaaa');
+
         // Obtém token FCM nativo
         const { token } = await FirebaseMessaging.getToken({ vapidKey: FCM_VAPID_KEY });
         _fcmToken = token;
@@ -6766,6 +6787,15 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           );
           dbg('Token registrado para perfil: ' + perfilAtual, '#00ff88');
           console.log('[FCM] Token nativo registrado para perfil:', perfilAtual);
+        // Botão debug para forçar renovação de token
+        window._forcarNovoToken = async () => {
+          try {
+            await FirebaseMessaging.deleteToken();
+            dbg('Token deletado — reiniciando...', '#ffcc00');
+            setTimeout(() => location.reload(), 1000);
+          } catch(e) { dbg('Erro deleteToken: ' + e.message, '#ff4444'); }
+        };
+        dbg('💡 Para renovar token: window._forcarNovoToken()', '#888888');
         }
 
         // Listener de mensagens com app aberto (foreground) — nativo
@@ -6783,24 +6813,29 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
             dbg('🔔 notificationReceived! tipo=' + tipo + ' placa=' + placa, '#ffcc00');
             dbg('title=' + title + ' body=' + body, '#aaaaaa');
 
-            const LocalNotifications = window?.Capacitor?.Plugins?.LocalNotifications;
-            dbg('LocalNotifications: ' + (LocalNotifications ? 'DISPONÍVEL ✅' : 'NÃO DISPONÍVEL ❌'), LocalNotifications ? '#00ff88' : '#ff4444');
-            if (LocalNotifications) {
-              try {
-                await LocalNotifications.schedule({
-                  notifications: [{
-                    title,
-                    body,
-                    id:        Math.abs(Date.now() & 0x7fffffff),
-                    channelId: 'high_importance_channel',
-                    sound:     'default',
-                    extra:     { placa, tipo }
-                  }]
-                });
-                dbg('LocalNotifications disparado ✅', '#00ff88');
-              } catch(e) {
-                dbg('❌ LocalNotifications erro: ' + e.message, '#ff4444');
-              }
+            // Foreground: exibe notificação local via FirebaseMessaging (já disponível no APK)
+            try {
+              await FirebaseMessaging.createChannel({
+                id:          'high_importance_channel',
+                name:        'Portaria Savana',
+                importance:  5,
+                visibility:  1,
+                vibration:   true,
+              }).catch(() => {}); // canal pode já existir
+
+              await FirebaseMessaging.scheduleLocalNotification({
+                title,
+                body,
+                id:        String(Date.now() & 0x7fffffff),
+                channelId: 'high_importance_channel',
+                extra:     { placa, tipo }
+              });
+              dbg('FirebaseMessaging.scheduleLocalNotification ✅', '#00ff88');
+            } catch(e) {
+              dbg('❌ scheduleLocalNotification erro: ' + e.message, '#ff4444');
+              // Fallback: toast in-app
+              mostrarToast(title + (body ? ' — ' + body : ''), tipo === 'chamada' ? 'warn' : 'info', 6000);
+              dbg('Fallback toast exibido', '#888888');
             }
           });
         }
