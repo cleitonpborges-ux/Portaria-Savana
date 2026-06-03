@@ -6731,17 +6731,19 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         }
 
         // Listener de mensagens com app aberto (foreground) — nativo
+        // O SO exibe a notificação automaticamente (background/fechado).
+        // Em foreground o Capacitor suprime o banner nativo — mostramos via toast.
         if (!_onMessageRegistrado) {
           _onMessageRegistrado = true;
           FirebaseMessaging.addListener('notificationReceived', (notification) => {
             const placa = notification.notification?.data?.placa || '';
             const tipo  = notification.notification?.data?.tipo  || 'chamada';
-            const title = notification.notification?.title || '';
-            const body  = notification.notification?.body  || '';
-            _exibirNotificacaoLocal(
-              title || (tipo === 'entrada' ? `🚛 NOVA ENTRADA — ${placa}` : `📢 CHAMADA — ${placa}`),
-              body, placa, tipo
-            );
+            const title = notification.notification?.title
+              || (tipo === 'entrada' ? `🚛 NOVA ENTRADA — ${placa}` : `📢 CHAMADA — ${placa}`);
+            const body  = notification.notification?.body || '';
+            // Mostra toast in-app quando o app está em foreground
+            mostrarToast(`${title}${body ? '
+' + body : ''}`, tipo === 'chamada' ? 'warn' : 'info', 5000);
           });
         }
 
@@ -6787,9 +6789,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   // Compatível com Samsung One UI, Motorola (My UX), MIUI e Android puro.
   const _notifRecentes = new Map(); // tag → timestamp — evita duplo disparo SW+onMessage no PC
   async function _exibirNotificacaoLocal(titulo, corpo, placa, tipo = 'chamada') {
-    // No nativo (Capacitor) a permissão é gerenciada pelo SO — não bloqueia aqui
-    const ehNativo = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
-    if (!ehNativo && Notification.permission !== 'granted') return;
+    // Esta função é exclusiva do caminho Web/PWA (SW)
+    // No nativo o SO já exibe a notificação via FCM — não passa por aqui
+    if (Notification.permission !== 'granted') return;
     const ehChamada = tipo === 'chamada';
 
     // Dedup: no PC o onMessage (foreground) E o SW podem disparar ao mesmo tempo.
@@ -6798,9 +6800,6 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const agora = Date.now();
     if (_notifRecentes.has(tag) && agora - _notifRecentes.get(tag) < 3000) return;
     _notifRecentes.set(tag, agora);
-
-    // No nativo (Capacitor) o SO já exibiu a notificação via FCM nativo — não usa SW
-    if (ehNativo) return;
 
     // ── Caminho Web / PWA: usa Service Worker ──
     try {
