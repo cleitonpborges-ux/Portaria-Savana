@@ -6787,7 +6787,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   // Compatível com Samsung One UI, Motorola (My UX), MIUI e Android puro.
   const _notifRecentes = new Map(); // tag → timestamp — evita duplo disparo SW+onMessage no PC
   async function _exibirNotificacaoLocal(titulo, corpo, placa, tipo = 'chamada') {
-    if (Notification.permission !== 'granted') return;
+    // No nativo (Capacitor) a permissão é gerenciada pelo SO — não bloqueia aqui
+    const ehNativo = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform?.();
+    if (!ehNativo && Notification.permission !== 'granted') return;
     const ehChamada = tipo === 'chamada';
 
     // Dedup: no PC o onMessage (foreground) E o SW podem disparar ao mesmo tempo.
@@ -6797,6 +6799,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     if (_notifRecentes.has(tag) && agora - _notifRecentes.get(tag) < 3000) return;
     _notifRecentes.set(tag, agora);
 
+    // No nativo (Capacitor) o SO já exibiu a notificação via FCM nativo — não usa SW
+    if (ehNativo) return;
+
+    // ── Caminho Web / PWA: usa Service Worker ──
     try {
       const reg = await navigator.serviceWorker.ready;
 
@@ -6826,9 +6832,6 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
         // silent: false + som padrão garante heads-up no One UI / My UX
         silent: false,
-
-        // actions aparecem na notificação expandida (Android 7+)
-        // Sem actions — toque na notificação abre o app diretamente
 
         // Dados para o SW tratar o clique mesmo com app fechado
         data: { placa, tipo, url: location.href }
