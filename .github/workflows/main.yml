@@ -44,6 +44,7 @@ jobs:
       - name: Deploy Firebase Functions
         run: |
           npm install -g firebase-tools
+          npm install firebase-admin firebase-functions
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PORTARIA_SAVANA }}' > /tmp/sa.json
           export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json
           firebase deploy --only functions --project portaria-savana --non-interactive
