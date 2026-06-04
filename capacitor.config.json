@@ -12,7 +12,19 @@
       "presentationOptions": ["badge", "sound", "alert"]
     },
     "FirebaseMessaging": {
-      "presentationOptions": ["badge", "sound", "alert"]
+      "presentationOptions": ["badge", "sound", "alert"],
+      "channels": [
+        {
+          "id": "high_importance_channel",
+          "name": "Portaria Savana",
+          "importance": 5,
+          "sound": "default",
+          "vibration": true,
+          "lights": true,
+          "lightColor": "#0f2040",
+          "visibility": 1
+        }
+      ]
     }
   }
 }
