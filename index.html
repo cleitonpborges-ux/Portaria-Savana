@@ -6780,18 +6780,22 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         dbg('Token FCM: ' + (_fcmToken ? _fcmToken.substring(0,20)+'...' : 'VAZIO ❌'), _fcmToken ? '#00ff88' : '#ff4444');
         if (_fcmToken) {
           console.log('[FCM] Token nativo obtido:', _fcmToken);
+          await setDoc(
+            doc(_db, 'fcm_tokens', _fcmToken),
+            { token: _fcmToken, perfil: perfilAtual || localStorage.getItem('portaria_perfil') || 'desconhecido', atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
+            { merge: true }
+          );
+          dbg('Token registrado para perfil: ' + perfilAtual, '#00ff88');
+          console.log('[FCM] Token nativo registrado para perfil:', perfilAtual);
+        // Botão debug para forçar renovação de token
+        window._forcarNovoToken = async () => {
           try {
-            await setDoc(
-              doc(_db, 'fcm_tokens', _fcmToken),
-              { token: _fcmToken, perfil: perfilAtual || localStorage.getItem('portaria_perfil') || 'desconhecido', atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
-              { merge: true }
-            );
-            dbg('Token registrado no Firestore ✅ perfil: ' + perfilAtual, '#00ff88');
-            console.log('[FCM] Token nativo registrado para perfil:', perfilAtual);
-          } catch(e) {
-            dbg('❌ ERRO ao salvar token: ' + e.message, '#ff4444');
-            console.error('[FCM] Erro ao salvar token:', e);
-          }
+            await FirebaseMessaging.deleteToken();
+            dbg('Token deletado — reiniciando...', '#ffcc00');
+            setTimeout(() => location.reload(), 1000);
+          } catch(e) { dbg('Erro deleteToken: ' + e.message, '#ff4444'); }
+        };
+        dbg('💡 Para renovar token: window._forcarNovoToken()', '#888888');
         }
 
         // Listener de mensagens com app aberto (foreground) — nativo
