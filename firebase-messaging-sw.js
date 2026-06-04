@@ -3,8 +3,8 @@
    Nome OBRIGATÓRIO: firebase-messaging-sw.js na RAIZ do site
    ============================================================ */
 
-importScripts("https://www.gstatic.com/firebasejs/12.12.1/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/12.12.1/firebase-messaging-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js");
 
 firebase.initializeApp({
   apiKey:            "AIzaSyCkD415LbF4S97BqRNXHBxnuGUDwzcUAd4",
