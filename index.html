@@ -6731,29 +6731,17 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         }
 
         // Listener de mensagens com app aberto (foreground) — nativo
-        // background/fechado: o SO Android exibe automaticamente via FCM (alta prioridade).
-        // foreground: o Capacitor suprime o banner nativo, então disparamos via SW
-        //             para garantir heads-up mesmo com o app na tela.
         if (!_onMessageRegistrado) {
           _onMessageRegistrado = true;
-
-          // foreground — app aberto
           FirebaseMessaging.addListener('notificationReceived', (notification) => {
             const placa = notification.notification?.data?.placa || '';
             const tipo  = notification.notification?.data?.tipo  || 'chamada';
-            const title = notification.notification?.title
-              || (tipo === 'entrada' ? `🚛 NOVA ENTRADA — ${placa}` : `📢 CHAMADA — ${placa}`);
-            const body  = notification.notification?.body || '';
-            // Exibe banner real via SW (heads-up + som + vibração) mesmo em foreground
-            _exibirNotificacaoLocal(title, body, placa, tipo);
-            // Toast in-app complementar (aparece dentro do app)
-            mostrarToast(`${title}${body ? '\n' + body : ''}`, tipo === 'chamada' ? 'warn' : 'info', 5000);
-          });
-
-          // background/fechado — toque na notificação abre/traz o app
-          FirebaseMessaging.addListener('notificationActionPerformed', (action) => {
-            // Traz o app para frente se estiver em background
-            try { window.focus(); } catch(_) {}
+            const title = notification.notification?.title || '';
+            const body  = notification.notification?.body  || '';
+            _exibirNotificacaoLocal(
+              title || (tipo === 'entrada' ? `🚛 NOVA ENTRADA — ${placa}` : `📢 CHAMADA — ${placa}`),
+              body, placa, tipo
+            );
           });
         }
 
@@ -6795,75 +6783,49 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     }
   }
 
-  // Exibe notificação local — funciona em AMBOS os ambientes:
-  //   • Capacitor (APK nativo): cria canal de alta prioridade (importance=5) e
-  //     usa showNotifications para garantir heads-up mesmo em foreground.
-  //   • Web / PWA: usa Service Worker (reg.showNotification).
-  // Dedup integrado: mesma tag em < 3 s é ignorada (evita duplo disparo no PC).
-  const _notifRecentes = new Map(); // tag → timestamp
+  // Exibe notificação local via SW (foreground, background e tela bloqueada)
+  // Compatível com Samsung One UI, Motorola (My UX), MIUI e Android puro.
   async function _exibirNotificacaoLocal(titulo, corpo, placa, tipo = 'chamada') {
     if (Notification.permission !== 'granted') return;
     const ehChamada = tipo === 'chamada';
-
-    const tag   = `${tipo}-${placa}`;
-    const agora = Date.now();
-    if (_notifRecentes.has(tag) && agora - _notifRecentes.get(tag) < 3000) return;
-    _notifRecentes.set(tag, agora);
-
-    // ── NATIVO (APK Capacitor) ──────────────────────────────────────────────
-    if (_isCapacitor()) {
-      const FirebaseMessaging = window?.Capacitor?.Plugins?.FirebaseMessaging;
-      if (FirebaseMessaging) {
-        try {
-          // Canal de alta prioridade (Android 8+) — obrigatório para heads-up flutuante
-          // Idempotente: criar múltiplas vezes não duplica o canal
-          await FirebaseMessaging.createChannel({
-            id:         ehChamada ? 'chamada_alta' : 'entrada_alta',
-            name:       ehChamada ? 'Chamadas (alta prioridade)' : 'Entradas (alta prioridade)',
-            importance: 5,   // IMPORTANCE_HIGH
-            visibility: 1,   // VISIBILITY_PUBLIC — aparece na tela bloqueada
-            sound:      'default',
-            vibration:  true,
-            lights:     true,
-          });
-          await FirebaseMessaging.showNotifications({
-            notifications: [{
-              title:     titulo,
-              body:      corpo,
-              id:        `${tag}-${agora}`,
-              channelId: ehChamada ? 'chamada_alta' : 'entrada_alta',
-              data:      { placa, tipo },
-            }]
-          });
-          return; // nativo tratado — não cai no SW
-        } catch(e) {
-          console.warn('[Notificação] Falha no nativo, usando SW como fallback:', e);
-          // fallback intencional: cai no bloco SW abaixo
-        }
-      }
-    }
-
-    // ── WEB / PWA: Service Worker ──────────────────────────────────────────
     try {
       const reg = await navigator.serviceWorker.ready;
-      // Fecha notif anterior da mesma tag para forçar novo heads-up
+
+      // ── Cancela notificação anterior da mesma placa/tipo para forçar heads-up ──
+      // Samsung e Motorola às vezes agrupam silenciosamente sem renotify;
+      // fechar antes garante que a nova apareça flutuante (heads-up).
       try {
-        const existentes = await reg.getNotifications({ tag });
+        const existentes = await reg.getNotifications({ tag: `${tipo}-${placa}` });
         existentes.forEach(n => n.close());
       } catch(_) {}
+
       await reg.showNotification(titulo, {
-        body:               corpo,
-        icon:               'icons/icon-192.png',
-        badge:              'icons/icon-32.png',
-        tag,
-        renotify:           true,
-        requireInteraction: true,   // não some automaticamente
-        silent:             false,  // garante som + heads-up no One UI / My UX
+        body:    corpo,
+        icon:    'icons/icon-192.png',
+        badge:   'icons/icon-32.png',
+
+        // Tag + renotify = sempre mostra mesmo que já exista uma igual
+        tag:      `${tipo}-${placa}`,
+        renotify: true,
+
+        // Padrão de vibração chamativo (Samsung e Motorola respeitam)
         vibrate: ehChamada ? [300, 150, 300, 150, 600] : [150, 75, 150],
-        data:    { placa, tipo, url: location.href }
+
+        // requireInteraction: true em AMBOS os tipos
+        // → notificação não some automaticamente (essencial em tela bloqueada)
+        requireInteraction: true,
+
+        // silent: false + som padrão garante heads-up no One UI / My UX
+        silent: false,
+
+        // actions aparecem na notificação expandida (Android 7+)
+        // Sem actions — toque na notificação abre o app diretamente
+
+        // Dados para o SW tratar o clique mesmo com app fechado
+        data: { placa, tipo, url: location.href }
       });
     } catch(e) {
-      console.warn('[Notificação] Falha ao exibir notificação via SW:', e);
+      console.warn('[Notificação] Falha ao exibir notificação local:', e);
     }
   }
 
@@ -6873,35 +6835,18 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       const titulo = `🚛 NOVA ENTRADA — ${placa}`;
       const corpo  = `${motorista || 'Motorista não informado'}${produto ? '  ·  ' + produto : ''}`;
 
-      // Exibe localmente (quem está com o app aberto)
+      // Exibe localmente (app aberto)
       await _exibirNotificacaoLocal(titulo, corpo, placa, 'entrada');
 
-      // Grava na push_queue → Cloud Function envia FCM para todos os dispositivos
-      // Os campos android/apns garantem alta prioridade e heads-up no Android
+      // Grava na push_queue → Cloud Function envia para todos os dispositivos
       await setDoc(
         doc(_db, 'push_queue', `entrada-${placa}-${Date.now()}`),
         {
           titulo, corpo, placa,
           tipo:    'entrada',
-          perfis:  ['admin', 'balanca'],
+          perfis:  ['admin', 'balanca'],   // quem recebe
           ts:      serverTimestamp(),
-          enviado: false,
-          // ── FCM Android: alta prioridade + canal heads-up ──────────────
-          android: {
-            priority:       'high',         // acorda o dispositivo mesmo em Doze
-            notification: {
-              channelId:    'entrada_alta',  // mesmo canal criado em _exibirNotificacaoLocal
-              priority:     'high',
-              defaultSound: true,
-              defaultVibrateTimings: true,
-              notificationPriority: 'PRIORITY_HIGH',
-              visibility:   'PUBLIC',        // aparece na tela bloqueada
-            }
-          },
-          // ── FCM APNs (iOS — reserva futura) ────────────────────────────
-          apns: {
-            headers: { 'apns-priority': '10' }
-          }
+          enviado: false
         }
       );
     } catch(e) {
@@ -6914,34 +6859,19 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const titulo = `📢 CHAMADA — ${placa}`;
     const corpo  = `${motorista || 'Motorista não informado'}${hora ? '  ·  ' + hora : ''}`;
 
-    // Exibe localmente (quem está com o app aberto)
+    // Exibe localmente (app aberto/background)
     await _exibirNotificacaoLocal(titulo, corpo, placa, 'chamada');
 
-    // Grava na push_queue → Cloud Function envia FCM para todos os porteiros
+    // Grava na push_queue → Cloud Function envia para todos os porteiros
     try {
       await setDoc(
         doc(_db, 'push_queue', `chamada-${placa}-${Date.now()}`),
         {
           titulo, corpo, placa,
           tipo:    'chamada',
-          perfis:  ['porteiro', 'admin'],
+          perfis:  ['porteiro', 'admin'],  // quem recebe
           ts:      serverTimestamp(),
-          enviado: false,
-          // ── FCM Android: alta prioridade + canal heads-up ──────────────
-          android: {
-            priority:       'high',
-            notification: {
-              channelId:    'chamada_alta',
-              priority:     'high',
-              defaultSound: true,
-              defaultVibrateTimings: true,
-              notificationPriority: 'PRIORITY_HIGH',
-              visibility:   'PUBLIC',
-            }
-          },
-          apns: {
-            headers: { 'apns-priority': '10' }
-          }
+          enviado: false
         }
       );
     } catch(e) {
