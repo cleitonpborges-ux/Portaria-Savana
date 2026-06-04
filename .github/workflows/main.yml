@@ -30,7 +30,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # ── 5. Deploy Firebase Hosting PRIMEIRO ──────────────────
+      # ── 5. Deploy Firebase Hosting + Functions ──────────────
       - name: Deploy Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
@@ -38,6 +38,17 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PORTARIA_SAVANA }}
           channelId: live
           projectId: portaria-savana
+
+      # Deploy das Cloud Functions (ex: enviarPushNotificacao)
+      # Sem isso o functions-index.js nunca é atualizado no Firebase
+      - name: Deploy Firebase Functions
+        run: |
+          npm install -g firebase-tools
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PORTARIA_SAVANA }}' > /tmp/sa.json
+          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json
+          firebase deploy --only functions --project portaria-savana --non-interactive
+          rm /tmp/sa.json
+          echo "✅ Functions deployadas"
 
       - name: Aguardar propagação do Firebase (30s)
         run: sleep 30
