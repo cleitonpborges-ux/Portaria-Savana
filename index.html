@@ -2630,15 +2630,6 @@
   </div>
 </div>
 
-<!-- ══ PAINEL DEBUG NOTIFICAÇÕES (remover após testes) ══ -->
-<div id="debugPanel" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#0a0a0a;color:#00ff88;font-family:monospace;font-size:11px;max-height:45vh;overflow-y:auto;border-top:2px solid #00ff88;padding:6px 8px;">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-    <b style="color:#ffcc00;">🔔 DEBUG NOTIFICAÇÕES</b>
-    <button onclick="document.getElementById('debugPanel').style.display='none'" style="background:#333;color:#fff;border:none;padding:2px 10px;border-radius:4px;cursor:pointer;font-size:13px;">✕</button>
-  </div>
-  <div id="debugLog"></div>
-</div>
-
 <!-- CONTAINER PRINCIPAL -->
 <div class="container">
 
@@ -6687,29 +6678,6 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
    * O Android reconhece o FCM como canal legítimo — resolve o bloqueio do MIUI.
    * =================================================================== */
 
-  // ── DEBUG HELPER ──────────────────────────────────────────────────────────
-  function dbg(msg, cor) {
-    const panel = document.getElementById('debugPanel');
-    const log   = document.getElementById('debugLog');
-    if (!panel || !log) return;
-    panel.style.display = 'block';
-    const linha = document.createElement('div');
-    linha.style.cssText = `color:${cor||'#00ff88'};border-bottom:1px solid #222;padding:2px 0;`;
-    linha.textContent = new Date().toLocaleTimeString() + ' — ' + msg;
-    log.prepend(linha);
-    // Limita a 50 linhas
-    while (log.children.length > 50) log.removeChild(log.lastChild);
-  }
-  // Botão flutuante para abrir o painel
-  window.addEventListener('DOMContentLoaded', () => {
-    const btn = document.createElement('button');
-    btn.textContent = '🔔';
-    btn.title = 'Debug Notificações';
-    btn.style.cssText = 'position:fixed;bottom:80px;right:12px;z-index:99998;width:38px;height:38px;border-radius:50%;background:#0a0a0a;color:#00ff88;border:2px solid #00ff88;font-size:18px;cursor:pointer;opacity:0.85;';
-    btn.onclick = () => { document.getElementById('debugPanel').style.display = 'block'; };
-    document.body.appendChild(btn);
-  });
-
   const FCM_VAPID_KEY = 'BCQpD1Tb_xTWFO5K7Os_EPfln6eHTAzazoY5DVjt5BCs_w7bvlQpBAYfLEpgCZZ0_GipLh50xTByl4yR7KYMySg';
   let   _fcmToken            = null;
   let   _onMessageRegistrado = false; // ✅ evita registrar onMessage múltiplas vezes
@@ -6725,8 +6693,6 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   //   • Capacitor (APK nativo) → usa plugin @capacitor-firebase/messaging
   //   • Navegador / PWA        → usa Notification.requestPermission() + SW
   async function _pedirPermissaoNotificacao() {
-    dbg('_pedirPermissaoNotificacao() chamada', '#ffcc00');
-    dbg('isCapacitor: ' + _isCapacitor(), '#ffcc00');
     try {
       if (_isCapacitor()) {
         // ── AMBIENTE NATIVO (APK Capacitor) ──────────────────────────────
@@ -6737,7 +6703,6 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         // automaticamente quando o APK carrega — não precisa de import/CDN
         const FirebaseMessaging = window?.Capacitor?.Plugins?.FirebaseMessaging;
 
-        dbg('FirebaseMessaging plugin: ' + (FirebaseMessaging ? 'ENCONTRADO ✅' : 'NÃO ENCONTRADO ❌'), FirebaseMessaging ? '#00ff88' : '#ff4444');
         if (!FirebaseMessaging) {
           console.warn('[FCM] Plugin FirebaseMessaging não encontrado');
           return;
@@ -6745,39 +6710,16 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
         // Solicita permissão nativa Android — exibe o diálogo do sistema
         const { receive } = await FirebaseMessaging.requestPermissions();
-        dbg('Permissão FCM nativo: ' + receive, receive === 'granted' ? '#00ff88' : '#ff4444');
         if (receive !== 'granted') {
           console.warn('[FCM] Permissão negada pelo usuário (nativo)');
           return;
         }
         console.log('[FCM] Permissão concedida (nativo)');
 
-        // Cria canal de alta prioridade ANTES de qualquer notificação
-        // Sem canal criado o Android descarta silenciosamente
-        try {
-          await FirebaseMessaging.createChannel({
-            id:          'high_importance_channel',
-            name:        'Portaria Savana',
-            description: 'Notificações de chamadas e entradas',
-            importance:  5,
-            visibility:  1,
-            vibration:   true,
-            sound:       'default',
-          });
-          dbg('Canal high_importance_channel criado ✅', '#00ff88');
-        } catch(e) {
-          dbg('Canal já existe ou erro: ' + e.message, '#888888');
-        }
-
-        // Deleta token antigo antes de pedir novo — garante token fresco
-        try { await FirebaseMessaging.deleteToken(); } catch(_) {}
-        dbg('Token antigo deletado, obtendo novo...', '#aaaaaa');
-
         // Obtém token FCM nativo
         const { token } = await FirebaseMessaging.getToken({ vapidKey: FCM_VAPID_KEY });
         _fcmToken = token;
 
-        dbg('Token FCM: ' + (_fcmToken ? _fcmToken.substring(0,20)+'...' : 'VAZIO ❌'), _fcmToken ? '#00ff88' : '#ff4444');
         if (_fcmToken) {
           console.log('[FCM] Token nativo obtido:', _fcmToken);
           await setDoc(
@@ -6785,58 +6727,33 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
             { token: _fcmToken, perfil: perfilAtual || localStorage.getItem('portaria_perfil') || 'desconhecido', atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
             { merge: true }
           );
-          dbg('Token registrado para perfil: ' + perfilAtual, '#00ff88');
           console.log('[FCM] Token nativo registrado para perfil:', perfilAtual);
-        // Botão debug para forçar renovação de token
-        window._forcarNovoToken = async () => {
-          try {
-            await FirebaseMessaging.deleteToken();
-            dbg('Token deletado — reiniciando...', '#ffcc00');
-            setTimeout(() => location.reload(), 1000);
-          } catch(e) { dbg('Erro deleteToken: ' + e.message, '#ff4444'); }
-        };
-        dbg('💡 Para renovar token: window._forcarNovoToken()', '#888888');
         }
 
         // Listener de mensagens com app aberto (foreground) — nativo
-        // Background/fechado: SO exibe automaticamente via FCM.
-        // Foreground: Capacitor suprime o banner — usamos LocalNotifications.
+        // background/fechado: o SO Android exibe automaticamente via FCM (alta prioridade).
+        // foreground: o Capacitor suprime o banner nativo, então disparamos via SW
+        //             para garantir heads-up mesmo com o app na tela.
         if (!_onMessageRegistrado) {
           _onMessageRegistrado = true;
-          dbg('Listener notificationReceived registrado ✅', '#00ff88');
-          FirebaseMessaging.addListener('notificationReceived', async (event) => {
-            const n     = event.notification || {};
-            const placa = n.data?.placa || '';
-            const tipo  = n.data?.tipo  || 'chamada';
-            const title = n.title || (tipo === 'entrada' ? `🚛 NOVA ENTRADA — ${placa}` : `📢 CHAMADA — ${placa}`);
-            const body  = n.body  || '';
-            dbg('🔔 notificationReceived! tipo=' + tipo + ' placa=' + placa, '#ffcc00');
-            dbg('title=' + title + ' body=' + body, '#aaaaaa');
 
-            // Foreground: exibe notificação local via FirebaseMessaging (já disponível no APK)
-            try {
-              await FirebaseMessaging.createChannel({
-                id:          'high_importance_channel',
-                name:        'Portaria Savana',
-                importance:  5,
-                visibility:  1,
-                vibration:   true,
-              }).catch(() => {}); // canal pode já existir
+          // foreground — app aberto
+          FirebaseMessaging.addListener('notificationReceived', (notification) => {
+            const placa = notification.notification?.data?.placa || '';
+            const tipo  = notification.notification?.data?.tipo  || 'chamada';
+            const title = notification.notification?.title
+              || (tipo === 'entrada' ? `🚛 NOVA ENTRADA — ${placa}` : `📢 CHAMADA — ${placa}`);
+            const body  = notification.notification?.body || '';
+            // Exibe banner real via SW (heads-up + som + vibração) mesmo em foreground
+            _exibirNotificacaoLocal(title, body, placa, tipo);
+            // Toast in-app complementar (aparece dentro do app)
+            mostrarToast(`${title}${body ? '\n' + body : ''}`, tipo === 'chamada' ? 'warn' : 'info', 5000);
+          });
 
-              await FirebaseMessaging.scheduleLocalNotification({
-                title,
-                body,
-                id:        String(Date.now() & 0x7fffffff),
-                channelId: 'high_importance_channel',
-                extra:     { placa, tipo }
-              });
-              dbg('FirebaseMessaging.scheduleLocalNotification ✅', '#00ff88');
-            } catch(e) {
-              dbg('❌ scheduleLocalNotification erro: ' + e.message, '#ff4444');
-              // Fallback: toast in-app
-              mostrarToast(title + (body ? ' — ' + body : ''), tipo === 'chamada' ? 'warn' : 'info', 6000);
-              dbg('Fallback toast exibido', '#888888');
-            }
+          // background/fechado — toque na notificação abre/traz o app
+          FirebaseMessaging.addListener('notificationActionPerformed', (action) => {
+            // Traz o app para frente se estiver em background
+            try { window.focus(); } catch(_) {}
           });
         }
 
@@ -6878,70 +6795,89 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     }
   }
 
-  // Exibe notificação local via SW (foreground, background e tela bloqueada)
-  // Compatível com Samsung One UI, Motorola (My UX), MIUI e Android puro.
+  // Exibe notificação local — funciona em AMBOS os ambientes:
+  //   • Capacitor (APK nativo): cria canal de alta prioridade (importance=5) e
+  //     usa showNotifications para garantir heads-up mesmo em foreground.
+  //   • Web / PWA: usa Service Worker (reg.showNotification).
+  // Dedup integrado: mesma tag em < 3 s é ignorada (evita duplo disparo no PC).
+  const _notifRecentes = new Map(); // tag → timestamp
   async function _exibirNotificacaoLocal(titulo, corpo, placa, tipo = 'chamada') {
-    dbg('_exibirNotificacaoLocal() tipo=' + tipo + ' placa=' + placa, '#88ccff');
-    dbg('Notification.permission=' + Notification.permission, Notification.permission === 'granted' ? '#00ff88' : '#ff4444');
-    if (Notification.permission !== 'granted') {
-      dbg('❌ BLOQUEADO — permission não é granted', '#ff4444');
-      return;
-    }
+    if (Notification.permission !== 'granted') return;
     const ehChamada = tipo === 'chamada';
-    try {
-      dbg('Aguardando serviceWorker.ready...', '#aaaaaa');
-      const reg = await navigator.serviceWorker.ready;
-      dbg('SW ready ✅', '#00ff88');
 
-      // ── Cancela notificação anterior da mesma placa/tipo para forçar heads-up ──
-      // Samsung e Motorola às vezes agrupam silenciosamente sem renotify;
-      // fechar antes garante que a nova apareça flutuante (heads-up).
+    const tag   = `${tipo}-${placa}`;
+    const agora = Date.now();
+    if (_notifRecentes.has(tag) && agora - _notifRecentes.get(tag) < 3000) return;
+    _notifRecentes.set(tag, agora);
+
+    // ── NATIVO (APK Capacitor) ──────────────────────────────────────────────
+    if (_isCapacitor()) {
+      const FirebaseMessaging = window?.Capacitor?.Plugins?.FirebaseMessaging;
+      if (FirebaseMessaging) {
+        try {
+          // Canal de alta prioridade (Android 8+) — obrigatório para heads-up flutuante
+          // Idempotente: criar múltiplas vezes não duplica o canal
+          await FirebaseMessaging.createChannel({
+            id:         ehChamada ? 'chamada_alta' : 'entrada_alta',
+            name:       ehChamada ? 'Chamadas (alta prioridade)' : 'Entradas (alta prioridade)',
+            importance: 5,   // IMPORTANCE_HIGH
+            visibility: 1,   // VISIBILITY_PUBLIC — aparece na tela bloqueada
+            sound:      'default',
+            vibration:  true,
+            lights:     true,
+          });
+          await FirebaseMessaging.showNotifications({
+            notifications: [{
+              title:     titulo,
+              body:      corpo,
+              id:        `${tag}-${agora}`,
+              channelId: ehChamada ? 'chamada_alta' : 'entrada_alta',
+              data:      { placa, tipo },
+            }]
+          });
+          return; // nativo tratado — não cai no SW
+        } catch(e) {
+          console.warn('[Notificação] Falha no nativo, usando SW como fallback:', e);
+          // fallback intencional: cai no bloco SW abaixo
+        }
+      }
+    }
+
+    // ── WEB / PWA: Service Worker ──────────────────────────────────────────
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      // Fecha notif anterior da mesma tag para forçar novo heads-up
       try {
-        const existentes = await reg.getNotifications({ tag: `${tipo}-${placa}` });
+        const existentes = await reg.getNotifications({ tag });
         existentes.forEach(n => n.close());
       } catch(_) {}
-
-      dbg('Chamando reg.showNotification()...', '#aaaaaa');
       await reg.showNotification(titulo, {
-        body:    corpo,
-        icon:    'icons/icon-192.png',
-        badge:   'icons/icon-32.png',
-
-        // Tag + renotify = sempre mostra mesmo que já exista uma igual
-        tag:      `${tipo}-${placa}`,
-        renotify: true,
-
-        // Padrão de vibração chamativo (Samsung e Motorola respeitam)
+        body:               corpo,
+        icon:               'icons/icon-192.png',
+        badge:              'icons/icon-32.png',
+        tag,
+        renotify:           true,
+        requireInteraction: true,   // não some automaticamente
+        silent:             false,  // garante som + heads-up no One UI / My UX
         vibrate: ehChamada ? [300, 150, 300, 150, 600] : [150, 75, 150],
-
-        // requireInteraction: true em AMBOS os tipos
-        // → notificação não some automaticamente (essencial em tela bloqueada)
-        requireInteraction: true,
-
-        // silent: false + som padrão garante heads-up no One UI / My UX
-        silent: false,
-
-        // actions aparecem na notificação expandida (Android 7+)
-        // Sem actions — toque na notificação abre o app diretamente
-
-        // Dados para o SW tratar o clique mesmo com app fechado
-        data: { placa, tipo, url: location.href }
+        data:    { placa, tipo, url: location.href }
       });
     } catch(e) {
-      dbg('❌ ERRO _exibirNotificacaoLocal: ' + e.message, '#ff4444');
-      console.warn('[Notificação] Falha ao exibir notificação local:', e);
+      console.warn('[Notificação] Falha ao exibir notificação via SW:', e);
     }
   }
 
   // Notifica perfis admin e balanca quando uma nova entrada é cadastrada
   async function _notificarNovaEntrada(placa, motorista, produto) {
-    dbg('_notificarNovaEntrada() placa=' + placa, '#ffcc00');
-    const titulo = `🚛 NOVA ENTRADA — ${placa}`;
-    const corpo  = `${motorista || 'Motorista não informado'}${produto ? '  ·  ' + produto : ''}`;
-
-    // Grava na push_queue PRIMEIRO — não depende do SW nem da permissão local
-    // Cloud Function envia para todos os dispositivos
     try {
+      const titulo = `🚛 NOVA ENTRADA — ${placa}`;
+      const corpo  = `${motorista || 'Motorista não informado'}${produto ? '  ·  ' + produto : ''}`;
+
+      // Exibe localmente (quem está com o app aberto)
+      await _exibirNotificacaoLocal(titulo, corpo, placa, 'entrada');
+
+      // Grava na push_queue → Cloud Function envia FCM para todos os dispositivos
+      // Os campos android/apns garantem alta prioridade e heads-up no Android
       await setDoc(
         doc(_db, 'push_queue', `entrada-${placa}-${Date.now()}`),
         {
@@ -6949,26 +6885,39 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           tipo:    'entrada',
           perfis:  ['admin', 'balanca'],
           ts:      serverTimestamp(),
-          enviado: false
+          enviado: false,
+          // ── FCM Android: alta prioridade + canal heads-up ──────────────
+          android: {
+            priority:       'high',         // acorda o dispositivo mesmo em Doze
+            notification: {
+              channelId:    'entrada_alta',  // mesmo canal criado em _exibirNotificacaoLocal
+              priority:     'high',
+              defaultSound: true,
+              defaultVibrateTimings: true,
+              notificationPriority: 'PRIORITY_HIGH',
+              visibility:   'PUBLIC',        // aparece na tela bloqueada
+            }
+          },
+          // ── FCM APNs (iOS — reserva futura) ────────────────────────────
+          apns: {
+            headers: { 'apns-priority': '10' }
+          }
         }
       );
-      dbg('push_queue gravado ✅ entrada', '#00ff88');
     } catch(e) {
-      dbg('❌ ERRO setDoc push_queue entrada: ' + e.message, '#ff4444');
-      console.warn('[FCM] Erro ao gravar push_queue entrada:', e);
+      console.warn('[FCM] Erro ao notificar nova entrada:', e);
     }
-
-    // Exibe localmente (apenas web/PWA — não bloqueia o fluxo)
-    _exibirNotificacaoLocal(titulo, corpo, placa, 'entrada');
   }
 
   // Dispara notificação para chamada nova
   async function _dispararNotificacaoChamada(placa, motorista, hora) {
-    dbg('_dispararNotificacaoChamada() placa=' + placa, '#ffcc00');
     const titulo = `📢 CHAMADA — ${placa}`;
     const corpo  = `${motorista || 'Motorista não informado'}${hora ? '  ·  ' + hora : ''}`;
 
-    // Grava na push_queue PRIMEIRO — não depende do SW nem da permissão local
+    // Exibe localmente (quem está com o app aberto)
+    await _exibirNotificacaoLocal(titulo, corpo, placa, 'chamada');
+
+    // Grava na push_queue → Cloud Function envia FCM para todos os porteiros
     try {
       await setDoc(
         doc(_db, 'push_queue', `chamada-${placa}-${Date.now()}`),
@@ -6977,17 +6926,27 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           tipo:    'chamada',
           perfis:  ['porteiro', 'admin'],
           ts:      serverTimestamp(),
-          enviado: false
+          enviado: false,
+          // ── FCM Android: alta prioridade + canal heads-up ──────────────
+          android: {
+            priority:       'high',
+            notification: {
+              channelId:    'chamada_alta',
+              priority:     'high',
+              defaultSound: true,
+              defaultVibrateTimings: true,
+              notificationPriority: 'PRIORITY_HIGH',
+              visibility:   'PUBLIC',
+            }
+          },
+          apns: {
+            headers: { 'apns-priority': '10' }
+          }
         }
       );
-      dbg('push_queue gravado ✅ chamada', '#00ff88');
     } catch(e) {
-      dbg('❌ ERRO setDoc push_queue chamada: ' + e.message, '#ff4444');
       console.warn('[FCM] Erro ao enfileirar chamada:', e);
     }
-
-    // Exibe localmente (apenas web/PWA — não bloqueia o fluxo)
-    _exibirNotificacaoLocal(titulo, corpo, placa, 'chamada');
   }
 
   /* ───────────────────────────────────────────────────────────────────────
