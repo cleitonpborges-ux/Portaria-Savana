@@ -6696,35 +6696,29 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     try {
       if (_isCapacitor()) {
         // ── AMBIENTE NATIVO (APK Capacitor) ──────────────────────────────
-        console.log('[FCM] Ambiente Capacitor detectado');
-
+        // O plugin FirebaseMessaging do Capacitor é quem solicita a permissão
+        // nativa do Android (o diálogo "Permitir notificações") e obtém o
+        // token FCM diretamente, sem precisar do Service Worker.
+        // O Capacitor injeta todos os plugins em window.Capacitor.Plugins
+        // automaticamente quando o APK carrega — não precisa de import/CDN
         const FirebaseMessaging = window?.Capacitor?.Plugins?.FirebaseMessaging;
 
         if (!FirebaseMessaging) {
-          console.warn('[FCM] Plugin FirebaseMessaging não encontrado em window.Capacitor.Plugins');
-          console.warn('[FCM] Plugins disponíveis:', Object.keys(window?.Capacitor?.Plugins || {}));
-          return;
-        }
-        console.log('[FCM] Plugin FirebaseMessaging encontrado');
-
-        // Solicita permissão nativa Android
-        const permResult = await FirebaseMessaging.requestPermissions();
-        console.log('[FCM] Resultado permissão:', JSON.stringify(permResult));
-        if (permResult.receive !== 'granted') {
-          console.warn('[FCM] Permissão negada:', permResult.receive);
+          console.warn('[FCM] Plugin FirebaseMessaging não encontrado');
           return;
         }
 
-        // Obtém token FCM nativo — sem vapidKey no nativo
-        let tokenResult;
-        try {
-          tokenResult = await FirebaseMessaging.getToken();
-        } catch(e) {
-          console.warn('[FCM] getToken sem vapidKey falhou, tentando com vapidKey:', e);
-          tokenResult = await FirebaseMessaging.getToken({ vapidKey: FCM_VAPID_KEY });
+        // Solicita permissão nativa Android — exibe o diálogo do sistema
+        const { receive } = await FirebaseMessaging.requestPermissions();
+        if (receive !== 'granted') {
+          console.warn('[FCM] Permissão negada pelo usuário (nativo)');
+          return;
         }
+        console.log('[FCM] Permissão concedida (nativo)');
+
+        // Obtém token FCM nativo — SEM vapidKey (isso é só para web)
+        const tokenResult = await FirebaseMessaging.getToken();
         _fcmToken = tokenResult?.token;
-        console.log('[FCM] Token nativo:', _fcmToken ? _fcmToken.slice(-12) : 'NULO');
 
         if (_fcmToken) {
           const perfil = perfilAtual || localStorage.getItem('portaria_perfil') || 'desconhecido';
@@ -6733,26 +6727,21 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
             { token: _fcmToken, perfil, plataforma: 'android', atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
             { merge: true }
           );
-          console.log('[FCM] Token nativo salvo no Firestore — perfil:', perfil);
+          console.log('[FCM] Token nativo registrado — perfil:', perfil);
         }
 
-        // Listener foreground nativo
+        // Listener de mensagens com app aberto (foreground) — nativo
         if (!_onMessageRegistrado) {
           _onMessageRegistrado = true;
-          await FirebaseMessaging.addListener('notificationReceived', (event) => {
-            console.log('[FCM] Notificação foreground recebida:', JSON.stringify(event));
-            const placa = event.notification?.data?.placa || '';
-            const tipo  = event.notification?.data?.tipo  || 'chamada';
-            const title = event.notification?.title || '';
-            const body  = event.notification?.body  || '';
+          FirebaseMessaging.addListener('notificationReceived', (notification) => {
+            const placa = notification.notification?.data?.placa || '';
+            const tipo  = notification.notification?.data?.tipo  || 'chamada';
+            const title = notification.notification?.title || '';
+            const body  = notification.notification?.body  || '';
             _exibirNotificacaoLocal(
               title || (tipo === 'entrada' ? `🚛 NOVA ENTRADA — ${placa}` : `📢 CHAMADA — ${placa}`),
               body, placa, tipo
             );
-          });
-          // Listener para quando usuário toca na notificação
-          await FirebaseMessaging.addListener('notificationActionPerformed', (event) => {
-            console.log('[FCM] Notificação clicada:', JSON.stringify(event));
           });
         }
 
