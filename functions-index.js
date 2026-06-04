@@ -94,15 +94,10 @@ exports.enviarPushNotificacao = onDocumentCreated(
             resp.responses.forEach((r, idx) => {
               if (!r.success) {
                 const codigo = r.error?.code || "";
-                if (
-                  codigo === "messaging/invalid-registration-token" ||
-                  codigo === "messaging/registration-token-not-registered"
-                ) {
-                  const tokenInvalido = lote[idx];
-                  db.collection("fcm_tokens").doc(tokenInvalido).delete()
-                    .then(() => console.log(`[FCM] Token inválido removido: ${tokenInvalido.slice(-8)}`))
-                    .catch(() => {});
-                }
+                console.warn(`[FCM] Falha token ...${lote[idx].slice(-8)}: ${codigo}`);
+                // Não deletamos tokens automaticamente — tokens Android podem ser
+                // rejeitados temporariamente após reinstalação do APK.
+                // O token é atualizado automaticamente quando o usuário abre o app.
               }
             });
 
