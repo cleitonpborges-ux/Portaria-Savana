@@ -2789,15 +2789,15 @@
   const WEB_APP_POST_URL = "https://script.google.com/macros/s/AKfycbyjxrCNfrASZiox6VNzYY2J8_480qrcTH-sPeBEAonfSvar08z8Jr2O-Gzfd5iPALUQzw/exec";
 
   /* ===================== FIREBASE ===================== */
-  import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { initializeApp }       from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
   import {
     getFirestore, collection, doc, addDoc, updateDoc, setDoc, getDoc,
     getDocs, deleteDoc, query, where, orderBy, serverTimestamp, onSnapshot,
     enableIndexedDbPersistence
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
   import {
     getMessaging, getToken, onMessage
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
+  } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-messaging.js";
 
   const _fbApp = initializeApp({
     apiKey:            "AIzaSyCkD415LbF4S97BqRNXHBxnuGUDwzcUAd4",
@@ -6412,7 +6412,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // 1. Limpa Firebase — apaga todos os docs do turno atual
     try {
       const { getDocs, query, collection, where, deleteDoc } =
-        await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+        await import("https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js");
       const d = new Date();
       const turnoId = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
       const q = query(collection(_db, 'veiculos'), where('turnoId', '==', turnoId));
@@ -6722,12 +6722,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
         if (_fcmToken) {
           const perfil = perfilAtual || localStorage.getItem('portaria_perfil') || 'desconhecido';
+          // ID único por perfil+dispositivo — evita que a portaria sobrescreva o token do admin
+          const docId = `${perfil}_android_${_fcmToken.slice(-16)}`;
           await setDoc(
-            doc(_db, 'fcm_tokens', _fcmToken),
+            doc(_db, 'fcm_tokens', docId),
             { token: _fcmToken, perfil, plataforma: 'android', atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
             { merge: true }
           );
-          console.log('[FCM] Token nativo registrado — perfil:', perfil);
+          console.log('[FCM] Token nativo registrado — perfil:', perfil, '| doc:', docId);
         }
 
         // Listener de mensagens com app aberto (foreground) — nativo
@@ -6758,12 +6760,15 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         _fcmToken = await getToken(_messaging, { vapidKey: FCM_VAPID_KEY });
         if (_fcmToken) {
           console.log('[FCM] Token web obtido:', _fcmToken);
+          const perfilWeb = perfilAtual || localStorage.getItem('portaria_perfil') || 'desconhecido';
+          // ID único por perfil+dispositivo — evita sobrescrita entre perfis
+          const docIdWeb = `${perfilWeb}_web_${_fcmToken.slice(-16)}`;
           await setDoc(
-            doc(_db, 'fcm_tokens', _fcmToken),
-            { token: _fcmToken, perfil: perfilAtual || localStorage.getItem('portaria_perfil') || 'desconhecido', atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
+            doc(_db, 'fcm_tokens', docIdWeb),
+            { token: _fcmToken, perfil: perfilWeb, plataforma: 'web', atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
             { merge: true }
           );
-          console.log('[FCM] Token web registrado para perfil:', perfilAtual);
+          console.log('[FCM] Token web registrado — perfil:', perfilWeb, '| doc:', docIdWeb);
         }
         if (!_onMessageRegistrado) {
           _onMessageRegistrado = true;
