@@ -6904,8 +6904,35 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   // Exibe notificação local via SW (foreground, background e tela bloqueada)
   // Compatível com Samsung One UI, Motorola (My UX), MIUI e Android puro.
   async function _exibirNotificacaoLocal(titulo, corpo, placa, tipo = 'chamada') {
-    if (Notification.permission !== 'granted') return;
     const ehChamada = tipo === 'chamada';
+
+    // No APK nativo o objeto Notification não existe — o FCM entrega
+    // diretamente via sistema Android. Aqui só exibimos no foreground
+    // via FirebaseMessaging.showNotifications (se disponível) e vibramos.
+    if (_isCapacitor()) {
+      try {
+        vibrar(ehChamada ? [300, 150, 300, 150, 600] : [150, 75, 150]);
+        const FM = window?.Capacitor?.Plugins?.FirebaseMessaging;
+        if (FM && FM.showNotifications) {
+          await FM.showNotifications({ notifications: [{
+            id:    String(Date.now()),
+            title: titulo,
+            body:  corpo,
+            data:  { placa, tipo },
+          }]});
+          console.log('[FCM] Notificação exibida via FirebaseMessaging (foreground nativo)');
+        } else {
+          // Foreground nativo sem showNotifications: FCM já entregou o banner
+          console.log('[FCM] Foreground nativo — banner entregue pelo sistema Android');
+        }
+      } catch(e) {
+        console.warn('[Notificação] Erro no foreground nativo:', e.message);
+      }
+      return; // nunca tenta SW no APK
+    }
+
+    // WEB / PWA
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
     try {
       const reg = await navigator.serviceWorker.ready;
 
