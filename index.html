@@ -1047,7 +1047,7 @@
     .detalhe-linha b { color: var(--text-main); }
     .obs-linha { font-size: 0.6rem; color: var(--text-muted); font-style: italic; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
     .obs-row-full td { padding: 0 12px 8px; border-top: none; }
-    .obs-linha-full { font-size: 0.6rem; color: var(--text-muted); font-style: italic; white-space: normal; overflow: visible; display: flex; align-items: flex-start; gap: 4px; width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.025); border-radius: 6px; padding: 5px 8px; }
+    .obs-linha-full { font-size: 0.6rem; color: var(--text-muted); font-style: normal; font-weight: 700; white-space: normal; overflow: visible; display: flex; align-items: flex-start; gap: 4px; width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.025); border-radius: 6px; padding: 5px 8px; }
 
     /* ===================== TEMPO NO PÁTIO ===================== */
     .tempo-badge { display: inline-block; font-size: 0.52rem; font-weight: 700; padding: 3px 8px; border-radius: 20px; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
@@ -2653,22 +2653,6 @@
     </div>
   </div>
 
-  <!-- CARD DIVERSOS (descarregados) — dentro do wrapper para sumir junto nas outras abas -->
-  <div id="cardDiversos" style="display:none;margin:0 0 10px;background:var(--card-bg);border-radius:var(--radius-md);border:1.5px solid var(--border);border-bottom:4px solid var(--border);overflow:hidden;transition:max-height .35s cubic-bezier(.4,0,.2,1);">
-    <!-- Cabeçalho com seta animada -->
-    <div id="divArrowUp" onclick="toggleDiversos()" style="display:flex;align-items:center;justify-content:center;padding:7px 0 2px;cursor:pointer;gap:6px;">
-      <span style="font-size:0.72rem;font-weight:700;color:var(--text-muted);letter-spacing:.05em;text-transform:uppercase;">Descarregados</span>
-      <span id="arrowUp" style="font-size:1.1rem;color:var(--text-muted);" class="arrow-pulse">&#8593;</span>
-    </div>
-    <!-- Lista colapsável -->
-    <div id="listaDiversos" style="max-height:0;overflow:hidden;transition:max-height .35s cubic-bezier(.4,0,.2,1);">
-      <div style="padding:4px 12px 10px;">
-        <div class="resumo-produto" id="resumoDiversos"></div>
-        <div class="detalhe-produto" id="detalheDiversos" style="font-size:0.78rem;color:var(--text-muted);"></div>
-      </div>
-    </div>
-  </div>
-
   </div><!-- /paineis-contagem-wrapper -->
 
   <!-- ABA ENTRADA -->
@@ -2777,6 +2761,23 @@
 
   <!-- ABA HISTÓRICO -->
   <div id="abaHist" class="card" style="border-top-color: var(--accent); padding-top: 8px;">
+
+    <!-- CARD DIVERSOS (descarregados) — só aparece nesta aba -->
+    <div id="cardDiversos" style="display:none;margin:0 0 12px;background:var(--bg);border-radius:var(--radius-md);border:1.5px solid var(--border);border-bottom:4px solid var(--warn);overflow:hidden;transition:max-height .35s cubic-bezier(.4,0,.2,1);" data-hist-mode="0">
+      <!-- Cabeçalho com seta animada -->
+      <div id="divArrowUp" onclick="toggleDiversos()" style="display:flex;align-items:center;justify-content:center;padding:8px 12px 4px;cursor:pointer;gap:6px;">
+        <span style="font-size:0.72rem;font-weight:700;color:var(--text-muted);letter-spacing:.05em;text-transform:uppercase;">⬇ Descarregados</span>
+        <span id="arrowUp" style="font-size:1.1rem;color:var(--text-muted);" class="arrow-pulse">&#8593;</span>
+      </div>
+      <!-- Lista colapsável -->
+      <div id="listaDiversos" style="max-height:0;overflow:hidden;transition:max-height .35s cubic-bezier(.4,0,.2,1);">
+        <div style="padding:4px 12px 10px;">
+          <div class="resumo-produto" id="resumoDiversos"></div>
+          <div class="detalhe-produto" id="detalheDiversos" style="font-size:0.78rem;color:var(--text-muted);"></div>
+        </div>
+      </div>
+    </div>
+
     <table id="tabDia"><tbody></tbody></table>
     <table id="tabNoite" style="display:none"><tbody></tbody></table>
   </div>
@@ -4676,23 +4677,27 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const cardDiv = document.getElementById('cardDiversos');
     const arrowUp = document.getElementById('arrowUp');
     if (veiculosDiversos.length > 0) {
-      cardDiv.style.display = '';
-      // Pills por produto
-      const divPorProd = {};
-      veiculosDiversos.forEach(v => { divPorProd[v.produto] = (divPorProd[v.produto]||0)+1; });
-      const pillsDiv = Object.entries(divPorProd).sort((a,b)=>b[1]-a[1])
-        .map(([p,q]) => `<span class="prod-pill" style="border-color:#b05a00;color:#b05a00;">${q} ${p}</span>`).join('');
+      // Só mostra o card se estivermos na aba Histórico
+      if (cardDiv && cardDiv.dataset.histMode === '1') {
+        cardDiv.style.display = '';
+      }
+      // Pills: só o nome do produto, estilo padrão laranja
+      const todosProds = [...new Set(veiculosDiversos.map(v => v.produto||'---'))].sort();
+      const pillsDiv = todosProds
+        .map(p => `<span class="prod-pill" style="background:rgba(217,119,6,0.15);color:#d97706;border:1px solid rgba(217,119,6,0.4);font-weight:800;">${p}</span>`).join('');
       document.getElementById('resumoDiversos').innerHTML = pillsDiv || '';
-      // Detalhe por produto-transportadora
-      const divPT = {};
-      veiculosDiversos.forEach(v => {
-        const k = `${v.produto}-${v.transportadora}`;
-        if (!divPT[k]) divPT[k] = { p:v.produto, t:v.transportadora, q:0 };
-        divPT[k].q++;
-      });
+      // Detalhe: "1 ureia - cibra" + status à direita
+      const sorted = [...veiculosDiversos].sort((a,b) => (a.produto||'').localeCompare(b.produto||''));
       let htmlDiv = '';
-      Object.values(divPT).sort((a,b)=>a.p.localeCompare(b.p)).forEach(i => {
-        htmlDiv += `<div>${i.q} ${i.p} — ${i.t}</div>`;
+      sorted.forEach(v => {
+        const isConcluido = v.status === 'CONCLUIDO';
+        const statusHtml = isConcluido
+          ? `<span style="color:var(--success);font-weight:800;font-size:0.58rem;">✓ Concluído</span>`
+          : `<span style="color:#b45309;font-weight:800;font-size:0.58rem;">⬇ A descarregar</span>`;
+        htmlDiv += `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);">
+          <span style="font-size:0.68rem;color:var(--text-main);font-weight:600;">1 ${v.produto||'---'} — ${v.transportadora||'---'}</span>
+          <span style="margin-left:8px;flex-shrink:0;">${statusHtml}</span>
+        </div>`;
       });
       document.getElementById('detalheDiversos').innerHTML = htmlDiv || '';
       // Seta pulsa se houver dados e lista estiver fechada
@@ -4855,15 +4860,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         veiculosPatio.push(r);
         addHist(r, 'ENTRADA', r.dataEntrada);
       } else if (r.status === 'A DESCARREGAR' || r.status === 'DESCARREGANDO') {
-        // Aparece no histórico E no card DIVERSOS (não nos cards de pátio)
+        // Aparece no histórico E no card Descarregados
         veiculosDiversos.push(r);
         addHist(r, 'ENTRADA', r.dataEntrada);
       } else if (r.status === 'CONCLUIDO') {
-        // Some na virada das 19h igual SAÍDA; antes disso fica em DIVERSOS
+        // Sai do histórico — fica só no card Descarregados (some após 19h)
         if (!ocultarSaidas) {
           veiculosDiversos.push(r);
         }
-        // Não aparece no histórico
       } else if (r.status === 'AGUARDANDO NFE') {
         veiculosCarregados.push(r);
         addHist(r, 'ENTRADA', r.dataEntrada);
@@ -4936,6 +4940,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
     tr.innerHTML = `
       <td class="container-info" style="vertical-align:top;padding-top:12px;padding-bottom:12px;">
+        <span class="data-hora-canto" style="display:block;margin-bottom:3px;">${dStr} ${hStr}</span>
         <span style="font-size:0.55rem;color:var(--text-muted);font-weight:700;">${d.seqGeral ? `N°${String(d.seqGeral).padStart(2,'0')}` : ''}${d.seqProduto ? ` <span style="color:var(--accent);margin-left:4px;">${d.produto||''} #${d.seqProduto}</span>` : ''}</span>
         <div style="font-size:1rem;font-weight:700;color:var(--text-main);font-family:'JetBrains Mono',monospace;letter-spacing:1px;margin:2px 0 1px;">${d.placa}</div>
         <div class="detalhe-linha"><b>MOT:</b> ${d.motorista||'---'}</div>
@@ -4954,19 +4959,18 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 ` : ''}
         ${chamadaBadge}
       </td>
-      <td style="width:22%;text-align:center;vertical-align:middle;padding:10px 4px;overflow:hidden;">
+      <td style="width:22%;text-align:center;vertical-align:top;padding:10px 4px;overflow:hidden;">
         <div class="detalhe-linha" style="white-space:normal;word-break:break-word;line-height:1.3;">${d.transportadora||'---'}</div>
         <div class="detalhe-linha" style="white-space:normal;word-break:break-word;line-height:1.3;"><b>${d.produto||(d.nfe?'NFE: '+d.nfe:'---')}</b></div>
       </td>
       <td class="container-status" style="vertical-align:top;padding-top:12px;padding-bottom:12px;">
 
-        <!-- LINHA 1: data/hora à esquerda + botão editar à direita -->
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:6px;flex-wrap:nowrap;min-width:0;">
-          <span class="data-hora-canto" style="min-width:0;overflow:hidden;text-overflow:ellipsis;">${dStr} ${hStr}</span>
+        <!-- LINHA 1: botão editar -->
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-bottom:6px;">
           ${tipo==='ENTRADA' ? `<button class="btn-edit" title="Editar" onclick="prepararEdicaoEl(this)" style="flex-shrink:0;">${EDIT_ICON_SVG}</button>` : ''}
         </div>
 
-        <!-- LINHA 2: status + fluxo NFE (tudo aqui, sem linha 3) -->
+        <!-- LINHA 2: status + fluxo NFE -->
         ${tipo==='ENTRADA' ? (() => {
           const _isBA = (perfilAtual === 'balanca' || perfilAtual === 'admin' || (() => { try { const p = _carregarPerfisCustom()[perfilAtual]; return p && p.permissoes && p.permissoes.gerenciar_perfis; } catch(e){return false;} })());
           if (d.status === 'CARREGANDO') {
@@ -4977,7 +4981,12 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           }
           if (d.status === 'A DESCARREGAR') {
             return `<div style="text-align:right;margin-bottom:6px;">
-              <span style="color:#f59e0b;font-weight:800;font-size:0.62rem;white-space:nowrap;">A DESCARREGAR</span>
+              <span style="color:#f59e0b;font-weight:800;font-size:0.62rem;white-space:nowrap;">⬇ A DESCARREGAR</span>
+            </div>`;
+          }
+          if (d.status === 'CONCLUIDO') {
+            return `<div style="text-align:right;margin-bottom:6px;">
+              <span style="color:var(--success);font-weight:800;font-size:0.62rem;white-space:nowrap;display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>CONCLUÍDO</span>
             </div>`;
           }
           if (d.status === 'AGUARDANDO NFE') {
@@ -5016,7 +5025,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       trObs.dataset.obsplaca = d.placa || '';
       trObs.innerHTML = `<td colspan="3" style="padding:0 12px 10px;border-top:none;">
         <div class="obs-linha-full">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           <span>${obsFirebase}</span>
         </div>
       </td>`;
@@ -5700,6 +5709,19 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         if (wrapper) wrapper.classList.remove('escondido');
       } else {
         paineis.classList.add('oculto');
+      }
+    }
+
+    // Card Descarregados só aparece na aba Histórico
+    const cardDiv = document.getElementById('cardDiversos');
+    if (cardDiv) {
+      if (id === 'abaHist') {
+        cardDiv.dataset.histMode = '1';
+        // Mostra se já houver dados
+        if (veiculosDiversos && veiculosDiversos.length > 0) cardDiv.style.display = '';
+      } else {
+        cardDiv.dataset.histMode = '0';
+        cardDiv.style.display = 'none';
       }
     }
 
@@ -6463,11 +6485,17 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   const LS_PRODUTOS_KEY = 'portaria_produtos_v1';
   const PRODUTOS_PADRAO = ['SOJA','MILHO','MILHO WAXY','ALGODÃO','TRIGO','BRIQUETE','FERTILIZANTE'];
 
+  // Normaliza lista: aceita tanto ["NOME"] quanto [{nome,descarregar}]
+  function _normalizarProdutos(raw) {
+    if (!Array.isArray(raw)) return PRODUTOS_PADRAO.map(n => ({ nome: n, descarregar: false }));
+    return raw.map(p => typeof p === 'string' ? { nome: p, descarregar: false } : { nome: p.nome||'', descarregar: !!p.descarregar });
+  }
+
   function _carregarProdutos() {
     try {
       const raw = localStorage.getItem(LS_PRODUTOS_KEY);
-      return raw ? JSON.parse(raw) : [...PRODUTOS_PADRAO];
-    } catch(e) { return [...PRODUTOS_PADRAO]; }
+      return _normalizarProdutos(raw ? JSON.parse(raw) : [...PRODUTOS_PADRAO]);
+    } catch(e) { return _normalizarProdutos([...PRODUTOS_PADRAO]); }
   }
 
   function _salvarProdutos(lista) {
@@ -6486,7 +6514,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     sel.innerHTML = '';
     produtos.forEach(p => {
       const opt = document.createElement('option');
-      opt.value = p; opt.textContent = p;
+      opt.value = p.nome; opt.textContent = p.nome;
+      if (p.descarregar) opt.dataset.descarregar = 'SIM';
       sel.appendChild(opt);
     });
     // Opção "Outros" sempre ao final
@@ -6503,11 +6532,15 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   // Produtos que ativam a regra de descarga/carregamento
   const PRODUTOS_GATILHO = ['FERTILIZANTE', 'ADUBO', 'DEFENSIVOS'];
 
-  // Verifica se o produto atual é um gatilho
+  // Verifica se o produto atual é um gatilho (flag salva OU lista legada)
   function _isProdutoGatilho() {
     const sel = document.getElementById('prod_ent');
     if (!sel) return false;
     if (sel.value === '__OUTROS__') return true; // OUTROS sempre é gatilho
+    // Verifica flag descarregar salva no option
+    const optSel = sel.options[sel.selectedIndex];
+    if (optSel && optSel.dataset.descarregar === 'SIM') return true;
+    // Fallback: lista hardcoded legada
     const prod = sel.value.toUpperCase().trim();
     return PRODUTOS_GATILHO.some(g => prod.includes(g));
   }
@@ -6600,7 +6633,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         <div class="perfil-item-info">
           <div class="perfil-item-nome" style="display:flex;align-items:center;gap:8px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 3H8l-2 4h12l-2-4z"/></svg>
-            ${p}
+            ${p.nome}
+            ${p.descarregar ? `<span style="font-size:0.55rem;font-weight:800;color:var(--danger);background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.3);border-radius:20px;padding:1px 6px;">⬇ DESC.</span>` : ''}
           </div>
         </div>
         <div class="perfil-item-acoes">
@@ -6615,10 +6649,28 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     });
   }
 
+  function _setProdutoDescCheckbox(val) {
+    const chk = document.getElementById('chk_produto_descarregar');
+    const box = document.getElementById('checkProdutoCustom');
+    const icon = document.getElementById('checkProdutoIcon');
+    const campo = document.getElementById('campoProdutoDescarregar');
+    if (chk) chk.checked = !!val;
+    if (icon) icon.style.display = val ? 'block' : 'none';
+    if (box) { box.style.background = val ? 'var(--danger)' : 'white'; box.style.borderColor = val ? 'var(--danger)' : 'rgba(220,38,38,0.5)'; }
+    if (campo) campo.style.background = val ? 'rgba(220,38,38,0.12)' : 'rgba(220,38,38,0.07)';
+    if (campo) campo.style.borderColor = val ? 'rgba(220,38,38,0.5)' : 'rgba(220,38,38,0.25)';
+  }
+
+  function toggleProdutoDescarregar() {
+    const chk = document.getElementById('chk_produto_descarregar');
+    _setProdutoDescCheckbox(!chk.checked);
+  }
+
   function produtoEditarNovo() {
     _produtoEditIdx = null;
     document.getElementById('produtoEditTitulo').textContent = 'Novo Produto';
     document.getElementById('produtoEditNome').value = '';
+    _setProdutoDescCheckbox(false);
     document.getElementById('produtosListaView').style.display = 'none';
     document.getElementById('produtosEditView').classList.add('ativo');
     setTimeout(() => document.getElementById('produtoEditNome').focus(), 150);
@@ -6628,7 +6680,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const produtos = _carregarProdutos();
     _produtoEditIdx = idx;
     document.getElementById('produtoEditTitulo').textContent = 'Editar Produto';
-    document.getElementById('produtoEditNome').value = produtos[idx] || '';
+    document.getElementById('produtoEditNome').value = produtos[idx].nome || '';
+    _setProdutoDescCheckbox(!!produtos[idx].descarregar);
     document.getElementById('produtosListaView').style.display = 'none';
     document.getElementById('produtosEditView').classList.add('ativo');
     setTimeout(() => document.getElementById('produtoEditNome').focus(), 150);
@@ -6643,12 +6696,13 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   function produtoSalvar() {
     const nome = document.getElementById('produtoEditNome').value.trim().toUpperCase();
     if (!nome) { mostrarToast('⚠️ Informe o nome do produto!', 'error'); return; }
+    const descarregar = !!document.getElementById('chk_produto_descarregar').checked;
     const produtos = _carregarProdutos();
     if (_produtoEditIdx !== null) {
-      produtos[_produtoEditIdx] = nome;
+      produtos[_produtoEditIdx] = { nome, descarregar };
     } else {
-      if (produtos.includes(nome)) { mostrarToast('⚠️ Produto já existe!', 'error'); return; }
-      produtos.push(nome);
+      if (produtos.some(p => p.nome === nome)) { mostrarToast('⚠️ Produto já existe!', 'error'); return; }
+      produtos.push({ nome, descarregar });
     }
     _salvarProdutos(produtos);
     renderProdutosSelect();
@@ -6659,7 +6713,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   async function produtoApagar(idx) {
     const produtos = _carregarProdutos();
     if (produtos.length <= 1) { mostrarToast('⚠️ Deve haver ao menos 1 produto.', 'error'); return; }
-    const ok = await mostrarDialog({ icone:'🗑️', titulo:'Apagar Produto', msg:`Apagar "${produtos[idx]}"? Essa ação não pode ser desfeita.`, botoes:[{texto:'Cancelar',tipo:'cancel'},{texto:'Apagar',tipo:'ok'}] });
+    const ok = await mostrarDialog({ icone:'🗑️', titulo:'Apagar Produto', msg:`Apagar "${produtos[idx].nome}"? Essa ação não pode ser desfeita.`, botoes:[{texto:'Cancelar',tipo:'cancel'},{texto:'Apagar',tipo:'ok'}] });
     if (!ok) return;
     produtos.splice(idx, 1);
     _salvarProdutos(produtos);
@@ -6905,7 +6959,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     abrirGerenciarProdutos, fecharGerenciarProdutos,
     produtoEditar, produtoApagar, produtoEditarNovo, produtoVoltarLista, produtoSalvar,
     onProdutoChange, renderProdutosSelect, onProdutoManualInput,
-    toggleDescarregar, registrarSaidaDescarga, toggleDiversos, toggleChkDiversos,
+    toggleDescarregar, toggleProdutoDescarregar, registrarSaidaDescarga, toggleDiversos, toggleChkDiversos,
     registrarAguardarNfeEl,
     registrarNfeOkEl,
     // Janela flutuante mini
@@ -7084,6 +7138,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       <div style="padding:0 14px 24px;display:flex;flex-direction:column;gap:10px;">
         <label style="font-size:0.62rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">Nome do Produto</label>
         <input class="perfil-edit-input" id="produtoEditNome" placeholder="EX: SOJA, MILHO..." maxlength="40" autocomplete="off" oninput="this.value=this.value.toUpperCase()">
+        <!-- Checkbox Descarregar -->
+        <div id="campoProdutoDescarregar" onclick="toggleProdutoDescarregar()" style="display:flex;align-items:center;gap:10px;background:rgba(220,38,38,0.07);border:1.5px solid rgba(220,38,38,0.25);border-radius:var(--radius-sm);padding:10px 14px;cursor:pointer;user-select:none;transition:background 0.2s,border-color 0.2s;">
+          <input type="checkbox" id="chk_produto_descarregar" style="display:none;">
+          <div id="checkProdutoCustom" style="width:22px;height:22px;border-radius:6px;border:2px solid rgba(220,38,38,0.5);background:white;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.18s;">
+            <svg id="checkProdutoIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <span style="font-size:0.82rem;font-weight:800;color:var(--danger);text-transform:uppercase;letter-spacing:0.5px;">⬇ Descarregar</span>
+        </div>
         <button class="btn-salvar-perfil" onclick="produtoSalvar()">✓ Salvar Produto</button>
       </div>
     </div>
