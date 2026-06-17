@@ -4799,7 +4799,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // • PÁTIO         → ativo no pátio, aparece no histórico
     // • CARREGANDO    → ativo no pátio (fundo azul), aparece no histórico
     // • A DESCARREGAR → NÃO aparece nos cards de pátio, aparece no histórico com badge próprio
-    // • AGUARDANDO NFE → aparece na lista (fundo branco), conta no card "Carregados", NÃO some na virada
+    // • AGUARDANDO NFE → aparece na lista (fundo branco), conta no card "Carregados", SOME do card na virada das 19h (mas continua na lista)
     // • SAÍDA         → carregados + histórico (some após 19h)
     // • CONCLUIDO     → não aparece em nada
     const ocultarSaidas = new Date().getHours() >= 19;
@@ -4869,7 +4869,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           veiculosDiversos.push(r);
         }
       } else if (r.status === 'AGUARDANDO NFE') {
-        veiculosCarregados.push(r);
+        // Após 19h (limpeza noturna): sai do card Carregados mas continua visível na lista
+        if (!ocultarSaidas) {
+          veiculosCarregados.push(r);
+        }
         addHist(r, 'ENTRADA', r.dataEntrada);
       } else if (r.status === 'SAÍDA') {
         if (!ocultarSaidas) {
