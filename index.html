@@ -4886,7 +4886,11 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         }
         addHist(r, 'ENTRADA', r.dataEntrada);
       } else if (r.status === 'SAÍDA') {
-        if (!ocultarSaidas) {
+        // Mesma regra do AGUARDANDO NFE: se chegada já foi zerada (registro de dia
+        // anterior que a limpeza noturna descartou da fila), a saída registrada pela
+        // portaria NÃO deve voltar a contar no card "Carregados" nem ficar presa no
+        // histórico — some imediatamente, sem esperar a limpeza da noite.
+        if (r.chegada > 0 && !ocultarSaidas) {
           veiculosCarregados.push(r);
           addHist(r, 'SAÍDA', r.dataEntrada);
         }
