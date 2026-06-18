@@ -75,7 +75,27 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 3. Assets estáticos → Cache First, atualiza cache em background
+  // 2.1 Outras páginas HTML do site (ex: cotton.html) → Network First isolado.
+  //     IMPORTANTE: o fallback de erro busca a própria página no cache,
+  //     nunca cai para './index.html' — isso evita que, numa falha de rede
+  //     pontual, o app errado seja exibido no lugar (bug corrigido aqui).
+  const isOutraPaginaHtml = url.pathname.endsWith('.html') && !isIndex;
+  if (isOutraPaginaHtml) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // 3. Assets estáticos (não-HTML) → Cache First, atualiza cache em background
   event.respondWith(
     caches.match(event.request).then(cached => {
       const networkFetch = fetch(event.request).then(response => {
@@ -84,10 +104,10 @@ self.addEventListener('fetch', event => {
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
-      });
+      }).catch(() => cached); // rede falhou: usa cache se houver, senão propaga o erro
       // Serve do cache imediatamente E atualiza em background
       return cached || networkFetch;
-    }).catch(() => caches.match('./index.html'))
+    })
   );
 });
 
