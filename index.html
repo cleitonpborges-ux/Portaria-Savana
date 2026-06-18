@@ -4808,7 +4808,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // • PÁTIO         → ativo no pátio, aparece no histórico
     // • CARREGANDO    → ativo no pátio (fundo azul), aparece no histórico
     // • A DESCARREGAR → NÃO aparece nos cards de pátio, aparece no histórico com badge próprio
-    // • AGUARDANDO NFE → aparece na lista (fundo branco), conta no card "Carregados", SOME do card na virada das 19h (mas continua na lista)
+    // • AGUARDANDO NFE → entra no card "Carregados" apenas se for do dia atual e antes das 19h; do dia anterior aparece só na lista
     // • SAÍDA         → carregados + histórico (some após 19h)
     // • CONCLUIDO     → não aparece em nada
     const ocultarSaidas = new Date().getHours() >= 19;
@@ -4878,8 +4878,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           veiculosDiversos.push(r);
         }
       } else if (r.status === 'AGUARDANDO NFE') {
-        // Após 19h (limpeza noturna): sai do card Carregados mas continua visível na lista
-        if (!ocultarSaidas) {
+        // Entra no card Carregados apenas se ainda tiver n° chegada (> 0).
+        // Quando o Sheets faz a limpeza noturna, zera o campo chegada —
+        // isso sinaliza que o registro é de um dia anterior e não deve mais contar.
+        if (r.chegada > 0 && !ocultarSaidas) {
           veiculosCarregados.push(r);
         }
         addHist(r, 'ENTRADA', r.dataEntrada);
