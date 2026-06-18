@@ -2424,7 +2424,7 @@
           <span class="gear-item-label">Planilha</span>
         </button>
         <!-- Cotton (link externo) -->
-        <button class="gear-item" onclick="window.open('https://portaria-savana.web.app/cotton.html', '_blank'); fecharGear()" title="Cotton">
+        <button class="gear-item" onclick="abrirCotton(); fecharGear()" title="Cotton">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
             <line x1="2" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="2"/>
@@ -6752,6 +6752,28 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   // ou no navegador web (PWA)
   function _isCapacitor() {
     return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  }
+
+  // Abre o painel Cotton sempre no navegador EXTERNO do sistema (Chrome/Safari),
+  // nunca dentro da WebView do app — evita que pareça "uma segunda tela do app"
+  // e evita qualquer disputa de recursos (FCM, listeners) com a Portaria.
+  function abrirCotton() {
+    const url = 'https://portaria-savana.web.app/cotton.html';
+    try {
+      // 1) Se o plugin Browser do Capacitor estiver instalado, usa ele (ideal)
+      const Browser = window?.Capacitor?.Plugins?.Browser;
+      if (_isCapacitor() && Browser && typeof Browser.open === 'function') {
+        Browser.open({ url });
+        return;
+      }
+    } catch (e) {
+      console.warn('[Cotton] Plugin Browser indisponível, usando fallback:', e);
+    }
+    // 2) Dentro do APK sem o plugin: '_system' é a convenção reconhecida pelo
+    //    bridge nativo do Capacitor/Cordova para forçar o navegador do sistema.
+    // 3) No navegador comum / PWA: '_blank' abre uma nova aba normalmente.
+    const destino = _isCapacitor() ? '_system' : '_blank';
+    window.open(url, destino);
   }
 
   // Chamada após login — pede permissão e registra token FCM no Firestore
