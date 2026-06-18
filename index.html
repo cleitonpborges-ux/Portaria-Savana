@@ -2424,7 +2424,7 @@
           <span class="gear-item-label">Planilha</span>
         </button>
         <!-- Cotton (link externo) -->
-        <button class="gear-item" onclick="abrirCotton(); fecharGear()" title="Cotton">
+        <button class="gear-item" data-permissao="cotton" onclick="abrirCotton(); fecharGear()" title="Cotton">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
             <line x1="2" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="2"/>
@@ -6045,6 +6045,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     { id: 'aguardar_nfe',     nome: 'Botão Aguard. NFE',   desc: 'Confirmar NFE OK para alertar portaria (balança/admin)' },
     { id: 'dashboard',        nome: 'Dashboard Desktop',     desc: 'Abrir painel dashboard em nova janela (admin/balança)' },
     { id: 'janela_mini',      nome: 'Janela Mini (PiP)',     desc: 'Abrir janela flutuante sempre no topo (admin/balança)' },
+    { id: 'cotton',           nome: 'Cotton',                desc: 'Acessar o painel Cotton (link externo)' },
     // ↑ ADICIONE NOVAS PERMISSÕES AQUI — siga o padrão acima.
     // Lembre de registrar também em aplicarPermissoes() e, se for botão no gear,
     // adicione data-permissao="id_da_permissao" no elemento HTML do botão.
@@ -6073,23 +6074,36 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   const PERFIS_PADRAO = {
     portaria: {
       label: '🚛 Portaria', usuario: 'portaria', senha: 'portaria123',
-      permissoes: { aba_entrada:true, aba_saida:true, aba_historico:true, trocar_turno:true, relatorio:true, planilha:false, modo_noite:true, gerenciar_perfis:false, card_descarregados:true }
+      permissoes: { aba_entrada:true, aba_saida:true, aba_historico:true, trocar_turno:true, relatorio:true, planilha:false, modo_noite:true, gerenciar_perfis:false, card_descarregados:true, cotton:true }
     },
     balanca: {
       label: '⚖️ Balança', usuario: 'balanca', senha: 'balanca123',
-      permissoes: { aba_entrada:false, aba_saida:false, aba_historico:true, trocar_turno:false, relatorio:false, planilha:false, modo_noite:true, gerenciar_perfis:false, card_descarregados:false }
+      permissoes: { aba_entrada:false, aba_saida:false, aba_historico:true, trocar_turno:false, relatorio:false, planilha:false, modo_noite:true, gerenciar_perfis:false, card_descarregados:false, cotton:true }
     },
     admin: {
       label: '⚙️ Admin', usuario: 'admin', senha: 'admin123',
-      permissoes: { aba_entrada:true, aba_saida:true, aba_historico:true, trocar_turno:true, relatorio:true, planilha:true, modo_noite:true, gerenciar_perfis:true, card_descarregados:true }
+      permissoes: { aba_entrada:true, aba_saida:true, aba_historico:true, trocar_turno:true, relatorio:true, planilha:true, modo_noite:true, gerenciar_perfis:true, card_descarregados:true, cotton:true }
     }
   };
 
   function _carregarPerfisCustom() {
+    let perfis;
     try {
       const raw = localStorage.getItem(LS_PERFIS_CUSTOM);
-      return raw ? JSON.parse(raw) : JSON.parse(JSON.stringify(PERFIS_PADRAO));
-    } catch(e) { return JSON.parse(JSON.stringify(PERFIS_PADRAO)); }
+      perfis = raw ? JSON.parse(raw) : JSON.parse(JSON.stringify(PERFIS_PADRAO));
+    } catch(e) {
+      perfis = JSON.parse(JSON.stringify(PERFIS_PADRAO));
+    }
+    // ── MIGRAÇÃO: perfis salvos antes da permissão "cotton" existir não têm essa
+    //    chave no objeto. Para manter o comportamento atual (botão visível pra
+    //    todos), preenche com true apenas quando a chave ainda não existe —
+    //    nunca sobrescreve uma escolha que o admin já tenha feito manualmente.
+    Object.keys(perfis).forEach(k => {
+      if (perfis[k].permissoes && !('cotton' in perfis[k].permissoes)) {
+        perfis[k].permissoes.cotton = true;
+      }
+    });
+    return perfis;
   }
 
   function _salvarPerfisCustom(perfis) {
@@ -7000,6 +7014,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     abrirJanelaFlutuante, fecharJanelaFlutuante,
     // Dashboard desktop
     abrirDashboard,
+    // Cotton (link externo)
+    abrirCotton,
   });
 
 
