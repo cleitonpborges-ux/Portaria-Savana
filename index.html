@@ -3154,6 +3154,7 @@
       const veiculo = veiculosPatio.splice(idx, 1)[0];
       veiculo.status = 'AGUARDANDO NFE';
       veiculosCarregados.push(veiculo);
+      veiculosAguardandoNfeBusca.push(veiculo);
       atualizarDetalhesProdutos('carga');
     }
 
@@ -3933,6 +3934,10 @@
 
   let veiculosPatio = [];
   let veiculosCarregados = [];
+  // Espelha TODOS os veículos AGUARDANDO NFE (inclusive os de dias anteriores, com chegada
+  // zerada pela limpeza noturna). Usado SOMENTE para localizar a placa na aba Saída
+  // (busca/autocomplete/preview) — NÃO entra na contagem do card "Carregados".
+  let veiculosAguardandoNfeBusca = [];
   let veiculosDiversos = []; // A DESCARREGAR, DESCARREGANDO, CONCLUIDO
   let historicoChamadas = [];
   let turnoAtual = { porteiro: '', inicio: null, trocas: [] };
@@ -4514,7 +4519,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   function previewSaida(val) {
     const placa = val.toUpperCase().trim();
     const veiculo = veiculosPatio.find(v => v.placa === placa)
-                 || veiculosCarregados.find(v => v.placa === placa && v.status === 'AGUARDANDO NFE');
+                 || veiculosCarregados.find(v => v.placa === placa && v.status === 'AGUARDANDO NFE')
+                 || veiculosAguardandoNfeBusca.find(v => v.placa === placa);
     const preview = document.getElementById('preview_saida');
     if (veiculo) {
       preview.style.display = 'block';
@@ -4546,7 +4552,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     if (q.length < 2) { lista.classList.remove('visivel'); lista.innerHTML = ''; return; }
 
     // Busca por início da placa OU pelos 4 dígitos/letras finais
-    const candidatos = [...veiculosPatio, ...veiculosCarregados].filter(v => {
+    const candidatos = [...veiculosPatio, ...veiculosCarregados, ...veiculosAguardandoNfeBusca].filter(v => {
       const p = (v.placa || '').toUpperCase();
       return p.startsWith(q) || p.endsWith(q) || p.slice(-4) === q.slice(-4) && q.length >= 4;
     });
@@ -4788,7 +4794,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
     document.querySelector("#tabDia tbody").innerHTML = "";
     document.querySelector("#tabNoite tbody").innerHTML = "";
-    veiculosPatio = []; veiculosCarregados = []; veiculosDiversos = [];
+    veiculosPatio = []; veiculosCarregados = []; veiculosDiversos = []; veiculosAguardandoNfeBusca = [];
 
     dados.sort((a, b) => a.chegada - b.chegada);
 
@@ -4884,6 +4890,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         if (r.chegada > 0 && !ocultarSaidas) {
           veiculosCarregados.push(r);
         }
+        // Independente da chegada/ocultarSaidas: o veículo continua fisicamente no pátio
+        // aguardando a NFe, então precisa continuar localizável na aba Saída (busca,
+        // autocomplete e preview) mesmo após a limpeza zerar o campo chegada.
+        veiculosAguardandoNfeBusca.push(r);
         addHist(r, 'ENTRADA', r.dataEntrada);
       } else if (r.status === 'SAÍDA') {
         // Mesma regra do AGUARDANDO NFE: se chegada já foi zerada (registro de dia
@@ -5526,9 +5536,11 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     btn.disabled = true;
     btn.innerText = "⏳ Processando...";
     btn.style.opacity = '0.7';
-    // Busca em pátio E em aguardando NFe
+    // Busca em pátio E em aguardando NFe (inclusive os de dias anteriores, que tiveram
+    // o n° de chegada zerado pela limpeza noturna mas continuam fisicamente no pátio)
     const veiculo = veiculosPatio.find(v => v.placa === placa)
-                 || veiculosCarregados.find(v => v.placa === placa && v.status === 'AGUARDANDO NFE');
+                 || veiculosCarregados.find(v => v.placa === placa && v.status === 'AGUARDANDO NFE')
+                 || veiculosAguardandoNfeBusca.find(v => v.placa === placa);
     const payload = { placa, nfe, acao:"SAIDA" };
     try {
       if (!navigator.onLine) { await idbAdicionarPendente(payload); throw new Error('offline'); }
@@ -5553,9 +5565,15 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       // AGUARDANDO NFE que sai NÃO altera o card do dia atual (regra: saída de outro dia não conta)
       // apenas remove da lista local
       const idxCarr = veiculosCarregados.findIndex(v => v.placa === placa && v.status === 'AGUARDANDO NFE');
+      const idxBusca = veiculosAguardandoNfeBusca.findIndex(v => v.placa === placa);
+      if (idxBusca >= 0) veiculosAguardandoNfeBusca.splice(idxBusca, 1);
       if (idxCarr >= 0) {
         veiculosCarregados.splice(idxCarr, 1);
         // Não pulsamos 'carga' pois a saída de outro dia não altera o contador de hoje
+        atualizarDetalhesProdutos();
+      } else if (idxBusca >= 0) {
+        // Veículo de dia anterior (AGUARDANDO NFE com chegada já zerada) — também
+        // não deve pulsar o card "carga", pois não fazia parte da contagem de hoje.
         atualizarDetalhesProdutos();
       } else {
         pulsarCard('carga');
