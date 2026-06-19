@@ -1198,6 +1198,18 @@ body::before {
   letter-spacing: .06em;
   margin-top: 3px;
 }
+@keyframes ieHandBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes loteFoundPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0,229,160,.55); }
+  50% { box-shadow: 0 0 0 7px rgba(0,229,160,0); }
+}
+.lote-found-pulse {
+  animation: loteFoundPulse 1.3s ease-out 3;
+  border-color: var(--green) !important;
+}
 </style>
 <body>
 
@@ -1300,11 +1312,12 @@ body::before {
     <!-- CARD PTAX -->
     <div id="ptax-card" style="padding:10px 16px;font-family:var(--font-mono);min-width:220px;">
       <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">
-        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:5px;"></span>
-        PTAX · USD/BRL<span id="ptax-data" style="margin-left:6px;color:var(--text3);"></span>
+        <span id="ptax-live-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:5px;"></span>
+        <span id="ptax-fonte-label">USD/BRL · TEMPO REAL</span><span id="ptax-data" style="margin-left:6px;color:var(--text3);"></span>
       </div>
       <div style="display:flex;align-items:baseline;gap:10px;">
-        <span id="ptax-valor" style="font-size:26px;font-weight:700;color:var(--green);">—</span>
+        <span id="ptax-valor" style="font-size:26px;font-weight:700;color:var(--green);transition:color .25s ease;">—</span>
+        <span id="ptax-var" style="font-size:13px;font-weight:600;color:var(--text2);"></span>
         <div style="font-size:11px;color:var(--text2);line-height:1.7;">
           <div>Compra: <span id="ptax-compra" style="color:var(--text);">—</span></div>
           <div>Venda: <span id="ptax-venda" style="color:var(--text);">—</span></div>
@@ -1340,13 +1353,24 @@ body::before {
   <!-- DASHBOARD -->
   <div id="scr-dash" class="scr active">
     <div class="mets" id="top-mets"></div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;font-family:var(--font-mono);font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;">
-      <span style="white-space:nowrap;">Status por instrução de embarque</span>
-      <div id="progresso-ie-header" style="flex:1;display:flex;align-items:center;gap:8px;min-width:0;"></div>
-      <button id="ie-sort-btn" onclick="toggleIESort()"
-        style="flex-shrink:0;padding:4px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-family:var(--font-mono);font-size:10px;cursor:pointer;white-space:nowrap;letter-spacing:.05em;text-transform:uppercase;">
-        🕐 Mais recentes
-      </button>
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:var(--font-mono);font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">
+        <span style="white-space:nowrap;">Status por instrução de embarque</span>
+        <button id="ie-sort-btn" onclick="toggleIESort()"
+          style="flex-shrink:0;padding:4px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-family:var(--font-mono);font-size:10px;cursor:pointer;white-space:nowrap;letter-spacing:.05em;text-transform:uppercase;">
+          🕐 Mais recentes
+        </button>
+      </div>
+      <div style="margin-bottom:10px;position:relative;width:260px;">
+        <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;">🔍</span>
+        <input id="ie-search-dash" type="text" placeholder="Pesquisar IE ou lote..." oninput="onIESearchInput(this.value)"
+          style="width:100%;padding:6px 26px 6px 28px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:var(--font-mono);font-size:12px;outline:none;box-sizing:border-box;"
+          onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'"
+          autocomplete="off" spellcheck="false">
+        <button onclick="document.getElementById('ie-search-dash').value='';onIESearchInput('');" title="Limpar"
+          style="position:absolute;right:7px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;line-height:1;padding:0;">✕</button>
+      </div>
+      <div id="progresso-ie-header" style="display:flex;align-items:center;gap:8px;min-width:0;"></div>
     </div>
     <div class="card" id="ie-progs"></div>
   </div>
@@ -1504,14 +1528,14 @@ body::before {
     </div>
     <div class="card">
       <p class="stitle">Fardos por dia + nº cargas</p>
-      <div style="display:flex;gap:16px;margin-bottom:10px;font-size:12px;color:var(--text2);" id="chart-leg"></div>
+      <div style="display:flex;gap:16px;margin-bottom:10px;font-size:12px;color:var(--text);font-weight:500;" id="chart-leg"></div>
       <div class="cw" style="height:240px;"><canvas id="ch1"></canvas></div>
     </div>
     <div class="card" style="margin-top:14px;">
       <p class="stitle">Distribuição por instrução de embarque</p>
       <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;">
         <div class="cw" style="height:200px;width:200px;min-width:180px;"><canvas id="ch2"></canvas></div>
-        <div id="ie-leg" style="flex:1;min-width:180px;"></div>
+        <div id="ie-leg" style="flex:1;min-width:180px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:2px 14px;"></div>
       </div>
     </div>
   </div>
@@ -1674,7 +1698,7 @@ let _fbDocRef = null;
 let _fbReady = (async () => {
   try {
     const { initializeApp } = await import("https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js");
-    const { getFirestore, doc, getDoc, setDoc, onSnapshot, enableIndexedDbPersistence } =
+    const { getFirestore, doc, getDoc, getDocFromServer, setDoc, onSnapshot } =
       await import("https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js");
 
     const _fbApp = initializeApp({
@@ -1686,11 +1710,11 @@ let _fbReady = (async () => {
       appId:             "1:983062289504:web:38ececbd6ec52fafc4f705"
     });
     _fbDb = getFirestore(_fbApp);
-    enableIndexedDbPersistence(_fbDb).catch(() => {});
+    // IndexedDB persistence desabilitada — causa dados em cache stale após importação
     _fbDocRef = doc(_fbDb, 'cotton', 'dados');
 
     // Expõe helpers do Firestore no escopo global para uso fora desta IIFE
-    window._fbFirestore = { doc, getDoc, setDoc, onSnapshot };
+    window._fbFirestore = { doc, getDoc, getDocFromServer, setDoc, onSnapshot };
     return true;
   } catch (e) {
     console.error('[Firebase] Falha ao inicializar:', e);
@@ -1718,6 +1742,29 @@ function assignIEColor(existingIEs) {
 
 // Ordem de exibição das IEs: 'recent' = mais recentes primeiro, 'oldest' = mais antigas primeiro
 let IE_SORT_ORDER = localStorage.getItem('viterra_ie_sort') || 'recent';
+let IE_STATUS_FILTER = null; // null | 'carregadas' | 'a_carregar'
+let IE_SEARCH_TERM = '';
+function setIEStatusFilter(f) {
+  IE_STATUS_FILTER = (IE_STATUS_FILTER === f) ? null : f;
+  renderDash();
+}
+function onIESearchInput(v) {
+  IE_SEARCH_TERM = v.trim().toLowerCase();
+  renderDash();
+}
+// Navega até a tela "Status por instrução de embarque" já filtrando pela IE escolhida
+// (usado ao clicar na pizza de distribuição ou na legenda de IEs)
+function goToIEDetail(ieName) {
+  S('dash');
+  IE_SEARCH_TERM = ieName.toLowerCase();
+  const input = document.getElementById('ie-search-dash');
+  if (input) input.value = ieName;
+  renderDash();
+  setTimeout(() => {
+    const card = document.getElementById('ie-progs');
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 60);
+}
 
 // Retorna IES ordenadas conforme IE_SORT_ORDER
 // "mais recente" = maior número na sigla (BRZ536 > BRZ521 > BRZ505)
@@ -1731,8 +1778,9 @@ function getIEsSorted() {
     return IE_SORT_ORDER === 'recent' ? nb - na : na - nb;
   });
 }
-// Save to Firestore (qualquer usuário pode salvar — controle de acesso é via senha de admin na UI)
-async function saveToStorage() {
+// Save to Firestore — sobrescreve completamente o documento (sem merge),
+// garantindo que dados velhos não acumulem no Firebase.
+async function saveToStorage(isImport = false) {
   const ok = await _fbReady;
   if (!ok || !_fbDb) {
     showToast('Sem conexão com a nuvem. Tente novamente.', 'error');
@@ -1740,25 +1788,51 @@ async function saveToStorage() {
   }
   const mapaToSave = (!Array.isArray(MAPA) && Object.keys(MAPA).length > 0) ? MAPA : DEFAULT_MAPA;
   const nowISO = new Date().toISOString();
-  // Marca o timestamp LOCAL imediatamente — protege contra auto-refresh sobrescrever
-  // estes dados enquanto a escrita ainda está propagando para os outros dispositivos
+
+  // Ao importar planilhas: limpa dados antigos antes de salvar para não acumular no Firebase
+  // Isso garante que o documento sempre reflita exatamente o estado atual das planilhas
+  const payload = {
+    IES,
+    MAPA: mapaToSave,
+    CARGAS,
+    FILA: isImport ? [] : FILA,           // importação limpa a fila (dados novos)
+    LOTE_TIPO,
+    HISTORICO_DIA: isImport ? [] : HISTORICO_DIA, // importação reseta histórico diário
+    updatedAt: nowISO
+  };
+
+  // Seta timestamp ANTES de salvar para que o listener saiba o momento da escrita
   LOADED_DATA_TS = nowISO;
-  const payload = { IES, MAPA: mapaToSave, CARGAS, FILA, LOTE_TIPO, HISTORICO_DIA, updatedAt: nowISO };
+  // Bloqueia listener e auto-refresh por 15s após importação
+  // (tempo suficiente para o Firestore propagar a escrita para todos os dispositivos)
+  _importLockUntil = Date.now() + 15000;
+
+  // Limpa cache local stale para garantir que próxima leitura venha do servidor
+  if (isImport) {
+    localStorage.removeItem('viterra_cache');
+    localStorage.removeItem('viterra_cache_ts');
+    localStorage.removeItem('viterra_last_import_ts');
+  }
+
   try {
     const { setDoc } = window._fbFirestore;
+    // setDoc SEM merge: sobrescreve o documento inteiro, limpando campos obsoletos
     await setDoc(_fbDocRef, payload);
-    // Marca o timestamp dos dados atualmente em memória
+
     LOADED_DATA_TS = nowISO;
-    // Cache local também — com timestamp para outros usuários saberem que há dados novos
     localStorage.setItem('viterra_cache', JSON.stringify(payload));
     localStorage.setItem('viterra_cache_ts', Date.now());
+    localStorage.setItem('viterra_last_import_ts', nowISO);
     document.getElementById('statusDot').innerHTML = `☁️ ${new Date().toLocaleString('pt-BR')}`;
-    showToast('Dados publicados na nuvem para todos!', 'success');
+    if (!isImport) showToast('Dados publicados na nuvem para todos!', 'success');
   } catch(e) {
     console.error(e);
     showToast('Erro ao salvar na nuvem: ' + e.message, 'error');
   }
 }
+
+// Lock para bloquear o listener por alguns segundos após uma importação
+let _importLockUntil = 0;
 
 // Aplica um objeto de dados (vindo da nuvem ou do cache) ao estado em memória.
 // Centraliza a lógica usada tanto pelo load manual quanto pelo listener em tempo real.
@@ -1804,33 +1878,23 @@ async function loadFromStorage(silent = false) {
   try {
     const ok = await _fbReady;
     if (!ok || !_fbDb) throw new Error('Firebase indisponível');
-    const { getDoc } = window._fbFirestore;
-    const snap = await getDoc(_fbDocRef);
+    // getDocFromServer ignora todo cache do Firestore e busca direto do servidor
+    // Isso garante que após uma importação os dados novos apareçam imediatamente
+    const { getDocFromServer } = window._fbFirestore;
+    const snap = await getDocFromServer(_fbDocRef);
     const d = snap.exists() ? snap.data() : null;
 
     if (d && d.IES && d.CARGAS) {
-      // ── PROTEÇÃO ANTI-REGRESSÃO: só aplica se os dados da nuvem forem mais novos
-      //    que os dados atualmente em memória. Isso evita que o auto-refresh
-      //    sobrescreva uma importação recém-feita com uma versão antiga.
-      if (LOADED_DATA_TS && d.updatedAt && d.updatedAt < LOADED_DATA_TS) {
-        if (!silent) showToast('Dados locais já são mais recentes. Nuvem ainda propagando...', 'info');
-        return true; // retorna true (ok) mas não sobrescreve
-      }
-      // ── PROTEÇÃO PÓS-IMPORTAÇÃO: se a nuvem retornou dados mais antigos que a
-      //    última importação feita neste dispositivo, usa o cache local que tem
-      //    os dados corretos (nuvem ainda propagando).
-      const lastImportTs = localStorage.getItem('viterra_last_import_ts');
-      if (lastImportTs && d.updatedAt && d.updatedAt < lastImportTs) {
+      // Se estamos dentro da janela de lock pós-importação, usa o cache local
+      // (o Firestore pode ainda estar propagando a versão nova)
+      if (_importLockUntil && Date.now() < _importLockUntil) {
         const cache = localStorage.getItem('viterra_cache');
         if (cache) {
           const cached = JSON.parse(cache);
-          if (!silent) showToast('Nuvem ainda propagando — usando dados locais mais recentes', 'info');
-          _aplicarDadosNuvem(cached, '📦 Local ·', true);
-          document.getElementById('statusDot').innerHTML = `📦 Local · ${new Date(lastImportTs).toLocaleString('pt-BR')}`;
+          _aplicarDadosNuvem(cached, '☁️', true);
           return true;
         }
       }
-
       _aplicarDadosNuvem(d, '☁️', silent);
       return true;
     }
@@ -1839,11 +1903,6 @@ async function loadFromStorage(silent = false) {
     const cache = localStorage.getItem('viterra_cache');
     if (cache) {
       const d = JSON.parse(cache);
-      // Mesmo no fallback: não sobrescreve dados mais recentes em memória
-      if (LOADED_DATA_TS && d.updatedAt && d.updatedAt < LOADED_DATA_TS) {
-        if (!silent) showToast('Sem conexão — mantendo dados atuais', 'info');
-        return true;
-      }
       _aplicarDadosNuvem(d, '📦', true);
       document.getElementById('statusDot').innerHTML = `📦 CACHE`;
       if (!silent) showToast('Sem conexão — usando cache local', 'info');
@@ -1869,8 +1928,10 @@ async function iniciarListenerCotton() {
     if (!snap.exists()) return;
     const d = snap.data();
     if (!d || !d.IES || !d.CARGAS) return;
-    // Ignora o próprio eco da escrita que este dispositivo acabou de fazer
-    if (LOADED_DATA_TS && d.updatedAt && d.updatedAt <= LOADED_DATA_TS) return;
+
+    // Ignora eventos do Firestore durante a janela de lock pós-importação
+    // (evita que o eco da própria escrita sobrescreva os dados recém-importados)
+    if (_importLockUntil && Date.now() < _importLockUntil) return;
 
     _aplicarDadosNuvem(d, '☁️', true);
     WEEKS = rebuildWeeks();
@@ -1878,11 +1939,12 @@ async function iniciarListenerCotton() {
     updateMapaFromIES();
     if (CARGAS.length && !selDay) selDay = CARGAS[0].dt;
 
-    // Só re-renderiza a tela que o usuário está vendo agora
+    // Re-renderiza a tela que o usuário está vendo agora
     if (curScreen === 'dash') renderDash();
     else if (curScreen === 'graf') { destroyCharts(); renderGraf(); }
     else if (curScreen === 'mapa') renderMapa();
     else if (curScreen === 'diario') renderDiario();
+    else if (curScreen === 'fila') renderFila();
   }, (err) => {
     console.warn('[Firebase] onSnapshot cotton erro:', err);
   });
@@ -1961,6 +2023,33 @@ const DNAMES = ['Seg','Ter','Qua','Qui','Sex'];
 
 // LOTE_IE lookup
 let LOTE_IE = {};
+let PREV_LOTE_STATE = null; // snapshot do estado dos lotes na última verificação, para evitar toasts repetidos
+function getDataSignature() {
+  return JSON.stringify({
+    c: CARGAS.length,
+    last: CARGAS.length ? CARGAS[CARGAS.length - 1].dt : null,
+    f: IES.reduce((s, ie) => s + ie.total_fardos, 0),
+    d: IES.reduce((s, ie) => s + ie.done_fardos, 0)
+  });
+}
+
+// kg realmente carregado por lote, com base no peso líquido (liq) de cada carga,
+// distribuído proporcionalmente aos fardos daquele lote dentro da carga
+// (uma carga pode misturar lotes de IEs diferentes, então não dá pra usar o liq inteiro de uma vez)
+function computeKgPorLote() {
+  const kgPorLote = {};
+  CARGAS.forEach(carga => {
+    const lotesParts = carga.lotes.toString().split(',').map(l => parseInt(l.trim())).filter(l => l > 0);
+    const fdsArr = lotesParts.map((l, idx) => (carga.fds && carga.fds[idx] != null) ? carga.fds[idx] : 110);
+    const totalFdsCarga = fdsArr.reduce((a, b) => a + b, 0);
+    if (!totalFdsCarga || !carga.liq) return;
+    const kgPorFardoNestaCarga = carga.liq / totalFdsCarga;
+    lotesParts.forEach((loteNum, idx) => {
+      kgPorLote[loteNum] = (kgPorLote[loteNum] || 0) + fdsArr[idx] * kgPorFardoNestaCarga;
+    });
+  });
+  return kgPorLote;
+}
 function rebuildLoteIE() {
   LOTE_IE = {};
   IES.forEach(ie => {
@@ -2000,6 +2089,8 @@ function crossReferenceIEsWithCargas() {
   let totalBaixados = 0;
   let totalParciais = 0;
 
+  const novoEstadoLotes = {}; // loteNum -> 'done' | 'partial' | 'pending' (snapshot desta passada)
+
   IES.forEach(ie => {
     if (!ie.lotes_fardos) ie.lotes_fardos = {};
     if (!ie.lotes_parcial) ie.lotes_parcial = {};
@@ -2022,25 +2113,39 @@ function crossReferenceIEsWithCargas() {
       if (carregado <= 0) {
         // Nenhum fardo carregado → pendente
         ie.lotes_pend.push(loteNum);
+        novoEstadoLotes[loteNum] = 'pending';
       } else if (carregado >= autorizado) {
         // Todos (ou mais) os fardos autorizados foram carregados → concluído
         ie.lotes_done.push(loteNum);
         doneFardos += autorizado;   // conta o autorizado, não o excedente acidental
         doneLotes++;
-        if (!(loteNum in (ie.lotes_parcial || {}))) totalBaixados++;
+        novoEstadoLotes[loteNum] = 'done';
         delete ie.lotes_parcial[loteNum]; // limpa parcial se havia
       } else {
         // Carregamento parcial → lote ainda pendente, mas registra progresso
         ie.lotes_pend.push(loteNum);
         ie.lotes_parcial[loteNum] = carregado;
         doneFardos += carregado;   // conta fardos parciais no progresso
-        totalParciais++;
+        novoEstadoLotes[loteNum] = 'partial';
       }
     });
 
     ie.done_fardos = doneFardos;
     ie.done_lotes  = doneLotes;
   });
+
+  // Só notifica sobre lotes que MUDARAM de estado desde a última verificação,
+  // evitando que o toast reapareça a cada atualização/recarregamento sem novidade real.
+  if (PREV_LOTE_STATE !== null) {
+    Object.keys(novoEstadoLotes).forEach(loteNum => {
+      const estadoAtual = novoEstadoLotes[loteNum];
+      const estadoAnterior = PREV_LOTE_STATE[loteNum];
+      if (estadoAtual === estadoAnterior) return;
+      if (estadoAtual === 'done') totalBaixados++;
+      else if (estadoAtual === 'partial' && estadoAnterior !== 'partial') totalParciais++;
+    });
+  }
+  PREV_LOTE_STATE = novoEstadoLotes;
 
   if (totalBaixados > 0 || totalParciais > 0) {
     const partes = [];
@@ -2757,8 +2862,8 @@ function renderDash() {
   // CORRIGIDO: usar totalFardos em vez de 30813 hardcoded
   const pctC = totalFardos ? Math.round(doneFardos / totalFardos * 100) : 0;
   
-  // Progresso geral dos 30.813 fardos comprometidos
-  const TOTAL_CONTRATO = 30813;
+  // Progresso geral baseado nos fardos reais das IEs importadas
+  const TOTAL_CONTRATO = totalFardos || 30813;
   const pctContrato = Math.round(doneFardos / TOTAL_CONTRATO * 100);
   const progressoEl = document.getElementById('progresso-contrato');
   const progressoIEHeader = document.getElementById('progresso-ie-header');
@@ -2776,12 +2881,35 @@ function renderDash() {
       </div>
   `;
   if (progressoIEHeader) {
-    const pctIE = totalFardos ? Math.round(doneFardos / totalFardos * 100) : 0;
+    // Lotes sem nenhuma instrução atribuída (presentes no mapa, mas fora de LOTE_IE)
+    const todosLotesMapa = Object.values(MAPA).reduce((arr, d) => arr.concat(d.lotes), []);
+    const lotesSemIE = todosLotesMapa.filter(l => !LOTE_IE[l]);
+    const fardosSemIE = lotesSemIE.length * 110; // estimativa padrão de 110 fardos/lote
+    const pctComIE = totalFardos ? Math.round(doneFardos / totalFardos * 100) : 0;
+    const fardosACarregar = Math.max(0, totalFardos - doneFardos);
+
+    const isTodas = IE_STATUS_FILTER === 'todas';
+    const isCarregadas = IE_STATUS_FILTER === 'carregadas';
+    const isACarregar = IE_STATUS_FILTER === 'a_carregar';
     progressoIEHeader.innerHTML = `
-      <div style="background:var(--bg4);border-radius:6px;height:8px;overflow:hidden;flex:1;min-width:0;">
-        <div style="height:100%;width:${Math.min(pctIE,100)}%;background:linear-gradient(90deg,var(--blue),var(--blue2));border-radius:6px;transition:width .6s ease;"></div>
+      <div style="display:flex;gap:8px;flex:1;min-width:0;flex-wrap:wrap;">
+        <button onclick="setIEStatusFilter('todas')" style="flex:1;min-width:140px;text-align:left;cursor:pointer;background:rgba(96,165,250,.08);border:1px solid ${isTodas ? 'var(--blue)' : 'rgba(96,165,250,.25)'};box-shadow:${isTodas ? '0 0 0 1px var(--blue)' : 'none'};border-radius:8px;padding:6px 10px;font-family:inherit;">
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--blue);text-transform:uppercase;letter-spacing:.06em;">Com instrução</div>
+          <div style="font-family:var(--font-mono);font-size:16px;font-weight:700;color:var(--blue);">${totalFardos.toLocaleString('pt-BR')} <span style="font-size:10px;font-weight:400;opacity:.7;">fds</span></div>
+        </button>
+        <button onclick="setIEStatusFilter('carregadas')" style="flex:1;min-width:140px;text-align:left;cursor:pointer;background:rgba(0,229,160,.08);border:1px solid ${isCarregadas ? 'var(--green)' : 'rgba(0,229,160,.25)'};box-shadow:${isCarregadas ? '0 0 0 1px var(--green)' : 'none'};border-radius:8px;padding:6px 10px;font-family:inherit;">
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--green);text-transform:uppercase;letter-spacing:.06em;">Já carregados</div>
+          <div style="font-family:var(--font-mono);font-size:16px;font-weight:700;color:var(--green);">${doneFardos.toLocaleString('pt-BR')} <span style="font-size:10px;font-weight:400;opacity:.7;">fds · ${pctComIE}%</span></div>
+        </button>
+        <button onclick="setIEStatusFilter('a_carregar')" style="flex:1;min-width:140px;text-align:left;cursor:pointer;background:rgba(167,139,250,.08);border:1px solid ${isACarregar ? '#A78BFA' : 'rgba(167,139,250,.25)'};box-shadow:${isACarregar ? '0 0 0 1px #A78BFA' : 'none'};border-radius:8px;padding:6px 10px;font-family:inherit;">
+          <div style="font-family:var(--font-mono);font-size:9px;color:#A78BFA;text-transform:uppercase;letter-spacing:.06em;">A carregar</div>
+          <div style="font-family:var(--font-mono);font-size:16px;font-weight:700;color:#A78BFA;">${fardosACarregar.toLocaleString('pt-BR')} <span style="font-size:10px;font-weight:400;opacity:.7;">fds</span></div>
+        </button>
+        <div style="flex:1;min-width:140px;background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-radius:8px;padding:6px 10px;">
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;">Sem instrução informada</div>
+          <div style="font-family:var(--font-mono);font-size:16px;font-weight:700;color:var(--amber);">${fardosSemIE.toLocaleString('pt-BR')} <span style="font-size:10px;font-weight:400;opacity:.7;">fds (${lotesSemIE.length} lotes)</span></div>
+        </div>
       </div>
-      <span style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--blue);white-space:nowrap;">${doneFardos.toLocaleString('pt-BR')} / ${totalFardos.toLocaleString('pt-BR')} · ${pctIE}%</span>
     `;
   }
 
@@ -2847,7 +2975,36 @@ function renderDash() {
     });
   });
 
-  document.getElementById('ie-progs').innerHTML = getIEsSorted().map(ie => {
+  if (!IE_STATUS_FILTER && !IE_SEARCH_TERM) {
+    document.getElementById('ie-progs').innerHTML = `
+      <div style="padding:34px 16px;text-align:center;color:var(--text3);">
+        <div style="font-size:30px;line-height:1;margin-bottom:10px;filter:grayscale(100%) brightness(.75);opacity:.85;animation:ieHandBounce 2.2s ease-in-out infinite;">☝️</div>
+        <div style="font-family:var(--font-mono);font-size:12px;letter-spacing:.04em;">
+          ESCOLHA UMA DAS OPÇÕES ACIMA PARA VER DETALHES
+        </div>
+      </div>`;
+  } else {
+  const ieListFiltrada = getIEsSorted().filter(ie => {
+    // Filtro de busca por nome da IE ou número de lote (tem prioridade)
+    if (IE_SEARCH_TERM) {
+      const nomeMatch = ie.name.toLowerCase().includes(IE_SEARCH_TERM);
+      const loteMatch = [...ie.lotes_done, ...ie.lotes_pend].some(l => String(l) === IE_SEARCH_TERM || String(l).includes(IE_SEARCH_TERM));
+      if (!nomeMatch && !loteMatch) return false;
+    }
+    if (!IE_STATUS_FILTER) return true; // sem filtro de status, mas com busca ativa: mostra tudo que casar
+    if (IE_STATUS_FILTER === 'todas') return true;
+    const concl = ie.lotes_pend.length === 0;
+    if (IE_STATUS_FILTER === 'carregadas') return concl;
+    if (IE_STATUS_FILTER === 'a_carregar') return !concl;
+    return true;
+  });
+  if (ieListFiltrada.length === 0) {
+    document.getElementById('ie-progs').innerHTML = `
+      <div style="padding:30px 16px;text-align:center;color:var(--text3);font-family:var(--font-mono);font-size:12px;">
+        Nenhuma instrução ou lote encontrado para "${IE_SEARCH_TERM}"
+      </div>`;
+  } else {
+  document.getElementById('ie-progs').innerHTML = ieListFiltrada.map(ie => {
     const p = ie.total_fardos > 0 ? Math.min(100, Math.round(ie.done_fardos / ie.total_fardos * 100)) : 0;
     const numParciais = Object.keys(ie.lotes_parcial || {}).length;
     const concl = ie.lotes_pend.length === 0;
@@ -2869,7 +3026,8 @@ function renderDash() {
           <div style="display:flex;flex-wrap:wrap;gap:4px;">
             ${ie.lotes_done.map(l => {
               const aut = (ie.lotes_fardos && ie.lotes_fardos[l] != null) ? ie.lotes_fardos[l] : 110;
-              return `<span style="font-family:var(--font-mono);font-size:11px;padding:2px 7px;border-radius:4px;background:rgba(0,229,160,.08);color:var(--green);border:1px solid rgba(0,229,160,.15);">L${l}: ${aut} fds</span>`;
+              const isMatch = IE_SEARCH_TERM && String(l) === IE_SEARCH_TERM;
+              return `<span class="${isMatch ? 'lote-found-pulse' : ''}" style="font-family:var(--font-mono);font-size:11px;padding:2px 7px;border-radius:4px;background:rgba(0,229,160,.08);color:var(--green);border:1px solid rgba(0,229,160,.15);">L${l}: ${aut} fds</span>`;
             }).join('')}
           </div>
         </div>` : '';
@@ -2884,7 +3042,8 @@ function renderDash() {
               const aut = (ie.lotes_fardos && ie.lotes_fardos[l] != null) ? ie.lotes_fardos[l] : 110;
               const car = ie.lotes_parcial[l];
               const pct = Math.round(car / aut * 100);
-              return `<span style="font-family:var(--font-mono);font-size:11px;padding:2px 7px;border-radius:4px;background:rgba(96,165,250,.08);color:#60A5FA;border:1px dashed rgba(96,165,250,.4);">L${l}: ${car}/${aut} fds <span style="opacity:.7;">(${pct}%)</span></span>`;
+              const isMatch = IE_SEARCH_TERM && String(l) === IE_SEARCH_TERM;
+              return `<span class="${isMatch ? 'lote-found-pulse' : ''}" style="font-family:var(--font-mono);font-size:11px;padding:2px 7px;border-radius:4px;background:rgba(96,165,250,.08);color:#60A5FA;border:1px dashed rgba(96,165,250,.4);">L${l}: ${car}/${aut} fds <span style="opacity:.7;">(${pct}%)</span></span>`;
             }).join('')}
           </div>
         </div>` : '';
@@ -2897,7 +3056,8 @@ function renderDash() {
           <div style="display:flex;flex-wrap:wrap;gap:4px;">
             ${lotesPurosPend.map(l => {
               const aut = (ie.lotes_fardos && ie.lotes_fardos[l] != null) ? ie.lotes_fardos[l] : 110;
-              return `<span style="font-family:var(--font-mono);font-size:11px;padding:2px 7px;border-radius:4px;background:rgba(245,166,35,.08);color:var(--amber);border:1px solid rgba(245,166,35,.2);">L${l}: ${aut} fds</span>`;
+              const isMatch = IE_SEARCH_TERM && String(l) === IE_SEARCH_TERM;
+              return `<span class="${isMatch ? 'lote-found-pulse' : ''}" style="font-family:var(--font-mono);font-size:11px;padding:2px 7px;border-radius:4px;background:rgba(245,166,35,.08);color:var(--amber);border:1px solid rgba(245,166,35,.2);">L${l}: ${aut} fds</span>`;
             }).join('')}
           </div>
         </div>` : '';
@@ -2920,7 +3080,8 @@ function renderDash() {
       ${lotesPendentesHTML}
     </div>`;
   }).join('');
-
+  }
+  }
   const pendIEs = IES.filter(ie => ie.lotes_pend.length > 0);
   const navAlert = document.getElementById('nav-pend-alert');
   if (pendIEs.length) {
@@ -3282,7 +3443,7 @@ function renderGraf() {
 
   const fdArr = days.map(dt => CARGAS.filter(c => c.dt === dt).reduce((s, c) => s + c.fds.reduce((a, b) => a + b, 0), 0));
   const caArr = days.map(dt => CARGAS.filter(c => c.dt === dt).length);
-  const lbls = days.map(dt => { const d = new Date(dt + 'T12:00:00'); const dn = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']; return `${dn[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`; });
+  const lbls = days.map(dt => { const d = new Date(dt + 'T12:00:00'); const dn = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']; return [dn[d.getDay()], `${d.getDate()}/${d.getMonth() + 1}`]; });
   const mi = fdArr.indexOf(Math.max(...fdArr));
 
   // CORRIGIDO: média sobre dias úteis totais, não apenas dias com carga
@@ -3296,15 +3457,15 @@ function renderGraf() {
   document.getElementById('avg-f').textContent = avgFardosCorrigido.toLocaleString('pt-BR');
   document.getElementById('avg-c').textContent = avgCargas;
   document.getElementById('best-v').textContent = Math.max(...fdArr).toLocaleString('pt-BR');
-  document.getElementById('best-d').textContent = lbls[mi] || '—';
+  document.getElementById('best-d').textContent = lbls[mi] ? lbls[mi].join(' ') : '—';
   document.getElementById('graf-period').innerHTML = days.length ? `${fmt(days[0])}–${fmt(days[days.length - 1])}` : '—';
 
   document.getElementById('chart-leg').innerHTML =
     `<span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:var(--green);display:inline-block;"></span>Fardos</span>` +
-    `<span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:2px;background:var(--blue);display:inline-block;"></span>Nº cargas</span>`;
+    `<span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:2px;background:#5FA8FF;display:inline-block;"></span>Nº cargas</span>`;
 
-  const gridColor = 'rgba(255,255,255,.04)';
-  const tickColor = '#4A5878';
+  const gridColor = 'rgba(255,255,255,.08)';
+  const tickColor = '#EDEFF5';
 
   chart1 = new Chart(document.getElementById('ch1'), {
     type: 'bar',
@@ -3312,31 +3473,54 @@ function renderGraf() {
       labels: lbls,
       datasets: [
         { label: 'Fardos', data: fdArr, backgroundColor: 'rgba(0,229,160,.75)', borderRadius: 4, borderSkipped: false, order: 2 },
-        { label: 'Cargas', data: caArr, type: 'line', borderColor: 'var(--blue)', backgroundColor: 'rgba(59,142,240,.06)', tension: .35, yAxisID: 'y2', order: 1, pointRadius: 4, pointBackgroundColor: 'var(--blue)', pointBorderColor: 'var(--bg)', pointBorderWidth: 2 }
+        { label: 'Cargas', data: caArr, type: 'line', borderColor: '#5FA8FF', backgroundColor: 'rgba(95,168,255,.06)', tension: .35, yAxisID: 'y2', order: 1, pointRadius: 4, pointBackgroundColor: '#5FA8FF', pointBorderColor: '#0F1520', pointBorderWidth: 2, borderWidth: 2.5 }
       ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { backgroundColor: 'var(--bg2)', borderColor: 'rgba(255,255,255,.1)', borderWidth: 1, titleColor: 'var(--text)', bodyColor: 'var(--text2)', titleFont: { family: 'DM Mono', size: 10 }, bodyFont: { family: 'DM Sans', size: 12 } } },
-      scales: { x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { family: 'DM Mono', size: 9 }, autoSkip: false, maxRotation: 0 } }, y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { family: 'DM Mono', size: 9 } } }, y2: { position: 'right', grid: { display: false }, ticks: { color: tickColor, font: { family: 'DM Mono', size: 9 }, stepSize: 1 } } }
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0F1520', borderColor: 'rgba(255,255,255,.18)', borderWidth: 1.5, titleColor: '#F0F4FF', bodyColor: '#F0F4FF', titleFont: { family: 'DM Mono', size: 10 }, bodyFont: { family: 'DM Sans', size: 12 } } },
+      scales: { x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { family: 'DM Mono', size: 10 }, autoSkip: false, maxRotation: 0 } }, y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { family: 'DM Mono', size: 10 } } }, y2: { position: 'right', grid: { display: false }, ticks: { color: tickColor, font: { family: 'DM Mono', size: 10 }, stepSize: 1 } } }
     }
+  });
+
+  // Kg realmente carregado por IE, com base no peso líquido das cargas já feitas
+  const kgPorLote = computeKgPorLote();
+  const kgPorIE = IES.map(ie => {
+    const todosLotes = [...ie.lotes_done, ...ie.lotes_pend];
+    return Math.round(todosLotes.reduce((s, l) => s + (kgPorLote[l] || 0), 0));
   });
 
   chart2 = new Chart(document.getElementById('ch2'), {
     type: 'doughnut',
     data: {
       labels: IES.map(ie => ie.name),
-      datasets: [{ data: IES.map(ie => ie.total_fardos), backgroundColor: IES.map(ie => ie.color), borderWidth: 3, borderColor: 'var(--bg2)', hoverBorderColor: 'var(--bg2)', hoverOffset: 4 }]
+      datasets: [{ data: IES.map(ie => ie.total_fardos), backgroundColor: IES.map(ie => ie.color), borderWidth: 3, borderColor: '#0F1520', hoverBorderColor: '#0F1520', hoverOffset: 4 }]
     },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'var(--bg2)', borderColor: 'rgba(255,255,255,.1)', borderWidth: 1, titleColor: 'var(--text)', bodyColor: 'var(--text2)', titleFont: { family: 'DM Mono', size: 10 }, bodyFont: { family: 'DM Sans', size: 12 } } }, cutout: '68%' }
+    options: { responsive: true, maintainAspectRatio: false,
+      onClick: (evt, elements) => {
+        if (elements && elements.length) {
+          const idx = elements[0].index;
+          goToIEDetail(IES[idx].name);
+        }
+      },
+      onHover: (evt, elements) => { evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0F1520', borderColor: 'rgba(255,255,255,.18)', borderWidth: 1.5, titleColor: '#F0F4FF', bodyColor: '#F0F4FF', titleFont: { family: 'DM Mono', size: 10 }, bodyFont: { family: 'DM Sans', size: 12 },
+      callbacks: {
+        label: (ctx) => {
+          const fardos = ctx.parsed;
+          const kg = kgPorIE[ctx.dataIndex] || 0;
+          return [` ${fardos.toLocaleString('pt-BR')} fardos`, ` ${kg.toLocaleString('pt-BR')} kg carregados`];
+        }
+      }
+    } }, cutout: '68%' }
   });
 
   document.getElementById('ie-leg').innerHTML = IES.map(ie =>
-    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+    `<div onclick="goToIEDetail('${ie.name.replace(/'/g, "\\'")}')" style="display:flex;align-items:center;gap:8px;padding:3px 4px;border-radius:6px;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background='transparent'">
       <div style="width:10px;height:10px;border-radius:3px;background:${ie.color};flex-shrink:0;"></div>
-      <span style="flex:1;font-size:12px;color:var(--text2);font-weight:300;">${ie.name}</span>
-      <span class="badge ${ie.lotes_pend.length === 0 ? 'ok' : 'pend'}" style="font-size:11px;">${ie.lotes_pend.length === 0 ? 'OK' : 'PEND'}</span>
-      <span style="font-family:var(--font-mono);font-size:12px;font-weight:500;">${ie.total_fardos.toLocaleString('pt-BR')}</span>
+      <span style="flex:1;font-size:12px;color:var(--text);font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${ie.name}</span>
+      <span class="badge ${ie.lotes_pend.length === 0 ? 'ok' : 'pend'}" style="font-size:11px;flex-shrink:0;">${ie.lotes_pend.length === 0 ? 'OK' : 'PEND'}</span>
+      <span style="font-family:var(--font-mono);font-size:12px;font-weight:500;flex-shrink:0;min-width:48px;text-align:right;">${ie.total_fardos.toLocaleString('pt-BR')}</span>
     </div>`
   ).join('');
 }
@@ -3461,11 +3645,13 @@ async function processImport() {
       const { rows, raw2d, sheetNames, fileName, workbook } = p;
       const fn = (fileName || '').toLowerCase();
 
-      // ── Detecta planilha de IEs (INSTRUCOES…) — verificar primeiro pois
-      //    "INSTRUCOES_DE_CARREGAMENTO" contém "carregamento" e seria detectado erroneamente como cargas
-      const isIes = /instruc|instrução|instrucao|brz/i.test(fn);
-      // ── Detecta planilha de CARGAS (Contratos_de_Algodão…) — só se não for IEs
-      const isCargas = !isIes && /contrato|carregamento|algod/i.test(fn);
+      // ── Detecta tipo de planilha pelo NOME DO ARQUIVO
+      // IEs: nome contém instruc, instrução, instrucao, brz, ie_, _ie
+      const isIes = /instruc|instrução|instrucao|brz|ie_|_ie/i.test(fn);
+      // CARGAS: nome contém contrato, carregamento, algod, carga — mas NÃO é IE
+      const isCargas = !isIes && /contrato|carregamento|algod|carga/i.test(fn);
+
+      console.log(`[Import] Arquivo: "${fn}" → isIes=${isIes} isCargas=${isCargas} sheets=${sheetNames ? sheetNames.join(',') : 'n/a'}`);
 
       if (isCargas && raw2d) {
         setLoading(true, 'Processando cargas...');
@@ -3485,37 +3671,40 @@ async function processImport() {
         if (result.ies.length) { IES = result.ies; updated = true; }
         if (result.errors.length) showToast(result.errors[0], 'error');
       } else {
-        // Nome não reconhecido: tenta todas as sheets como cargas E como IEs
+        // Nome não reconhecido: tenta TODAS as sheets como cargas E como IEs (não para no primeiro)
         setLoading(true, 'Detectando tipo de planilha...');
-        let found = false;
+        let foundCargas = false, foundIes = false;
 
         if (raw2d && sheetNames) {
-          // Tenta cargas em cada sheet (priorizando sheet com VITERRA/VTSA no nome)
+          // Tenta cargas em TODAS as sheets (priorizando VITERRA/VTSA)
           const ordered = [...sheetNames].sort((a,b) =>
             (/viterra|vtsa/i.test(b) ? 1 : 0) - (/viterra|vtsa/i.test(a) ? 1 : 0)
           );
           for (const sName of ordered) {
             const r2d = raw2d[sName] || [];
             const cargas = parseCargasFromRaw(r2d);
-            if (cargas.length) { CARGAS = cargas; updated = true; found = true; break; }
+            console.log(`[Import] Sheet "${sName}" → ${cargas.length} cargas`);
+            if (cargas.length) { CARGAS = cargas; updated = true; foundCargas = true; break; }
           }
-          // Tenta IEs na primeira sheet
-          if (!found) {
-            const r2d = raw2d[sheetNames[0]] || [];
+          // Tenta IEs em TODAS as sheets
+          for (const sName of sheetNames) {
+            const r2d = raw2d[sName] || [];
             const result = parseIesFromRaw(r2d, workbook);
-            if (result.ies.length) { IES = result.ies; updated = true; found = true; }
+            console.log(`[Import] Sheet "${sName}" → ${result.ies.length} IEs`);
+            if (result.ies.length) { IES = result.ies; updated = true; foundIes = true; break; }
           }
         }
 
         // Fallback header-based
-        if (!found && rows.length) {
+        if (!foundCargas && rows.length) {
           const cargas = parseCargasSheet(rows);
-          if (cargas.length) { CARGAS = cargas; updated = true; found = true; }
+          if (cargas.length) { CARGAS = cargas; updated = true; foundCargas = true; }
         }
-        if (!found && rows.length) {
+        if (!foundIes && rows.length) {
           const result = parseIesSheet(rows);
           if (result.ies.length) { IES = result.ies; updated = true; }
         }
+        console.log(`[Import] Detecção automática: cargas=${foundCargas} ies=${foundIes}`);
       }
     }
 
@@ -3552,20 +3741,23 @@ async function processImport() {
     grafOk = false;
     destroyCharts();
 
-    await saveToStorage();
-    // Salva timestamp da importação para detectar cache desatualizado ao reabrir
-    localStorage.setItem('viterra_last_import_ts', new Date().toISOString());
-    // Se já passou das 19h, atualiza o card do dia com os novos dados importados
-    if (new Date().getHours() >= 19) gerarResumoDia();
+    // Salva na nuvem com flag isImport=true:
+    // - sobrescreve o documento inteiro (sem acumular dados velhos no Firebase)
+    // - reseta FILA e HISTORICO_DIA (dados de uma importação anterior não devem persistir)
+    // - aplica lock de 5s para o listener não sobrescrever com eco antigo
+    await saveToStorage(true);
+
     setLoading(false);
+    statusEl.textContent = `✓ ${CARGAS.length} cargas e ${IES.length} IEs importadas com sucesso!`;
+    showToast(`✓ ${CARGAS.length} cargas · ${IES.length} IEs importadas`, 'success');
     
-    statusEl.textContent = `✓ ${CARGAS.length} cargas e ${IES.length} IEs carregadas! Baixa automática aplicada.`;
-    showToast(`${CARGAS.length} cargas importadas`, 'success');
-    
-    setTimeout(() => {
-      closeModal();
-      S(curScreen || 'dash');
-    }, 1500);
+    // Fecha modal e renderiza IMEDIATAMENTE os dados já em memória
+    // (não espera Firebase — os dados já foram processados e estão nas variáveis globais)
+    closeModal();
+    grafOk = false;
+    destroyCharts();
+    selDay = CARGAS.length ? CARGAS[CARGAS.length - 1].dt : selDay; // vai pro dia mais recente
+    S('dash'); // sempre volta pro dash após importação para ver os dados novos
 
   } catch (err) {
     setLoading(false);
@@ -3586,15 +3778,10 @@ async function refreshFromCloud() {
     updateMapaFromIES();
     if (CARGAS.length && !selDay) selDay = CARGAS[0].dt;
     curWeek = 0;
-    // Re-renderiza a tela atual
-    if (curScreen === 'graf') { destroyCharts(); renderGraf(); }
-    else if (curScreen === 'mapa') {
-      renderMapa();
-      const mapaSearch = document.getElementById('mapa-search');
-      if (mapaSearch && mapaSearch.value.trim()) buscaLote(mapaSearch.value);
-    }
-    else if (curScreen === 'diario') { renderDiario(); }
-    else { renderDash(); }
+    grafOk = false;
+    destroyCharts();
+    // Re-renderiza qualquer tela
+    S(curScreen || 'dash');
   }
   setLoading(false);
 }
@@ -3619,15 +3806,21 @@ async function init() {
   }
   updateMapaFromIES();
   
-  if (CARGAS.length) selDay = CARGAS[0].dt;
+  // Aponta para o dia mais recente (não o primeiro)
+  if (CARGAS.length) selDay = CARGAS[CARGAS.length - 1].dt;
   curWeek = 0;
   
   renderDash();
   setLoading(false);
-  showToast('Dashboard pronto! Clique no status para um tour.', 'info');
+  showToast('Dashboard atualizado!', 'info');
 
   // Auto-refresh da nuvem a cada 30 segundos
   setInterval(async () => {
+    // Se ainda está dentro da janela de lock pós-importação, não faz refresh
+    if (_importLockUntil && Date.now() < _importLockUntil) return;
+
+    const sigAntes = getDataSignature();
+
     const loaded = await loadFromStorage(true);
     if (!loaded) return;
 
@@ -3638,21 +3831,25 @@ async function init() {
     updateMapaFromIES();
     if (CARGAS.length && !selDay) selDay = CARGAS[0].dt;
 
-    // Só atualiza a tela que o usuário está vendo
+    // Se nada mudou de fato, não re-renderiza (evita piscar tela/gráfico sem necessidade)
+    if (getDataSignature() === sigAntes) return;
+
+    // Atualiza a tela que o usuário está vendo
     if (curScreen === 'dash') {
       renderDash();
     } else if (curScreen === 'diario') {
       renderDiario();
     } else if (curScreen === 'mapa') {
       renderMapa();
-      // Re-aplica busca ativa para manter os lotes pulsando
       const mapaSearch = document.getElementById('mapa-search');
       if (mapaSearch && mapaSearch.value.trim()) buscaLote(mapaSearch.value);
     } else if (curScreen === 'fila') {
       renderFila();
+    } else if (curScreen === 'graf') {
+      // Gráficos também atualizam no refresh — destroi e recria com dados novos
+      destroyCharts();
+      renderGraf();
     }
-    // Na tela de gráficos: NÃO interrompe — usuário pode estar analisando.
-    // Os dados novos serão aplicados quando ele trocar de tela e voltar.
   }, 30000);
 }
 
@@ -4986,7 +5183,7 @@ function initWgrObserver(scroll) {
 })();
 </script>
 <script>
-// ========== PTAX BCB ==========
+// ========== PTAX BCB (apenas Compra/Venda de fechamento — NÃO altera o valor grande) ==========
 async function fetchPTAX() {
   try {
     // Tenta os últimos 5 dias úteis para garantir dado disponível
@@ -5005,22 +5202,79 @@ async function fetchPTAX() {
         const v = json.value[0];
         const compra = v.cotacaoCompra.toFixed(4).replace('.',',');
         const venda  = v.cotacaoVenda.toFixed(4).replace('.',',');
-        const medio  = ((v.cotacaoCompra + v.cotacaoVenda) / 2).toFixed(4).replace('.',',');
-        const dataFmt = `FECHAMENTO ${dd}/${mm}/${yyyy}`;
-        document.getElementById('ptax-data').textContent  = dataFmt;
-        document.getElementById('ptax-valor').textContent = `R$ ${medio}`;
         document.getElementById('ptax-compra').textContent = `R$ ${compra}`;
         document.getElementById('ptax-venda').textContent  = `R$ ${venda}`;
         return;
       }
     }
-    document.getElementById('ptax-valor').textContent = 'Indisponível';
   } catch(e) {
-    document.getElementById('ptax-valor').textContent = 'Erro';
-    console.error('PTAX erro:', e);
+    console.error('PTAX (compra/venda) erro:', e);
   }
 }
 fetchPTAX();
+// Compra/Venda de fechamento só precisa atualizar 1x/dia (PTAX é fixada à tarde) — refaz a cada 30min como margem de segurança
+setInterval(fetchPTAX, 30 * 60 * 1000);
+
+// ========== DÓLAR EM TEMPO REAL (AwesomeAPI) — controla o número grande verde ==========
+let usdLastBid = null; // último valor exibido, para saber se subiu/caiu
+
+async function fetchUSDLive() {
+  try {
+    const res = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const v = json.USDBRL;
+    if (!v) throw new Error('Resposta sem USDBRL');
+
+    const bid = parseFloat(v.bid);
+    const pctChange = parseFloat(v.pctChange);
+    const varBid = parseFloat(v.varBid);
+
+    const valorEl   = document.getElementById('ptax-valor');
+    const varEl     = document.getElementById('ptax-var');
+    const dotEl      = document.getElementById('ptax-live-dot');
+    const dataEl     = document.getElementById('ptax-data');
+
+    const bidFmt = bid.toFixed(4).replace('.', ',');
+    valorEl.textContent = `R$ ${bidFmt}`;
+
+    // Cor do número grande: verde se subiu/estável no dia, vermelho se caiu no dia
+    const subindoNoDia = pctChange >= 0;
+    valorEl.style.color = subindoNoDia ? 'var(--green)' : 'var(--red)';
+
+    // Seta + variação do dia (igual ao "alta/baixa" que você quer acompanhar)
+    const seta = pctChange > 0 ? '▲' : (pctChange < 0 ? '▼' : '•');
+    const sinalVar = varBid > 0 ? '+' : '';
+    varEl.textContent = `${seta} ${sinalVar}${varBid.toFixed(4).replace('.', ',')} (${sinalVar}${pctChange.toFixed(2).replace('.', ',')}%)`;
+    varEl.style.color = subindoNoDia ? 'var(--green)' : 'var(--red)';
+
+    // Pisca o número quando o tick muda de valor desde a última leitura (sobe/desce em tempo real)
+    if (usdLastBid !== null && bid !== usdLastBid) {
+      const corPiscada = bid > usdLastBid ? 'var(--green)' : 'var(--red)';
+      valorEl.style.color = corPiscada;
+      valorEl.style.transform = 'scale(1.04)';
+      setTimeout(() => { valorEl.style.transform = 'scale(1)'; }, 220);
+    }
+    usdLastBid = bid;
+
+    // Horário da última cotação recebida (não é mais "FECHAMENTO")
+    const dt = new Date(v.create_date.replace(' ', 'T'));
+    const hh = String(dt.getHours()).padStart(2,'0');
+    const mi = String(dt.getMinutes()).padStart(2,'0');
+    const ss = String(dt.getSeconds()).padStart(2,'0');
+    dataEl.textContent = `· ATUALIZADO ${hh}:${mi}:${ss}`;
+    dotEl.style.background = 'var(--green)';
+  } catch (e) {
+    console.error('Dólar tempo real erro:', e);
+    const dotEl = document.getElementById('ptax-live-dot');
+    if (dotEl) dotEl.style.background = 'var(--red)';
+  }
+}
+
+fetchUSDLive();
+// Atualiza em tempo real a cada 5 segundos (AwesomeAPI sem chave faz cache de ~1min,
+// então o valor pode repetir entre alguns ticks, mas o card sempre busca o mais recente disponível)
+setInterval(fetchUSDLive, 5000);
 
 if ("serviceWorker" in navigator) {
   // Use relative path to work on any GitHub Pages subdirectory
