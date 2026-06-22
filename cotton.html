@@ -1430,6 +1430,7 @@ body::before {
       </div>
       <div class="fila-actions">
         <button class="fila-btn-secondary" onclick="openFilaModal()">➕ Adicionar Caminhão</button>
+        <button class="fila-btn-secondary" onclick="importarDaPortaria()">🔄 Importar da Portaria</button>
         <button class="fila-btn-secondary" onclick="openTurnoModal()">⏱ Iniciar Turno</button>
         <button class="fila-btn-whatsapp" onclick="exportFilaWhatsApp()">📱 Exportar WhatsApp</button>
       </div>
@@ -1476,24 +1477,51 @@ body::before {
             <input type="text" id="filaInputPlaca" class="fila-input" placeholder="ABC-1234">
           </label>
           <label class="fila-label">Instrução de Embarque (IE)
-            <select id="filaInputIE" class="fila-input fila-select">
+            <select id="filaInputIE" class="fila-input fila-select" onchange="atualizarSugestaoLotes()">
               <option value="">Selecione a IE...</option>
             </select>
           </label>
           <label class="fila-label">Lotes (separados por vírgula)
-            <input type="text" id="filaInputLotes" class="fila-input" placeholder="ex: 221, 243, 257" oninput="previewSegregacao()">
+            <input type="text" id="filaInputLotes" class="fila-input" placeholder="ex: 221, 243, 257" oninput="previewSegregacao(); atualizarSugestaoLotes();">
           </label>
           <label class="fila-label">Fardos Total
-            <input type="number" id="filaInputFardos" class="fila-input" placeholder="220">
+            <input type="number" id="filaInputFardos" class="fila-input" placeholder="220" oninput="atualizarSugestaoLotes()">
           </label>
           <label class="fila-label">Hora de Chegada
             <input type="time" id="filaInputHora" class="fila-input">
           </label>
+          <div id="sugestaoLotesBox" style="display:none;"></div>
+          <div id="observacaoCopiaBox" style="display:none;"></div>
           <div id="previewSegregacaoBox" style="display:none;"></div>
         </div>
         <div class="modal-actions" style="margin-top:20px;">
           <button class="btn-cancel" onclick="closeFilaModal()">Cancelar</button>
           <button class="btn-import" onclick="adicionarCaminhao()">Adicionar à Fila</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Revisão de Importação da Portaria -->
+    <div class="modal-overlay" id="modalPortaria">
+      <div class="modal" style="max-width:680px;max-height:85vh;overflow-y:auto;">
+        <div class="modal-title">🔄 Caminhões da Portaria · Algodão em Pluma</div>
+        <div style="font-size:11px;color:var(--text3);margin:6px 0 14px;font-family:var(--font-mono);">
+          Confirme a Instrução (IE) e os Lotes/Fardos de cada caminhão antes de adicionar à fila.
+          Caminhões já presentes na fila (mesma placa) não aparecem aqui.
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;
+                    border:1px solid var(--border);background:rgba(255,255,255,.02);margin-bottom:4px;">
+          <input type="checkbox" id="portSelAll" checked style="width:16px;height:16px;cursor:pointer;"
+            onchange="toggleSelecionarTodosPortaria(this.checked)">
+          <label for="portSelAll" style="font-family:var(--font-mono);font-size:12px;color:var(--text2);cursor:pointer;user-select:none;">
+            Selecionar / desmarcar todos
+          </label>
+          <span id="portSelCount" style="margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--text3);"></span>
+        </div>
+        <div id="portariaImportList" style="display:grid;gap:12px;"></div>
+        <div class="modal-actions" style="margin-top:20px;">
+          <button class="btn-cancel" onclick="closePortariaModal()">Cancelar</button>
+          <button class="btn-import" onclick="confirmarImportacaoPortaria()">Adicionar Selecionados à Fila</button>
         </div>
       </div>
     </div>
@@ -1660,6 +1688,14 @@ const DEFAULT_CARGAS = [
 let IES = [];
 let MAPA = {};
 let CARGAS = [];
+let LOTE_TIPO = {}; // {loteNum: "31-4"} extraído da planilha de instrução/IE — usado nas sugestões de lote por tipo
+let PORTARIA_CANDIDATOS = []; // candidatos temporários durante a revisão do modal de importação da Portaria
+// Guarda a divisão EXATA de fardos por lote, quando o usuário escolhe uma sugestão
+// (chip ou card de fechamento de parcial), indexado pelo ID do campo "Lotes" do
+// formulário que gerou a escolha. Tem prioridade sobre a divisão igualitária padrão
+// na hora de salvar o caminhão na fila. É limpo sempre que o campo de Lotes é editado
+// manualmente (texto digitado à mão), para não aplicar uma divisão antiga e incorreta.
+let SUGESTAO_LOTES_OVERRIDE = {}; // { idLotes: { loteNum: quantidadeExata } }
 let FILA = []; // [{pos, transportadora, placa, ie, lotes, lotes_fardos, fardos_total, status, hora_entrada, hora_saida}]
 let HISTORICO_DIA = []; // [{data_iso, label, snapshot_ts, caminhoes:[], metricas:{}}]
 
@@ -2067,15 +2103,25 @@ function rebuildLoteIE() {
 //  CRUZAMENTO: usa os lotes das CARGAS para dar baixa nas IEs
 //  Regra: coluna G = "312,20,114"  →  lotes[0]=312, lotes[1]=20, lotes[2]=114
 //         colunas H..L = fardos de cada lote na mesma ordem
-//  Todo lote presente em CARGAS é marcado como "done" na IE correspondente,
-//  e sua quantidade de fardos é atualizada para refletir o que foi carregado.
+//
+//  IMPORTANTE — números de lote SE REPETEM entre instruções diferentes
+//  (ex: lote 28 existe tanto em BRZ-REC589 quanto em BRZ-REC596, com
+//  quantidades autorizadas diferentes). Por isso a chave de baixa NUNCA
+//  pode ser só o número do lote — tem que ser o par (instrução, lote).
+//
+//  Como a planilha de Cargas não diz a qual instrução cada carga pertence,
+//  usamos casamento por QUANTIDADE EXATA: somamos todos os fardos carregados
+//  daquele número de lote (em todas as cargas) e atribuímos à(s) instrução(ões)
+//  cujo TOTAL REAL do lote (extraído da fórmula da planilha, ver
+//  getFardosTotalReal) bate exatamente com essa soma. Lote tachado em
+//  vermelho na própria planilha de instrução é tratado como concluído
+//  definitivo, independente da contagem de cargas.
 // ═══════════════════════════════════════════════════════════
 function crossReferenceIEsWithCargas() {
   if (!CARGAS.length || !IES.length) return;
 
-  // ── PASSO 1: montar mapa de fardos realmente carregados por lote
-  //    loteFardosCarregados[loteNum] = total de fardos desse lote em TODAS as cargas
-  //    Suporta lotes fracionados: L100 pode aparecer em várias cargas (10+20+80 = 110)
+  // ── PASSO 1: montar mapa de fardos realmente carregados por NÚMERO de lote
+  //    (ainda agregado globalmente nesta etapa — a atribuição por instrução vem no Passo 2)
   const loteFardosCarregados = {};   // { loteNum: fardosCarregados }
   CARGAS.forEach(carga => {
     const lotesParts = carga.lotes.toString()
@@ -2086,16 +2132,65 @@ function crossReferenceIEsWithCargas() {
     });
   });
 
+  // ── PASSO 2: para cada número de lote carregado, descobrir quais IEs têm esse
+  //    lote e, entre elas, casar por quantidade exata (carregado === total real da IE)
+  const lotesAmbiguos = []; // [{loteNum, carregado, candidatos:[{ie,total}]}] — não foi possível decidir com segurança
+  Object.keys(loteFardosCarregados).forEach(loteNumStr => {
+    const loteNum = parseInt(loteNumStr, 10);
+    const carregado = loteFardosCarregados[loteNum];
+    if (carregado <= 0) return;
+
+    // Todas as IEs que têm esse número de lote na instrução
+    const iesComEsseLote = IES.filter(ie => (ie.lotes_fardos && ie.lotes_fardos[loteNum] != null));
+    if (!iesComEsseLote.length) return; // lote carregado mas não está em nenhuma instrução conhecida
+
+    if (iesComEsseLote.length === 1) {
+      // Sem ambiguidade: só uma instrução tem esse lote
+      iesComEsseLote[0]._carregadoPorLote = iesComEsseLote[0]._carregadoPorLote || {};
+      iesComEsseLote[0]._carregadoPorLote[loteNum] = carregado;
+      return;
+    }
+
+    // Múltiplas IEs com o mesmo número de lote → casar pela quantidade exata
+    const candidatosExatos = iesComEsseLote.filter(ie => ie.lotes_fardos[loteNum] === carregado);
+    if (candidatosExatos.length === 1) {
+      // Uma única instrução tem exatamente essa quantidade autorizada → todo o carregado é dela
+      candidatosExatos[0]._carregadoPorLote = candidatosExatos[0]._carregadoPorLote || {};
+      candidatosExatos[0]._carregadoPorLote[loteNum] = carregado;
+      return;
+    }
+
+    // Fracionamento entre instruções: o mesmo lote foi dividido em pedaços, cada pedaço
+    // pertencendo a uma instrução diferente (ex: lote 169 = 18 fds na BRZ550 + 92 fds na
+    // BRZ573, somando 110 = o lote completo). Quando a soma dos AUTORIZADOS de TODAS as
+    // instruções candidatas bate exatamente com o total carregado, cada instrução é
+    // concluída com sua própria quantidade autorizada (não chuta proporção, usa o valor exato).
+    const somaAutorizados = iesComEsseLote.reduce((s, ie) => s + (ie.lotes_fardos[loteNum] || 0), 0);
+    if (somaAutorizados === carregado) {
+      iesComEsseLote.forEach(ie => {
+        ie._carregadoPorLote = ie._carregadoPorLote || {};
+        ie._carregadoPorLote[loteNum] = ie.lotes_fardos[loteNum]; // cada instrução com sua própria quantidade informada
+      });
+      return;
+    }
+
+    // Nenhuma regra resolveu com segurança — reporta para revisão manual em vez de chutar
+    lotesAmbiguos.push({
+      loteNum, carregado,
+      candidatos: iesComEsseLote.map(ie => ({ ie: ie.name, total: ie.lotes_fardos[loteNum] }))
+    });
+  });
+
   let totalBaixados = 0;
   let totalParciais = 0;
 
-  const novoEstadoLotes = {}; // loteNum -> 'done' | 'partial' | 'pending' (snapshot desta passada)
+  const novoEstadoLotes = {}; // "INSTRUCAO|loteNum" -> 'done' | 'partial' | 'pending' (snapshot desta passada)
 
   IES.forEach(ie => {
     if (!ie.lotes_fardos) ie.lotes_fardos = {};
     if (!ie.lotes_parcial) ie.lotes_parcial = {};
+    const carregadoPorLote = ie._carregadoPorLote || {};
 
-    // ── Para cada lote desta IE, decidir: done / parcial / pendente
     // Todos os lotes da IE (originais da instrução)
     const todosOsLotes = [...new Set([...ie.lotes_done, ...ie.lotes_pend])];
 
@@ -2107,39 +2202,49 @@ function crossReferenceIEsWithCargas() {
     let doneLotes  = 0;
 
     todosOsLotes.forEach(loteNum => {
-      const autorizado   = ie.lotes_fardos[loteNum] ?? 110;   // fardos que a instrução autorizou
-      const carregado    = loteFardosCarregados[loteNum] || 0; // fardos realmente no contrato
+      const autorizado    = ie.lotes_fardos[loteNum] ?? 110;   // total real do lote (via fórmula da planilha)
+      const jaTachadoNaPlanilha = ie._lotesTachados && ie._lotesTachados.includes(loteNum);
+      const carregado     = carregadoPorLote[loteNum] || 0;     // fardos atribuídos a ESTA instrução
+      const chave = `${ie.name}|${loteNum}`;
 
-      if (carregado <= 0) {
-        // Nenhum fardo carregado → pendente
-        ie.lotes_pend.push(loteNum);
-        novoEstadoLotes[loteNum] = 'pending';
-      } else if (carregado >= autorizado) {
-        // Todos (ou mais) os fardos autorizados foram carregados → concluído
+      if (jaTachadoNaPlanilha) {
+        // A própria planilha de instrução já marca este lote como concluído (tachado vermelho).
+        // Isso é tratado como definitivo — não é revertido pela contagem de cargas.
         ie.lotes_done.push(loteNum);
-        doneFardos += autorizado;   // conta o autorizado, não o excedente acidental
+        doneFardos += autorizado;
         doneLotes++;
-        novoEstadoLotes[loteNum] = 'done';
-        delete ie.lotes_parcial[loteNum]; // limpa parcial se havia
+        novoEstadoLotes[chave] = 'done';
+        delete ie.lotes_parcial[loteNum];
+      } else if (carregado <= 0) {
+        ie.lotes_pend.push(loteNum);
+        novoEstadoLotes[chave] = 'pending';
+      } else if (carregado >= autorizado) {
+        // Todos os fardos autorizados para ESTA instrução foram carregados → concluído
+        ie.lotes_done.push(loteNum);
+        doneFardos += autorizado;
+        doneLotes++;
+        novoEstadoLotes[chave] = 'done';
+        delete ie.lotes_parcial[loteNum];
       } else {
         // Carregamento parcial → lote ainda pendente, mas registra progresso
         ie.lotes_pend.push(loteNum);
         ie.lotes_parcial[loteNum] = carregado;
-        doneFardos += carregado;   // conta fardos parciais no progresso
-        novoEstadoLotes[loteNum] = 'partial';
+        doneFardos += carregado;
+        novoEstadoLotes[chave] = 'partial';
       }
     });
 
     ie.done_fardos = doneFardos;
     ie.done_lotes  = doneLotes;
+    delete ie._carregadoPorLote; // limpa campo auxiliar temporário
   });
 
   // Só notifica sobre lotes que MUDARAM de estado desde a última verificação,
   // evitando que o toast reapareça a cada atualização/recarregamento sem novidade real.
   if (PREV_LOTE_STATE !== null) {
-    Object.keys(novoEstadoLotes).forEach(loteNum => {
-      const estadoAtual = novoEstadoLotes[loteNum];
-      const estadoAnterior = PREV_LOTE_STATE[loteNum];
+    Object.keys(novoEstadoLotes).forEach(chave => {
+      const estadoAtual = novoEstadoLotes[chave];
+      const estadoAnterior = PREV_LOTE_STATE[chave];
       if (estadoAtual === estadoAnterior) return;
       if (estadoAtual === 'done') totalBaixados++;
       else if (estadoAtual === 'partial' && estadoAnterior !== 'partial') totalParciais++;
@@ -2153,6 +2258,16 @@ function crossReferenceIEsWithCargas() {
     if (totalParciais > 0) partes.push(`${totalParciais} lote(s) parcialmente carregado(s)`);
     showToast(`✓ ${partes.join(' · ')}`, 'success');
   }
+
+  // Avisa sobre lotes ambíguos (mesmo número em mais de uma instrução, sem bater quantidade exata)
+  // para revisão manual — evita "chutar" e gerar um erro silencioso parecido com os que motivaram esta correção.
+  if (lotesAmbiguos.length) {
+    const resumo = lotesAmbiguos.slice(0, 3).map(a =>
+      `Lote ${a.loteNum}: ${a.carregado} fds carregados, mas nenhuma instrução bate exato (${a.candidatos.map(c => `${c.ie}=${c.total}`).join(', ')})`
+    ).join(' · ');
+    console.warn('[Cruzamento] Lotes ambíguos não resolvidos automaticamente:', lotesAmbiguos);
+    showToast(`⚠ Revisar manualmente: ${resumo}${lotesAmbiguos.length > 3 ? ` · +${lotesAmbiguos.length - 3} outro(s)` : ''}`, 'error');
+  }
 }
 
 // Update MAPA done status based on current IES
@@ -2160,6 +2275,275 @@ function updateMapaFromIES() {
   Object.keys(MAPA).forEach(rua => {
     MAPA[rua].done = MAPA[rua].lotes.filter(l => LOTE_IE[l]?.done === true);
   });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SUGESTÃO DE LOTES PRÓXIMOS — FILA VIRTUAL
+//  Usa o MAPA (ruas do pátio) para sugerir, a partir de uma instrução e uma
+//  quantidade de fardos, quais lotes pendentes pegar — priorizando lotes que
+//  estão na MESMA RUA (fisicamente próximos), e dentro disso, a combinação
+//  que mais se aproxima do total de fardos pedido.
+// ═══════════════════════════════════════════════════════════
+
+// Mapa reverso: número de lote -> nome da rua. Recalculado a cada chamada
+// (poucos itens no MAPA, sem custo perceptível) para nunca ficar com dado
+// obsoleto depois de reimportar planilha ou trocar de IE.
+function loteParaRua(loteNum) {
+  for (const rua of Object.keys(MAPA)) {
+    if ((MAPA[rua].lotes || []).includes(loteNum)) return rua;
+  }
+  return null;
+}
+
+// Fardos que ainda faltam carregar de um lote pendente desta IE.
+// Desconta tanto o que já foi CARREGADO de fato (ie.lotes_parcial, vindo do cruzamento
+// com a planilha de Contratos) quanto o que já está RESERVADO em cargas de caminhões
+// ainda PENDENTES na Fila Virtual (mesmo que esses caminhões ainda não tenham saído/
+// carregado de verdade) — assim a sugestão para um novo caminhão nunca "promete" de novo
+// fardos que já foram destinados a outra carga em espera.
+function fardosRestantesDoLote(ie, loteNum) {
+  const autorizado = (ie.lotes_fardos && ie.lotes_fardos[loteNum]) || 110;
+  const jaCarregado = (ie.lotes_parcial && ie.lotes_parcial[loteNum]) || 0;
+
+  let jaReservadoNaFila = 0;
+  if (typeof FILA !== 'undefined' && FILA.length) {
+    FILA.forEach(caminhao => {
+      if (caminhao.status === 'concluido') return; // concluído já está refletido em lotes_parcial/lotes_done
+      if (caminhao.ie !== ie.name) return;
+      if (!caminhao.lotes || !caminhao.lotes.includes(loteNum)) return;
+      const fdsReservados = (caminhao.lotes_fardos && caminhao.lotes_fardos[loteNum]) || 0;
+      jaReservadoNaFila += fdsReservados;
+    });
+  }
+
+  return Math.max(0, autorizado - jaCarregado - jaReservadoNaFila);
+}
+
+// Dado uma lista de lotes candidatos (com fardos restantes) e um alvo de fardos,
+// acha a combinação que prioriza FECHAR lotes completos (usar 100% do restante de
+// cada), e só fatiar o ÚLTIMO lote da combinação com o mínimo necessário pra completar
+// o alvo — em vez de fatiar todos os lotes escolhidos. Isso reflete a prática real:
+// é melhor terminar um lote por completo e abrir só um outro parcialmente, do que
+// pegar pedaços de vários lotes ao mesmo tempo.
+// Cada item retornado em 'escolhidos' ganha um campo extra 'usar' = quantos fardos
+// pegar DESSE lote especificamente (pode ser menor que c.restantes, só no último).
+function combinarLotesParaAlvo(candidatos, fardosAlvo) {
+  // 1) Se um único lote já fecha exato ou cobre o alvo sozinho, prefere isso —
+  //    o menor lote que ainda seja >= alvo (evita abrir um lote grande à toa)
+  const candidatosOrdenadosAsc = [...candidatos].sort((a, b) => a.restantes - b.restantes);
+  const unicoSuficiente = candidatosOrdenadosAsc.find(c => c.restantes >= fardosAlvo);
+  if (unicoSuficiente) {
+    return {
+      escolhidos: [{ ...unicoSuficiente, usar: fardosAlvo }],
+      soma: fardosAlvo
+    };
+  }
+
+  // 2) Nenhum lote sozinho fecha o alvo: vai fechando lotes completos (maior primeiro,
+  //    para minimizar a quantidade de lotes abertos) até a soma cobrir o alvo, e só
+  //    fatia o ÚLTIMO lote da combinação com o restante necessário.
+  const ordenadosDesc = [...candidatos].sort((a, b) => b.restantes - a.restantes);
+  let soma = 0;
+  const escolhidos = [];
+  for (const c of ordenadosDesc) {
+    if (soma >= fardosAlvo) break;
+    const faltaAinda = fardosAlvo - soma;
+    if (c.restantes <= faltaAinda) {
+      // Lote inteiro cabe dentro do que falta → usa ele completo
+      escolhidos.push({ ...c, usar: c.restantes });
+      soma += c.restantes;
+    } else {
+      // Este é o último lote da combinação: usa só o necessário para completar o alvo
+      escolhidos.push({ ...c, usar: faltaAinda });
+      soma += faltaAinda;
+    }
+  }
+  return { escolhidos, soma };
+}
+
+// Função principal: sugere lotes para uma instrução + quantidade de fardos.
+//
+// Regra de detecção de intenção pela quantidade informada:
+// - Múltiplo de 110 (ex: 110, 220, 330) → o caminhão vai levar lote(s) completos.
+//   Ignora lotes já parciais na sugestão (eles não fecham "redondo").
+// - Quantidade quebrada (ex: 137) → sinaliza que o caminhão vai FECHAR um saldo
+//   parcial existente + completar com outro lote. Nesse caso, prioriza usar o(s)
+//   lote(s) parcial(is) da própria instrução primeiro (só o necessário pra ajudar a
+//   fechar a conta, não necessariamente o saldo inteiro), e sugere um "lote
+//   companheiro" completo para fechar o restante — em DUAS opções lado a lado:
+//   1) o companheiro do MESMO TIPO do parcial (ainda que um pouco mais longe)
+//   2) o companheiro MAIS PRÓXIMO fisicamente do parcial (ainda que tipo diferente)
+//
+// Retorna { porProximidade: [...], porTipo: [...] } quando não há parcial relevante
+// (fluxo antigo, quantidade redonda), ou { fechandoParcial: {...}, porTipo: [...],
+// porProximidade: [...] } quando há parcial e quantidade quebrada.
+function sugerirLotesParaCarga(ieName, fardosAlvo, lotesJaEscolhidos = []) {
+  const resultado = { porProximidade: [], porTipo: [], rua: null, fechandoParcial: null };
+  if (!ieName || !fardosAlvo || fardosAlvo <= 0) return resultado;
+
+  const ie = IES.find(i => i.name === ieName);
+  if (!ie) return resultado;
+
+  // Lotes pendentes desta IE que ainda não foram escolhidos manualmente, com fardos restantes
+  const todosPendentes = (ie.lotes_pend || [])
+    .filter(l => !lotesJaEscolhidos.includes(l))
+    .map(l => {
+      const autorizado = (ie.lotes_fardos && ie.lotes_fardos[l]) || 110;
+      const restantes = fardosRestantesDoLote(ie, l);
+      return {
+        lote: l,
+        restantes,
+        rua: loteParaRua(l),
+        tipo: LOTE_TIPO[l],
+        // "Parcial" = já tem saldo reduzido em relação ao autorizado, seja por carregamento
+        // de fato (ie.lotes_parcial) ou por reserva em caminhão pendente na fila — qualquer
+        // saldo menor que o total precisa ser tratado como parcial para a sugestão funcionar.
+        ehParcial: restantes > 0 && restantes < autorizado,
+      };
+    })
+    .filter(c => c.restantes > 0);
+
+  if (!todosPendentes.length) return resultado;
+
+  const ehQuantidadeRedonda = (fardosAlvo % 110 === 0);
+  const parciais = todosPendentes.filter(c => c.ehParcial);
+
+  // ── CASO 1: quantidade quebrada + existe lote parcial → o parcial SEMPRE participa
+  // da carga (não fica de fora), absorvendo o "resto" que não fecha em lotes completos.
+  // Os companheiros entram só como lotes INTEIROS (nunca fatiados) — quantos couberem
+  // sem passar do alvo — e o parcial completa o que sobrar. Ex: alvo 137, companheiros
+  // de 110 cabem 1 vez (110), sobram 27 → parcial usa 27 (até seu saldo disponível).
+  if (!ehQuantidadeRedonda && parciais.length) {
+    const parcialBase = [...parciais].sort((a, b) => b.restantes - a.restantes)[0];
+    const candidatosCompanheiro = todosPendentes.filter(c => c.lote !== parcialBase.lote);
+
+    function montarCadeiaOpcao(candidatosFiltrados) {
+      // Escolhe lotes INTEIROS (cada um usado 100%) entre os candidatos, do maior pro
+      // menor, enquanto ainda sobrar espaço considerando que o parcial vai preencher o
+      // resto ao final (por isso nunca fatiamos um companheiro aqui).
+      const ordenadosDesc = [...candidatosFiltrados].sort((a, b) => b.restantes - a.restantes);
+      const companheiros = [];
+      let somaCompanheiros = 0;
+      for (const c of ordenadosDesc) {
+        const restanteAposEsse = fardosAlvo - somaCompanheiros - c.restantes;
+        // Só inclui este companheiro inteiro se, depois de usá-lo, o que sobrar para o
+        // parcial ainda for >= 0 (não pode passar do alvo) — e idealmente deixando algo
+        // para o parcial absorver (resto), não fechando tudo só com completos.
+        if (restanteAposEsse >= 0) {
+          companheiros.push({ lote: c.lote, usar: c.restantes, restantes: c.restantes, tipo: c.tipo, rua: c.rua });
+          somaCompanheiros += c.restantes;
+        }
+      }
+
+      let faltaParaParcial = fardosAlvo - somaCompanheiros;
+
+      // Se não sobrou nada para o parcial (companheiros fecharam tudo exato), remove o
+      // último companheiro incluído para abrir espaço — garante que o parcial sempre
+      // participe com algo, aproveitando o saldo que já está em aberto.
+      if (faltaParaParcial <= 0 && companheiros.length) {
+        const removido = companheiros.pop();
+        somaCompanheiros -= removido.usar;
+        faltaParaParcial = fardosAlvo - somaCompanheiros;
+      }
+
+      const usarDoParcial = Math.min(parcialBase.restantes, faltaParaParcial);
+      const parcialResultado = { lote: parcialBase.lote, usar: usarDoParcial, restantes: parcialBase.restantes, tipo: parcialBase.tipo, rua: parcialBase.rua };
+
+      // Se ainda faltar fardos depois do parcial (saldo dele não foi suficiente), tenta
+      // fechar com mais um companheiro fatiado (só este, como complemento final)
+      let faltaFinal = fardosAlvo - somaCompanheiros - usarDoParcial;
+      if (faltaFinal > 0) {
+        const jaUsados = new Set(companheiros.map(c => c.lote));
+        const complementoCandidato = ordenadosDesc.find(c => !jaUsados.has(c.lote) && c.restantes >= faltaFinal);
+        if (complementoCandidato) {
+          companheiros.push({ lote: complementoCandidato.lote, usar: faltaFinal, restantes: complementoCandidato.restantes, tipo: complementoCandidato.tipo, rua: complementoCandidato.rua });
+        }
+      }
+
+      return { parcial: parcialResultado, companheiros };
+    }
+
+    // Opção 1: companheiros do MESMO TIPO do parcial (cadeia inteira nesse tipo)
+    const candidatosMesmoTipo = candidatosCompanheiro.filter(c => c.tipo && c.tipo === parcialBase.tipo);
+    if (candidatosMesmoTipo.length) {
+      const cadeiaTipo = montarCadeiaOpcao(candidatosMesmoTipo);
+      if (cadeiaTipo.companheiros.length) {
+        resultado.porTipo = cadeiaTipo.companheiros;
+        resultado.fechandoParcial = cadeiaTipo.parcial;
+      }
+    }
+
+    // Opção 2: companheiros MAIS PRÓXIMOS fisicamente do parcial (mesma rua), tipo pode diferir
+    let candidatosProximidade = [];
+    if (parcialBase.rua) {
+      candidatosProximidade = candidatosCompanheiro.filter(c => c.rua === parcialBase.rua);
+    }
+    if (!candidatosProximidade.length) candidatosProximidade = candidatosCompanheiro;
+
+    if (candidatosProximidade.length) {
+      const cadeiaProx = montarCadeiaOpcao(candidatosProximidade);
+      if (cadeiaProx.companheiros.length) {
+        resultado.porProximidade = cadeiaProx.companheiros;
+        resultado.rua = cadeiaProx.companheiros[0].rua;
+        if (!resultado.fechandoParcial) resultado.fechandoParcial = cadeiaProx.parcial;
+      }
+    }
+
+    return resultado;
+  }
+
+  // ── CASO 2: quantidade redonda (múltiplo de 110), ou sem parcial disponível ──
+  // Comportamento original: ignora lotes parciais, sugere só lotes completos.
+  const pendentesComRestante = todosPendentes.filter(c => !c.ehParcial);
+  if (!pendentesComRestante.length) return resultado;
+
+  // ── Sugestão por PROXIMIDADE (mesma rua) ──
+  let ruaAlvo = null;
+  if (lotesJaEscolhidos.length) {
+    const ruasDosEscolhidos = lotesJaEscolhidos.map(loteParaRua).filter(Boolean);
+    if (ruasDosEscolhidos.length) ruaAlvo = ruasDosEscolhidos[0];
+  }
+
+  const ruasCandidatas = [...new Set(pendentesComRestante.map(c => c.rua).filter(Boolean))];
+
+  if (!ruaAlvo && ruasCandidatas.length) {
+    let melhorRua = null, melhorDiferenca = Infinity;
+    ruasCandidatas.forEach(rua => {
+      const candidatosNaRua = pendentesComRestante.filter(c => c.rua === rua);
+      const { soma } = combinarLotesParaAlvo(candidatosNaRua, fardosAlvo);
+      const diferenca = Math.abs(soma - fardosAlvo);
+      if (diferenca < melhorDiferenca) { melhorDiferenca = diferenca; melhorRua = rua; }
+    });
+    ruaAlvo = melhorRua;
+  }
+
+  if (ruaAlvo) {
+    const candidatosNaRua = pendentesComRestante.filter(c => c.rua === ruaAlvo);
+    const { escolhidos } = combinarLotesParaAlvo(candidatosNaRua, fardosAlvo);
+    resultado.rua = ruaAlvo;
+    resultado.porProximidade = escolhidos.map(c => ({
+      lote: c.lote, usar: c.usar, restantes: c.restantes, rua: c.rua
+    }));
+  }
+
+  // ── Sugestão por TIPO (mesmo tipo de algodão, complementar à de proximidade) ──
+  const lotesComTipo = pendentesComRestante.filter(c => c.tipo);
+
+  if (lotesComTipo.length) {
+    const contagemTipo = {};
+    lotesComTipo.forEach(c => { contagemTipo[c.tipo] = (contagemTipo[c.tipo] || 0) + 1; });
+    const tiposComDuasOuMais = Object.keys(contagemTipo).filter(t => contagemTipo[t] >= 2);
+    if (tiposComDuasOuMais.length) {
+      const tipoAlvo = tiposComDuasOuMais.sort((a, b) => contagemTipo[b] - contagemTipo[a])[0];
+      const candidatosDoTipo = lotesComTipo.filter(c => c.tipo === tipoAlvo);
+      const { escolhidos } = combinarLotesParaAlvo(candidatosDoTipo, fardosAlvo);
+      resultado.porTipo = escolhidos.map(c => ({
+        lote: c.lote, usar: c.usar, restantes: c.restantes, rua: c.rua, tipo: c.tipo
+      }));
+    }
+  }
+
+  return resultado;
 }
 
 // ========== EXPORT DATA ==========
@@ -2465,6 +2849,21 @@ function parseIesFromRaw(rows2d, workbookRaw) {
     return /^(FF)?FF0000$/i.test(rgb) || rgb.toUpperCase() === 'FFFF0000';
   }
 
+  // Extrai o TOTAL REAL de fardos a partir da fórmula da célula (ex: =110-35-25 → 110, não 50)
+  // Ver explicação completa na função homônima do parser flat, mesma lógica.
+  function getFardosTotalRealBloco(rowIdx, colIdx, valorFallback) {
+    if (!sheetWithStyles) return valorFallback;
+    const addr = colIdxToLetter(colIdx) + (rowIdx + 1);
+    const cell = sheetWithStyles[addr];
+    if (!cell) return valorFallback;
+    if (cell.f) {
+      const m = cell.f.match(/\d+(?:\.\d+)?/);
+      if (m) return Math.round(parseFloat(m[0]));
+    }
+    if (typeof cell.v === 'number') return cell.v;
+    return valorFallback;
+  }
+
   // Percorre a planilha bloco a bloco
   // Cada bloco começa com: [, BRZxxx/xx, (CONCLUIDO?), ...]
   // Seguido de: [, I.E., FORNECEDOR, CONTRATO, LOTE, TIPO, FARDOS]
@@ -2477,6 +2876,7 @@ function parseIesFromRaw(rows2d, workbookRaw) {
     const colIE   = hdr.findIndex(v => /^INSTRU/i.test(v) || v === 'I.E.' || v === 'IE' || v === 'BRZ');
     const colLote = hdr.findIndex(v => v === 'LOTE' || v === 'LOTES');
     const colFds  = hdr.findIndex(v => v === 'FARDOS' || v === 'FDS' || v === 'TOTAL');
+    const colTipo = hdr.findIndex(v => v === 'TIPO' || v.includes('CLASS') || v.includes('CATEG'));
     if (colIE < 0 || colLote < 0) return null;
     // Verifica se primeira célula da linha 2 tem algum conteúdo na coluna IE (confirma formato flat)
     const secondRow = rows2d[1] || [];
@@ -2504,6 +2904,25 @@ function parseIesFromRaw(rows2d, workbookRaw) {
       if (!strike) return false;
       const rgb = (s.font && s.font.color && s.font.color.rgb) || (s.color && s.color.rgb) || '';
       return /^(FF)?FF0000$/i.test(rgb) || rgb.toUpperCase() === 'FFFF0000';
+    }
+
+    // Extrai o TOTAL REAL de fardos do lote a partir da célula de FARDOS.
+    // Quando o caminhão tira o lote em várias pesagens (vários caminhões), a planilha
+    // registra o SALDO restante via fórmula, ex: =110-35-25 (saldo=50, mas o total do lote é 110).
+    // Se não houver fórmula, o valor da célula já É o total (lote sem fracionamento).
+    // Regra: primeiro número da fórmula = total real do lote; valor calculado = saldo (não usar como total).
+    function getFardosTotalReal(rowIdx, colIdx, valorFallback) {
+      if (!sheetWS) return valorFallback;
+      const addr = colIdxToLetter2(colIdx) + (rowIdx + 1);
+      const cell = sheetWS[addr];
+      if (!cell) return valorFallback;
+      if (cell.f) {
+        // cell.f vem sem o "=" inicial, ex: "110-35-25" ou "SUM(110)"
+        const m = cell.f.match(/\d+(?:\.\d+)?/);
+        if (m) return Math.round(parseFloat(m[0]));
+      }
+      if (typeof cell.v === 'number') return cell.v;
+      return valorFallback;
     }
 
     for (let r = 1; r < rows2d.length; r++) {
@@ -2546,14 +2965,25 @@ function parseIesFromRaw(rows2d, workbookRaw) {
         const fRaw = (dRow[colFds] || '').toString().replace(/[^0-9]/g, '');
         if (fRaw) fardos = parseInt(fRaw) || 110;
       }
+      // Usa o TOTAL real (primeiro número da fórmula, ex: =110-35-25 → 110), não o saldo calculado
+      fardos = getFardosTotalReal(r, colFds, fardos);
       // Salva fardos autorizados pela instrução para este lote nesta IE
       ie.lotes_fardos[loteNum] = fardos;
+      // Captura o tipo do lote direto da planilha de instrução (coluna TIPO), usado
+      // depois para sugerir lotes do mesmo tipo na Fila Virtual
+      if (colTipo >= 0) {
+        const tipoVal = (dRow[colTipo] || '').toString().trim();
+        if (tipoVal) LOTE_TIPO[loteNum] = tipoVal;
+      }
       const isDone = isCellStrikeRed2(r, colLote);
       ie.total_fardos += fardos;
       ie.total_lotes++;
       if (isDone) {
         ie.done_fardos += fardos; ie.done_lotes++;
         if (!ie.lotes_done.includes(loteNum)) ie.lotes_done.push(loteNum);
+        // Tachado+vermelho na própria planilha = concluído definitivo, não reverter no cruzamento
+        if (!ie._lotesTachados) ie._lotesTachados = [];
+        if (!ie._lotesTachados.includes(loteNum)) ie._lotesTachados.push(loteNum);
       } else {
         if (!ie.lotes_pend.includes(loteNum)) ie.lotes_pend.push(loteNum);
       }
@@ -2594,6 +3024,7 @@ function parseIesFromRaw(rows2d, workbookRaw) {
         const colIE    = hdr.findIndex(v => v === 'I.E.' || v === 'IE');
         const colLote  = hdr.findIndex(v => v === 'LOTE' || v === 'LOTES');
         const colFards = hdr.findIndex(v => v === 'FARDOS' || v === 'FDS' || v === 'TOTAL');
+        const colTipoBloco = hdr.findIndex(v => v === 'TIPO' || v.includes('CLASS') || v.includes('CATEG'));
 
         if (!ieMap[ieName]) {
           // Tenta ler cor de fundo da célula do título BRZ nesta linha
@@ -2647,9 +3078,16 @@ function parseIesFromRaw(rows2d, workbookRaw) {
             const fRaw = (dRow[colFards] || '').toString().replace(/[^0-9]/g, '');
             if (fRaw) fardos = parseInt(fRaw) || 110;
           }
+          // Usa o TOTAL real (primeiro número da fórmula, ex: =110-35-25 → 110), não o saldo calculado
+          fardos = getFardosTotalRealBloco(j, colFards, fardos);
 
           // Salva fardos autorizados pela instrução para este lote nesta IE
           ie.lotes_fardos[loteNum] = fardos;
+          // Captura o tipo do lote direto da planilha de instrução, para sugestões na Fila Virtual
+          if (colTipoBloco >= 0) {
+            const tipoVal = (dRow[colTipoBloco] || '').toString().trim();
+            if (tipoVal) LOTE_TIPO[loteNum] = tipoVal;
+          }
 
           // Determina se lote foi carregado:
           // Prioridade 1: estilo da célula (strike + vermelho)
@@ -2663,6 +3101,11 @@ function parseIesFromRaw(rows2d, workbookRaw) {
             ie.done_fardos += fardos;
             ie.done_lotes++;
             if (!ie.lotes_done.includes(loteNum)) ie.lotes_done.push(loteNum);
+            // Tachado+vermelho real na célula (não inferido por título) = concluído definitivo
+            if (styleCheck === true) {
+              if (!ie._lotesTachados) ie._lotesTachados = [];
+              if (!ie._lotesTachados.includes(loteNum)) ie._lotesTachados.push(loteNum);
+            }
           } else {
             if (!ie.lotes_pend.includes(loteNum)) ie.lotes_pend.push(loteNum);
           }
@@ -4103,7 +4546,7 @@ function tryParseFila(rows2d, sheetNames, raw2d) {
 // ═══════════════════════════════════════════════════════════
 //  MAPA DE TIPOS DE LOTE (capturado da planilha de IE)
 // ═══════════════════════════════════════════════════════════
-let LOTE_TIPO = {}; // {loteNum: "31-4"} extraído da planilha de IE
+// LOTE_TIPO já declarado no topo do arquivo, junto de IES/CARGAS
 
 function rebuildLoteTipo(rows2d) {
   if (!rows2d || !rows2d.length) return;
@@ -4295,6 +4738,30 @@ function renderFila() {
       ? `<div class="fila-sugestao">💡 <strong>Sugestão:</strong> Lotes disponíveis do mesmo tipo (${seg.tipos[0]}): ${seg.sugestoes.map(l => 'L'+l).join(', ')}</div>`
       : '';
 
+    // Bloco de observação de cópia: "IE  TOTALfds: LT lote1_qtdF / LT lote2_qtdF"
+    // Aparece sempre que o caminhão tem IE, fardos e lotes com quantidades conhecidas
+    let observacaoCardHTML = '';
+    if (c.ie && c.fardos_total && c.lotes && c.lotes.length > 0 && c.lotes_fardos) {
+      const todosTemQtd = c.lotes.every(l => c.lotes_fardos[l] != null);
+      if (todosTemQtd) {
+        const somaLotes = c.lotes.reduce((s, l) => s + c.lotes_fardos[l], 0);
+        const partesLote = c.lotes.map(l => `LT ${l}_${c.lotes_fardos[l]}F`).join(' / ');
+        const textoObs = `${c.ie}  ${somaLotes}FARDOS: ${partesLote}`;
+        const textoEscapado = textoObs.replace(/'/g, "\\'");
+        const obsId = `cardObs_${c.placa.replace(/[^a-zA-Z0-9]/g,'_')}`;
+        observacaoCardHTML = `
+          <div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:8px 10px;border-radius:8px;
+                      border:1px solid var(--border);background:rgba(255,255,255,.02);font-family:var(--font-mono);font-size:11px;">
+            <span id="${obsId}_texto" style="flex:1;color:var(--text2);word-break:break-all;">${textoObs}</span>
+            <button type="button" onclick="copiarObservacao('${obsId}', '${textoEscapado}');event.stopPropagation()"
+              style="flex-shrink:0;font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);
+                     background:rgba(255,255,255,.04);color:var(--text2);cursor:pointer;white-space:nowrap;">
+              📋 Copiar
+            </button>
+          </div>`;
+      }
+    }
+
     const ieObj = IES.find(ie => ie.name === c.ie);
     const ieColor = ieObj ? ieObj.color : 'var(--text3)';
 
@@ -4320,6 +4787,7 @@ function renderFila() {
         <div class="fila-lotes-row">${lotesHTML}</div>
         ${alertaHTML}
         ${sugestaoHTML}
+        ${observacaoCardHTML}
         <div class="fila-card-actions">
           ${!isConcluido
             ? `<button class="fila-btn-action ok" onclick="marcarConcluido('${c.placa}');event.stopPropagation()">✅ Marcar Concluído</button>`
@@ -4482,10 +4950,303 @@ function openFilaModal() {
   document.getElementById('modalFila').classList.add('open');
   const hora = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
   document.getElementById('filaInputHora').value = hora;
+  const sugBox = document.getElementById('sugestaoLotesBox');
+  if (sugBox) { sugBox.style.display = 'none'; sugBox.innerHTML = ''; }
 }
 function closeFilaModal() {
   document.getElementById('modalFila').classList.remove('open');
+  const sugBox = document.getElementById('sugestaoLotesBox');
+  if (sugBox) { sugBox.style.display = 'none'; sugBox.innerHTML = ''; }
 }
+// ═══════════════════════════════════════════════════════════
+//  IMPORTAR DA PORTARIA (Google Sheets) — Fila Virtual
+//  Lê a aba PORTARIA (mesma planilha publicada, gid=0), filtra só
+//  PRODUTO = ALGODÃO EM PLUMA e STATUS relevante (PÁTIO, CARREGANDO,
+//  AGUARD.NFE — nunca SAÍDA), e mostra um modal de revisão antes de
+//  efetivamente adicionar à Fila do Cotton.
+// ═══════════════════════════════════════════════════════════
+const PORTARIA_SHEET_ID = '1ld0si9PW5xHkHWM5h-4J1mvnqoRrEgQ961aEgMI9_ik';
+const PORTARIA_GID = '0'; // aba PORTARIA
+
+// Parser simples de CSV (suporta campos entre aspas com vírgula/quebra de linha interna)
+function parseCSVSimples(texto) {
+  const linhas = [];
+  let linha = [], campo = '', dentroAspas = false;
+  for (let i = 0; i < texto.length; i++) {
+    const c = texto[i];
+    if (dentroAspas) {
+      if (c === '"') {
+        if (texto[i + 1] === '"') { campo += '"'; i++; }
+        else dentroAspas = false;
+      } else campo += c;
+    } else {
+      if (c === '"') dentroAspas = true;
+      else if (c === ',') { linha.push(campo); campo = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && texto[i + 1] === '\n') i++;
+        linha.push(campo); campo = '';
+        if (linha.length > 1 || linha[0] !== '') linhas.push(linha);
+        linha = [];
+      } else campo += c;
+    }
+  }
+  if (campo !== '' || linha.length) { linha.push(campo); linhas.push(linha); }
+  return linhas;
+}
+
+// Busca dados de uma planilha Google pública via técnica JSONP (tag <script>), que NÃO
+// é bloqueada por CORS — diferente de fetch()/XMLHttpRequest, que o Google Sheets bloqueia
+// para chamadas feitas de outro domínio. A API gviz/tq aceita um parâmetro de callback,
+// permitindo carregar os dados como se fosse um <script> comum.
+function buscarPlanilhaViaJSONP(sheetId, gid, timeoutMs = 12000) {
+  return new Promise((resolve, reject) => {
+    const callbackName = '_gvizCallback_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+    const scriptEl = document.createElement('script');
+    let finalizado = false;
+
+    const limpar = () => {
+      delete window[callbackName];
+      if (scriptEl.parentNode) scriptEl.parentNode.removeChild(scriptEl);
+      clearTimeout(timeoutId);
+    };
+
+    const timeoutId = setTimeout(() => {
+      if (finalizado) return;
+      finalizado = true;
+      limpar();
+      reject(new Error('Tempo esgotado ao buscar a planilha (verifique sua conexão ou se o link ainda está público)'));
+    }, timeoutMs);
+
+    window[callbackName] = (response) => {
+      if (finalizado) return;
+      finalizado = true;
+      limpar();
+      resolve(response);
+    };
+
+    scriptEl.onerror = () => {
+      if (finalizado) return;
+      finalizado = true;
+      limpar();
+      reject(new Error('Não foi possível carregar a planilha (verifique se o link de compartilhamento ainda está público)'));
+    };
+
+    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq`
+      + `?gid=${gid}&tqx=responseHandler:${callbackName}&_=${Date.now()}`;
+    scriptEl.src = url;
+    document.head.appendChild(scriptEl);
+  });
+}
+
+// Converte a resposta do gviz/tq (table.cols / table.rows) para o mesmo formato de
+// "linhas 2D" (array de arrays, primeira linha = cabeçalho) usado pelo restante do código.
+function gvizResponseParaLinhas2D(response) {
+  if (!response || !response.table) return [];
+  const table = response.table;
+  const headerRow = (table.cols || []).map(c => (c.label || c.id || '').toString());
+  const linhas = [headerRow];
+  (table.rows || []).forEach(r => {
+    const linha = (r.c || []).map(cell => {
+      if (!cell) return '';
+      // Datas do gviz vêm como "Date(ano,mes,dia,hora,min,seg)" em cell.v — usamos o formatado (cell.f) quando existir
+      if (cell.f != null) return cell.f.toString();
+      if (cell.v == null) return '';
+      return cell.v.toString();
+    });
+    linhas.push(linha);
+  });
+  return linhas;
+}
+
+async function importarDaPortaria() {
+  showToast('🔄 Buscando dados da Portaria...', 'info');
+  try {
+    const response = await buscarPlanilhaViaJSONP(PORTARIA_SHEET_ID, PORTARIA_GID);
+    if (response.status === 'error') {
+      const msg = (response.errors && response.errors[0] && response.errors[0].detailed_message) || 'Erro ao consultar a planilha';
+      throw new Error(msg);
+    }
+    const linhas = gvizResponseParaLinhas2D(response);
+    if (!linhas.length) throw new Error('Planilha vazia ou inacessível');
+
+    const hdr = linhas[0].map(v => v.trim().toUpperCase());
+    const idx = {
+      chegada: hdr.findIndex(v => v.includes('CHEGADA')),
+      entrada: hdr.findIndex(v => v.includes('ENTRADA')),
+      placa:   hdr.findIndex(v => v === 'PLACA'),
+      motorista: hdr.findIndex(v => v.includes('MOTORISTA')),
+      empresa: hdr.findIndex(v => v.includes('EMPRESA')),
+      produto: hdr.findIndex(v => v.includes('PRODUTO')),
+      status:  hdr.findIndex(v => v.includes('STATUS')),
+      saida:   hdr.findIndex(v => v.includes('SA') && v.includes('HORA')),
+      nfe:     hdr.findIndex(v => v.includes('NFE') || v.includes('NF-E') || v.includes('NF')),
+    };
+    if (idx.placa < 0 || idx.produto < 0 || idx.status < 0) {
+      throw new Error('Colunas PLACA, PRODUTO ou STATUS não encontradas na planilha');
+    }
+
+    const placasNaFila = new Set(FILA.map(c => (c.placa || '').toUpperCase()));
+    const candidatos = [];
+
+    for (let i = 1; i < linhas.length; i++) {
+      const row = linhas[i];
+      if (!row || !row.length) continue;
+      const placa = (row[idx.placa] || '').trim().toUpperCase();
+      const produto = (row[idx.produto] || '').trim().toUpperCase();
+      const status = (row[idx.status] || '').trim().toUpperCase();
+      if (!placa || !produto) continue;
+
+      // Foco do Cotton: só Algodão em Pluma
+      if (!produto.includes('ALGOD') && !produto.includes('PLUMA')) continue;
+      // Nunca traz quem já saiu (NFE com horário de saída registrado)
+      if (status.includes('SA')) continue;
+      // Só PÁTIO, CARREGANDO ou AGUARD.NFE interessam
+      const statusValido = status.includes('PATIO') || status.includes('PÁTIO')
+        || status.includes('CARREG') || status.includes('AGUARD');
+      if (!statusValido) continue;
+      // Não duplica quem já está na fila do Cotton (mesma placa)
+      if (placasNaFila.has(placa)) continue;
+
+      candidatos.push({
+        placa,
+        motorista: idx.motorista >= 0 ? (row[idx.motorista] || '').trim() : '',
+        empresa: idx.empresa >= 0 ? (row[idx.empresa] || '').trim() : '',
+        hora_entrada_raw: idx.entrada >= 0 ? (row[idx.entrada] || '').trim() : '',
+        status_portaria: status,
+      });
+    }
+
+    if (!candidatos.length) {
+      showToast('Nenhum caminhão de Algodão em Pluma pendente na Portaria (ou já estão todos na fila)', 'info');
+      return;
+    }
+
+    abrirModalRevisaoPortaria(candidatos);
+  } catch (e) {
+    console.error('Erro ao importar da Portaria:', e);
+    showToast(`⚠ ${e.message || 'Não foi possível ler a planilha da Portaria.'}`, 'error');
+  }
+}
+
+function abrirModalRevisaoPortaria(candidatos) {
+  PORTARIA_CANDIDATOS = candidatos;
+  const list = document.getElementById('portariaImportList');
+  const opcoesIE = IES.map(ie => `<option value="${ie.name}">${ie.name}</option>`).join('');
+
+  list.innerHTML = candidatos.map((c, i) => `
+    <div style="border:1px solid var(--border);border-radius:8px;padding:12px;font-family:var(--font-mono);">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <input type="checkbox" id="portSel_${i}" checked style="width:16px;height:16px;" onchange="atualizarContadorPortaria()">
+        <strong style="font-size:14px;">${c.placa}</strong>
+        <span style="font-size:11px;color:var(--text3);">${c.motorista || '—'} · ${c.empresa || '—'}</span>
+        <span style="margin-left:auto;font-size:10px;padding:3px 8px;border-radius:4px;background:rgba(0,229,160,.1);color:var(--green);">
+          ${c.status_portaria}
+        </span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        <select id="portIE_${i}" class="fila-input fila-select" style="font-size:12px;padding:6px;"
+          onchange="atualizarSugestaoLotesGenerico('portIE_${i}','portFardos_${i}','portLotes_${i}','portSug_${i}')">
+          <option value="">Instrução (IE)...</option>
+          ${opcoesIE}
+        </select>
+        <input type="text" id="portLotes_${i}" class="fila-input" placeholder="Lotes: 221, 243" style="font-size:12px;padding:6px;"
+          oninput="atualizarSugestaoLotesGenerico('portIE_${i}','portFardos_${i}','portLotes_${i}','portSug_${i}')">
+        <input type="number" id="portFardos_${i}" class="fila-input" placeholder="Fardos" style="font-size:12px;padding:6px;"
+          oninput="atualizarSugestaoLotesGenerico('portIE_${i}','portFardos_${i}','portLotes_${i}','portSug_${i}')">
+      </div>
+      <div id="portSug_${i}" style="display:none;"></div>
+      <div id="portObs_${i}" style="display:none;"></div>
+    </div>
+  `).join('');
+
+  document.getElementById('modalPortaria').classList.add('open');
+  atualizarContadorPortaria();
+}
+
+function toggleSelecionarTodosPortaria(marcar) {
+  PORTARIA_CANDIDATOS.forEach((_, i) => {
+    const cb = document.getElementById(`portSel_${i}`);
+    if (cb) cb.checked = marcar;
+  });
+  atualizarContadorPortaria();
+}
+
+function atualizarContadorPortaria() {
+  const total = PORTARIA_CANDIDATOS.length;
+  const marcados = PORTARIA_CANDIDATOS.filter((_, i) => {
+    const cb = document.getElementById(`portSel_${i}`);
+    return cb && cb.checked;
+  }).length;
+  const spanCount = document.getElementById('portSelCount');
+  if (spanCount) spanCount.textContent = `${marcados} de ${total} selecionado${marcados !== 1 ? 's' : ''}`;
+  // Atualiza estado do checkbox mestre (indeterminate quando parcial)
+  const cbAll = document.getElementById('portSelAll');
+  if (cbAll) {
+    cbAll.checked = marcados === total;
+    cbAll.indeterminate = marcados > 0 && marcados < total;
+  }
+}
+
+function closePortariaModal() {
+  document.getElementById('modalPortaria').classList.remove('open');
+  PORTARIA_CANDIDATOS = [];
+}
+
+function confirmarImportacaoPortaria() {
+  let adicionados = 0;
+  PORTARIA_CANDIDATOS.forEach((c, i) => {
+    const checkbox = document.getElementById(`portSel_${i}`);
+    if (!checkbox || !checkbox.checked) return;
+
+    const ie = document.getElementById(`portIE_${i}`).value.trim();
+    const lotesStr = document.getElementById(`portLotes_${i}`).value.trim();
+    const fardos = parseInt(document.getElementById(`portFardos_${i}`).value) || 0;
+    const lotes = lotesStr.split(/[,;\s]+/).map(l => parseInt(l)).filter(l => l > 0);
+
+    const idLotesEsteItem = `portLotes_${i}`;
+    const override = SUGESTAO_LOTES_OVERRIDE[idLotesEsteItem] || {};
+    const lotesComOverride = lotes.filter(l => override[l] != null);
+    const lotesSemOverride = lotes.filter(l => override[l] == null);
+
+    const lotes_fardos = {};
+    lotesComOverride.forEach(l => { lotes_fardos[l] = override[l]; });
+
+    if (lotesSemOverride.length > 0) {
+      const fardosJaAlocados = lotesComOverride.reduce((s, l) => s + override[l], 0);
+      const fardosRestantesParaDividir = Math.max(0, fardos - fardosJaAlocados);
+      if (fardosRestantesParaDividir > 0) {
+        const fdsPorLote = Math.round(fardosRestantesParaDividir / lotesSemOverride.length);
+        lotesSemOverride.forEach((l, idx) => {
+          lotes_fardos[l] = (idx === lotesSemOverride.length - 1)
+            ? (fardosRestantesParaDividir - fdsPorLote * (lotesSemOverride.length - 1))
+            : fdsPorLote;
+        });
+      }
+    }
+    delete SUGESTAO_LOTES_OVERRIDE[idLotesEsteItem];
+
+    const pos = FILA.filter(c2 => c2.status !== 'concluido').length + 1;
+    FILA.push({
+      pos,
+      transportadora: c.empresa || '—',
+      placa: c.placa,
+      motorista: c.motorista || '',
+      ie, lotes, lotes_fardos,
+      fardos_total: fardos,
+      hora_entrada: c.hora_entrada_raw,
+      status: 'pendente',
+      status_portaria: c.status_portaria, // preserva o status original da Portaria (ex: AGUARD.NFE)
+      origem: 'portaria',
+    });
+    adicionados++;
+  });
+
+  saveToStorage();
+  closePortariaModal();
+  renderFila();
+  showToast(`🔄 ${adicionados} caminhão(ões) importado(s) da Portaria`, 'success');
+}
+
 function adicionarCaminhao() {
   const transp  = document.getElementById('filaInputTransp').value.trim();
   const placa   = document.getElementById('filaInputPlaca').value.trim().toUpperCase();
@@ -4499,17 +5260,30 @@ function adicionarCaminhao() {
   const lotes = lotesStr.split(/[,;\s]+/).map(l => parseInt(l)).filter(l => l > 0);
   const pos = FILA.filter(c => c.status !== 'concluido').length + 1;
 
-  // Preenche lotes_fardos distribuindo fardos entre lotes como estimativa
+  // Preenche lotes_fardos: usa a divisão EXATA sugerida (quando o usuário escolheu via
+  // chip/card de sugestão) com prioridade sobre a divisão igualitária estimada
   const lotes_fardos = {};
-  if (lotes.length > 0 && fardos > 0) {
-    const fdsPorLote = Math.round(fardos / lotes.length);
-    lotes.forEach((l, i) => {
-      // Último lote recebe o restante pra fechar o total
-      lotes_fardos[l] = (i === lotes.length - 1) ? (fardos - fdsPorLote * (lotes.length - 1)) : fdsPorLote;
-    });
+  const override = SUGESTAO_LOTES_OVERRIDE['filaInputLotes'] || {};
+  const lotesComOverride = lotes.filter(l => override[l] != null);
+  const lotesSemOverride = lotes.filter(l => override[l] == null);
+
+  lotesComOverride.forEach(l => { lotes_fardos[l] = override[l]; });
+
+  if (lotesSemOverride.length > 0) {
+    const fardosJaAlocados = lotesComOverride.reduce((s, l) => s + override[l], 0);
+    const fardosRestantesParaDividir = Math.max(0, fardos - fardosJaAlocados);
+    if (fardosRestantesParaDividir > 0) {
+      const fdsPorLote = Math.round(fardosRestantesParaDividir / lotesSemOverride.length);
+      lotesSemOverride.forEach((l, i) => {
+        lotes_fardos[l] = (i === lotesSemOverride.length - 1)
+          ? (fardosRestantesParaDividir - fdsPorLote * (lotesSemOverride.length - 1))
+          : fdsPorLote;
+      });
+    }
   }
 
   FILA.push({ pos, transportadora: transp || '—', placa, ie, lotes, lotes_fardos, fardos_total: fardos, hora_entrada: hora, status: 'pendente' });
+  delete SUGESTAO_LOTES_OVERRIDE['filaInputLotes']; // limpa o override após usar, para o próximo caminhão começar do zero
   saveToStorage();
   closeFilaModal();
   renderFila();
@@ -4537,6 +5311,319 @@ function previewSegregacao() {
     box.innerHTML = `<div style="font-size:11px;color:var(--text3);margin-top:4px;">Tipo não identificado para estes lotes (sem dados de tipo na planilha).</div>`;
     box.style.display = 'block';
   }
+}
+
+// ── Sugestão de lotes próximos (por rua do MAPA) + mesmo tipo, no modal Adicionar Caminhão ──
+// Versão genérica: recebe os IDs dos campos (IE, Fardos, Lotes, caixa de sugestão) e o
+// prefixo a usar no onclick dos chips. Usada tanto no modal "Adicionar Caminhão" (índice
+// único, sem sufixo) quanto no modal "Importar da Portaria" (um conjunto de campos por
+// caminhão da lista, identificados por índice _i).
+function atualizarSugestaoLotesGenerico(idIE, idFardos, idLotes, idBox, sufixoOnclick) {
+  const box = document.getElementById(idBox);
+  if (!box) return;
+
+  const ieName = document.getElementById(idIE).value.trim();
+  const fardos = parseInt(document.getElementById(idFardos).value) || 0;
+  const lotesStr = document.getElementById(idLotes).value.trim();
+  const lotesJaEscolhidos = lotesStr.split(/[,;\s]+/).map(l => parseInt(l)).filter(l => l > 0);
+
+  // Remove do override qualquer lote que não esteja mais digitado no campo (cobre o
+  // caso de edição manual: se o usuário apagar ou trocar um lote que veio de uma
+  // sugestão anterior, a quantidade exata associada a ele deixa de valer)
+  if (SUGESTAO_LOTES_OVERRIDE[idLotes]) {
+    Object.keys(SUGESTAO_LOTES_OVERRIDE[idLotes]).forEach(loteKey => {
+      if (!lotesJaEscolhidos.includes(parseInt(loteKey))) {
+        delete SUGESTAO_LOTES_OVERRIDE[idLotes][loteKey];
+      }
+    });
+  }
+
+  // ── Cálculo automático de divisão ao digitar manualmente (sem clicar em sugestão) ──
+  // Quando o usuário digita 2+ lotes diretamente no campo, em vez de cair na divisão
+  // igualitária padrão, calcula a divisão correta: lote(s) com saldo CHEIO (não-parcial)
+  // sempre fecham por INTEIRO primeiro — não importa a ordem digitada. O lote que já
+  // está PARCIAL entra por ÚLTIMO, recebendo só o que sobra para fechar a conta. Se não
+  // houver nenhum parcial entre os digitados, o último lote completo da lista assume o
+  // papel de "ajuste" (recebe só o necessário, não o saldo cheio dele).
+  let faltaCompletarManual = 0; // se > 0, os lotes digitados não cobrem o total pedido
+  if (ieName && fardos > 0 && lotesJaEscolhidos.length === 1) {
+    // Caso de 1 único lote digitado: usa o máximo possível (até o saldo dele) para
+    // fechar o total — permite que a observação de cópia apareça também nesse caso.
+    const ie = IES.find(i => i.name === ieName);
+    if (ie) {
+      if (!SUGESTAO_LOTES_OVERRIDE[idLotes]) SUGESTAO_LOTES_OVERRIDE[idLotes] = {};
+      const loteNum = lotesJaEscolhidos[0];
+      const saldoDisponivel = fardosRestantesDoLote(ie, loteNum);
+      const usar = Math.max(0, Math.min(saldoDisponivel, fardos));
+      SUGESTAO_LOTES_OVERRIDE[idLotes][loteNum] = usar;
+      faltaCompletarManual = fardos - usar;
+    }
+  } else if (ieName && fardos > 0 && lotesJaEscolhidos.length >= 2) {
+    const ie = IES.find(i => i.name === ieName);
+    if (ie) {
+      if (!SUGESTAO_LOTES_OVERRIDE[idLotes]) SUGESTAO_LOTES_OVERRIDE[idLotes] = {};
+
+      const infoLotes = lotesJaEscolhidos.map(loteNum => {
+        const autorizado = (ie.lotes_fardos && ie.lotes_fardos[loteNum]) || 110;
+        const saldoDisponivel = fardosRestantesDoLote(ie, loteNum);
+        return { loteNum, saldoDisponivel, ehParcial: saldoDisponivel < autorizado };
+      });
+
+      // Ordem de preenchimento: primeiro os NÃO-parciais (saldo cheio), depois os
+      // parciais por último — independente da ordem em que foram digitados no campo
+      const naoParciais = infoLotes.filter(l => !l.ehParcial);
+      const parciais = infoLotes.filter(l => l.ehParcial);
+      const ordemPreenchimento = [...naoParciais, ...parciais];
+
+      let restanteParaDividir = fardos;
+      ordemPreenchimento.forEach((l, idx) => {
+        const ehUltimo = idx === ordemPreenchimento.length - 1;
+        const usar = ehUltimo
+          ? Math.max(0, Math.min(l.saldoDisponivel, restanteParaDividir))
+          : Math.min(l.saldoDisponivel, restanteParaDividir);
+        SUGESTAO_LOTES_OVERRIDE[idLotes][l.loteNum] = usar;
+        restanteParaDividir -= usar;
+      });
+      faltaCompletarManual = restanteParaDividir; // > 0 quando os saldos não fecharam a conta
+    }
+  }
+
+  if (!ieName || !fardos) { box.style.display = 'none'; box.innerHTML = ''; return; }
+
+  const avisoFalta = faltaCompletarManual > 0
+    ? `<div style="font-size:11px;color:#FFB020;margin-bottom:6px;padding:6px 8px;border-radius:6px;background:rgba(255,176,32,.08);border:1px solid rgba(255,176,32,.3);">
+        ⚠ Os lotes digitados somam ${fardos - faltaCompletarManual} fds — faltam <strong>${faltaCompletarManual} fds</strong> para completar os ${fardos} informados. Adicione mais um lote.
+      </div>`
+    : '';
+
+  const sug = sugerirLotesParaCarga(ieName, fardos, lotesJaEscolhidos);
+
+  if (!sug.porProximidade.length && !sug.porTipo.length && !sug.fechandoParcial) {
+    box.style.display = 'block';
+    box.innerHTML = avisoFalta || `<div style="font-size:11px;color:var(--text3);margin-top:4px;">Nenhuma sugestão disponível (sem lotes pendentes mapeados para esta instrução).</div>`;
+    return;
+  }
+
+  // ── Caso especial: quantidade quebrada + há lote parcial a fechar ──
+  // Mostra duas opções completas (parcial + companheiro), cada uma clicável como bloco único,
+  // já que escolher só o companheiro sem o parcial (ou vice-versa) não fecha a conta pedida.
+  if (sug.fechandoParcial) {
+    const fp = sug.fechandoParcial;
+    const opcaoCard = (companheiros, label, emoji) => {
+      if (!companheiros || !companheiros.length) return '';
+      const somaCompanheiros = companheiros.reduce((s, c) => s + c.usar, 0);
+      const somaTotal = fp.usar + somaCompanheiros;
+      const paresLiteral = `[[${fp.lote},${fp.usar}],${companheiros.map(c => `[${c.lote},${c.usar}]`).join(',')}]`;
+      const textoCompanheiros = companheiros.map(c => {
+        const ehParcial = c.usar < c.restantes;
+        const qtd = ehParcial ? `${c.usar}/${c.restantes}fds` : `${c.usar}fds`;
+        return `Lote ${c.lote} · ${qtd}${c.rua ? ' · ' + c.rua : ''}`;
+      }).join(' &nbsp;+&nbsp; ');
+      return `
+        <button type="button"
+          onclick="adicionarLotesSugeridosEmLote(${paresLiteral}, '${idLotes}', '${idIE}', '${idFardos}', '${idBox}')"
+          style="text-align:left;font-family:var(--font-mono);font-size:11px;padding:8px 10px;border-radius:8px;
+                 border:1px solid var(--green);background:rgba(0,229,160,.06);color:var(--text);
+                 cursor:pointer;display:block;width:100%;">
+          <div style="color:var(--green);font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">
+            ${emoji} ${label} · soma: ${somaTotal} fds
+          </div>
+          <div>Lote ${fp.lote} (parcial) · ${fp.usar}/${fp.restantes}fds &nbsp;+&nbsp; ${textoCompanheiros}</div>
+        </button>`;
+    };
+
+    let htmlParcial = avisoFalta + '<div style="display:grid;gap:8px;margin-top:6px;">';
+    htmlParcial += `<div style="font-size:11px;color:#60A5FA;margin-bottom:2px;">⚡ Lote ${fp.lote} está parcial (saldo ${fp.restantes} fds) — fechando a carga com companheiro(s):</div>`;
+    if (sug.porTipo.length) htmlParcial += opcaoCard(sug.porTipo, 'Mesmo tipo', '🧬');
+    if (sug.porProximidade.length) htmlParcial += opcaoCard(sug.porProximidade, 'Mais próximo', '📍');
+    htmlParcial += '</div>';
+
+    box.style.display = 'block';
+    box.innerHTML = htmlParcial;
+    return;
+  }
+
+  const chip = (c, extra) => {
+    const ehParcial = c.usar < c.restantes;
+    const textoQtd = ehParcial ? `${c.usar}/${c.restantes}fds` : `${c.usar}fds`;
+    return `
+    <button type="button" onclick="adicionarLoteSugeridoGenerico(${c.lote}, ${c.usar}, '${idLotes}', '${idIE}', '${idFardos}', '${idBox}')"
+      style="font-family:var(--font-mono);font-size:11px;padding:4px 9px;border-radius:6px;
+             border:1px solid var(--green);background:rgba(0,229,160,.08);color:var(--green);
+             cursor:pointer;white-space:nowrap;">
+      Lote ${c.lote} · ${textoQtd}${ehParcial ? ' (parcial)' : ''}${extra ? ' · ' + extra : ''}
+    </button>`;
+  };
+
+  let html = avisoFalta + '<div style="display:grid;gap:8px;margin-top:6px;">';
+
+  if (sug.porProximidade.length) {
+    const somaProx = sug.porProximidade.reduce((s, c) => s + c.usar, 0);
+    html += `<div>
+      <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">
+        📍 Mais próximos${sug.rua ? ` · ${sug.rua}` : ''} (soma: ${somaProx} fds)
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">${sug.porProximidade.map(c => chip(c)).join('')}</div>
+    </div>`;
+  }
+
+  if (sug.porTipo.length) {
+    const somaTipo = sug.porTipo.reduce((s, c) => s + c.usar, 0);
+    const tipo = sug.porTipo[0].tipo;
+    html += `<div>
+      <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">
+        🧬 Mesmo tipo (${tipo}) · soma: ${somaTipo} fds
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">${sug.porTipo.map(c => chip(c, c.rua || '')).join('')}</div>
+    </div>`;
+  }
+
+  html += '</div>';
+  box.style.display = 'block';
+  box.innerHTML = html;
+
+  atualizarObservacaoCopia(ieName, fardos, lotesJaEscolhidos, idLotes);
+}
+
+// ID da caixa de observação de cópia, derivado por convenção do ID do campo de Lotes
+function idObservacaoCopia(idLotes) {
+  if (idLotes === 'filaInputLotes') return 'observacaoCopiaBox';
+  const m = idLotes.match(/^portLotes_(\d+)$/);
+  if (m) return `portObs_${m[1]}`;
+  return null;
+}
+
+// Monta e exibe a observação pronta para copiar, no formato:
+// "INSTRUÇÃO  TOTALfds: LT lote1_qtdF / LT lote2_qtdF" — só aparece quando a soma
+// exata dos lotes (considerando o override de quantidade, se houver) fecha o total
+// de fardos informado. Inclui botão de copiar com confirmação visual (✓).
+function atualizarObservacaoCopia(ieName, fardos, lotesJaEscolhidos, idLotes) {
+  const idBoxObs = idObservacaoCopia(idLotes);
+  if (!idBoxObs) return;
+  const boxObs = document.getElementById(idBoxObs);
+  if (!boxObs) return;
+
+  if (!ieName || !fardos || lotesJaEscolhidos.length === 0) {
+    boxObs.style.display = 'none';
+    boxObs.innerHTML = '';
+    return;
+  }
+
+  const override = SUGESTAO_LOTES_OVERRIDE[idLotes] || {};
+  // Só monta a observação se TODOS os lotes digitados tiverem uma quantidade exata
+  // conhecida (vinda do override, populado tanto pelo clique em sugestão quanto pelo
+  // cálculo automático da digitação manual) e a soma fechar EXATAMENTE o total pedido.
+  const todosTemQtd = lotesJaEscolhidos.every(l => override[l] != null);
+  if (!todosTemQtd) {
+    boxObs.style.display = 'none';
+    boxObs.innerHTML = '';
+    return;
+  }
+
+  const soma = lotesJaEscolhidos.reduce((s, l) => s + override[l], 0);
+  if (soma !== fardos) {
+    boxObs.style.display = 'none';
+    boxObs.innerHTML = '';
+    return;
+  }
+
+  const partesLote = lotesJaEscolhidos.map(l => `LT ${l}_${override[l]}F`).join(' / ');
+  const textoObservacao = `${ieName}  ${fardos}FARDOS: ${partesLote}`;
+  const textoEscapado = textoObservacao.replace(/'/g, "\\'");
+
+  boxObs.style.display = 'block';
+  boxObs.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-top:6px;padding:8px 10px;border-radius:8px;
+                border:1px solid var(--border);background:rgba(255,255,255,.02);font-family:var(--font-mono);font-size:11px;">
+      <span id="${idBoxObs}_texto" style="flex:1;color:var(--text2);word-break:break-all;">${textoObservacao}</span>
+      <button type="button" onclick="copiarObservacao('${idBoxObs}', '${textoEscapado}')"
+        style="flex-shrink:0;font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);
+               background:rgba(255,255,255,.04);color:var(--text2);cursor:pointer;white-space:nowrap;">
+        📋 Copiar
+      </button>
+    </div>`;
+}
+
+// Copia o texto da observação para a área de transferência e mostra confirmação visual (✓)
+// por 1.5s antes de voltar ao estado normal do botão.
+function copiarObservacao(idBoxObs, texto) {
+  const fazerFeedbackCopiado = () => {
+    const span = document.getElementById(`${idBoxObs}_texto`);
+    const container = span ? span.parentElement : null;
+    if (!container) return;
+    const btn = container.querySelector('button');
+    if (!btn) return;
+    const textoOriginal = btn.innerHTML;
+    btn.innerHTML = '✓ Copiado';
+    btn.style.color = 'var(--green)';
+    btn.style.borderColor = 'var(--green)';
+    setTimeout(() => {
+      btn.innerHTML = textoOriginal;
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }, 1500);
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texto).then(fazerFeedbackCopiado).catch(() => {
+      showToast('Não foi possível copiar automaticamente. Selecione o texto manualmente.', 'error');
+    });
+  } else {
+    // Fallback para navegadores/contextos sem suporte à Clipboard API
+    const textarea = document.createElement('textarea');
+    textarea.value = texto;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      fazerFeedbackCopiado();
+    } catch (e) {
+      showToast('Não foi possível copiar automaticamente. Selecione o texto manualmente.', 'error');
+    }
+    document.body.removeChild(textarea);
+  }
+}
+
+// Clique num card de opção "fechar parcial + companheiro": adiciona os DOIS lotes de
+// uma vez ao campo de Lotes indicado (sem duplicar), registra a quantidade EXATA de
+// cada um no override (para não ser recalculada como divisão igualitária ao salvar),
+// e re-roda os previews relevantes.
+function adicionarLotesSugeridosEmLote(paresLoteQtd, idLotes, idIE, idFardos, idBox) {
+  const input = document.getElementById(idLotes);
+  const atuais = input.value.split(/[,;\s]+/).map(l => parseInt(l)).filter(l => l > 0);
+  if (!SUGESTAO_LOTES_OVERRIDE[idLotes]) SUGESTAO_LOTES_OVERRIDE[idLotes] = {};
+  paresLoteQtd.forEach(([lote, qtd]) => {
+    if (!atuais.includes(lote)) atuais.push(lote);
+    SUGESTAO_LOTES_OVERRIDE[idLotes][lote] = qtd;
+  });
+  input.value = atuais.join(', ');
+  if (idLotes === 'filaInputLotes') previewSegregacao();
+  atualizarSugestaoLotesGenerico(idIE, idFardos, idLotes, idBox);
+}
+
+// Clique num chip de sugestão (versão genérica): adiciona o lote ao campo de Lotes indicado
+// (sem duplicar), registra a quantidade EXATA sugerida no override, e re-roda os previews
+// relevantes daquele conjunto de campos.
+function adicionarLoteSugeridoGenerico(loteNum, qtdUsar, idLotes, idIE, idFardos, idBox) {
+  const input = document.getElementById(idLotes);
+  const atuais = input.value.split(/[,;\s]+/).map(l => parseInt(l)).filter(l => l > 0);
+  if (!atuais.includes(loteNum)) atuais.push(loteNum);
+  if (!SUGESTAO_LOTES_OVERRIDE[idLotes]) SUGESTAO_LOTES_OVERRIDE[idLotes] = {};
+  SUGESTAO_LOTES_OVERRIDE[idLotes][loteNum] = qtdUsar;
+  input.value = atuais.join(', ');
+  if (idLotes === 'filaInputLotes') previewSegregacao(); // preview de homogeneidade só existe no modal Adicionar Caminhão
+  atualizarSugestaoLotesGenerico(idIE, idFardos, idLotes, idBox);
+}
+
+// Wrappers usados pelo modal "Adicionar Caminhão" (mantêm os nomes antigos para não quebrar
+// os atributos onclick/oninput já existentes no HTML)
+function atualizarSugestaoLotes() {
+  atualizarSugestaoLotesGenerico('filaInputIE', 'filaInputFardos', 'filaInputLotes', 'sugestaoLotesBox');
+}
+function adicionarLoteSugerido(loteNum, qtdUsar) {
+  adicionarLoteSugeridoGenerico(loteNum, qtdUsar, 'filaInputLotes', 'filaInputIE', 'filaInputFardos', 'sugestaoLotesBox');
 }
 
 // ── Modal de turno
@@ -5216,52 +6303,109 @@ fetchPTAX();
 setInterval(fetchPTAX, 30 * 60 * 1000);
 
 // ========== DÓLAR EM TEMPO REAL (AwesomeAPI) — controla o número grande verde ==========
-let usdLastBid = null; // último valor exibido, para saber se subiu/caiu
+//
+// Com o token abaixo, as requisições NÃO passam pelo cache de ~1min do plano sem chave,
+// então a atualização fica realmente em tempo real (poucos segundos). O plano gratuito com
+// token dá direito a 100.000 requisições/mês. Se esse limite for atingido, o código detecta
+// automaticamente e volta a funcionar como no plano sem chave (consulta a cada 60s, com o
+// cache de ~1min da própria API) — o app nunca quebra, só "degrada" de forma graciosa.
+let AWESOMEAPI_TOKEN = 'e14f27bda4a8f2f4b4122a18c12754eb65062ef74d19852c8819bd7496c46ce8';
+
+let usdLastBid = null;          // último valor exibido, para saber se subiu/caiu
+let usdLastTimestamp = null;    // timestamp do tick recebido, para saber se é dado novo ou repetido
+let usdFalhasLimiteSeguidas = 0; // contagem de falhas que parecem ser limite de cota excedido
+const LIMITE_FALHAS_PARA_DESATIVAR_TOKEN = 3; // margem de segurança contra erro pontual de rede
+
+function montarUrlAwesomeAPI() {
+  const base = 'https://economia.awesomeapi.com.br/json/last/USD-BRL';
+  const params = new URLSearchParams();
+  params.set('_', Date.now().toString()); // cache-busting: evita resposta antiga de cache de navegador/CDN
+  if (AWESOMEAPI_TOKEN) params.set('token', AWESOMEAPI_TOKEN);
+  return `${base}?${params.toString()}`;
+}
+
+// Detecta se a falha parece ser "limite de requisições do token excedido"
+function pareceLimiteExcedido(status, corpoTexto) {
+  if (status === 429 || status === 403) return true;
+  if (!corpoTexto) return false;
+  const txt = corpoTexto.toLowerCase();
+  return txt.includes('limit') || txt.includes('limite') || txt.includes('quota') || txt.includes('exceed');
+}
+
+// Desliga o token e volta ao comportamento gratuito (60s, com cache de ~1min da própria API)
+function desativarTokenEVoltarAo60s() {
+  if (!AWESOMEAPI_TOKEN) return; // já está desativado
+  AWESOMEAPI_TOKEN = '';
+  console.warn('AwesomeAPI: limite de requisições do token parece ter sido excedido. Voltando ao modo gratuito (consulta a cada 60s).');
+  clearInterval(usdPollingIntervalId);
+  usdPollingIntervalId = setInterval(fetchUSDLive, 60000);
+  const dataEl = document.getElementById('ptax-data');
+  if (dataEl) dataEl.dataset.modoGratuito = '1';
+}
 
 async function fetchUSDLive() {
   try {
-    const res = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL');
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const res = await fetch(montarUrlAwesomeAPI(), { cache: 'no-store' });
+
+    if (!res.ok) {
+      let corpoTexto = '';
+      try { corpoTexto = await res.text(); } catch (_) {}
+      if (AWESOMEAPI_TOKEN && pareceLimiteExcedido(res.status, corpoTexto)) {
+        usdFalhasLimiteSeguidas++;
+        if (usdFalhasLimiteSeguidas >= LIMITE_FALHAS_PARA_DESATIVAR_TOKEN) {
+          desativarTokenEVoltarAo60s();
+        }
+      }
+      throw new Error('HTTP ' + res.status);
+    }
+
+    // Sucesso: zera o contador de falhas de limite
+    usdFalhasLimiteSeguidas = 0;
+
     const json = await res.json();
     const v = json.USDBRL;
     if (!v) throw new Error('Resposta sem USDBRL');
 
-    const bid = parseFloat(v.bid);
-    const pctChange = parseFloat(v.pctChange);
-    const varBid = parseFloat(v.varBid);
+    const bid        = parseFloat(v.bid);
+    const pctChange   = parseFloat(v.pctChange);
+    const varBid      = parseFloat(v.varBid);
+    const tickTs      = parseInt(v.timestamp, 10); // segundos desde epoch — identifica o tick real do mercado
 
-    const valorEl   = document.getElementById('ptax-valor');
-    const varEl     = document.getElementById('ptax-var');
-    const dotEl      = document.getElementById('ptax-live-dot');
-    const dataEl     = document.getElementById('ptax-data');
+    const valorEl = document.getElementById('ptax-valor');
+    const varEl   = document.getElementById('ptax-var');
+    const dotEl   = document.getElementById('ptax-live-dot');
+    const dataEl  = document.getElementById('ptax-data');
+
+    const ehTickNovo = usdLastTimestamp === null || tickTs !== usdLastTimestamp;
 
     const bidFmt = bid.toFixed(4).replace('.', ',');
     valorEl.textContent = `R$ ${bidFmt}`;
 
-    // Cor do número grande: verde se subiu/estável no dia, vermelho se caiu no dia
+    // Cor base do número grande: verde se subiu/estável no dia, vermelho se caiu no dia
     const subindoNoDia = pctChange >= 0;
     valorEl.style.color = subindoNoDia ? 'var(--green)' : 'var(--red)';
 
-    // Seta + variação do dia (igual ao "alta/baixa" que você quer acompanhar)
+    // Seta + variação do dia
     const seta = pctChange > 0 ? '▲' : (pctChange < 0 ? '▼' : '•');
     const sinalVar = varBid > 0 ? '+' : '';
     varEl.textContent = `${seta} ${sinalVar}${varBid.toFixed(4).replace('.', ',')} (${sinalVar}${pctChange.toFixed(2).replace('.', ',')}%)`;
     varEl.style.color = subindoNoDia ? 'var(--green)' : 'var(--red)';
 
-    // Pisca o número quando o tick muda de valor desde a última leitura (sobe/desce em tempo real)
-    if (usdLastBid !== null && bid !== usdLastBid) {
+    // Pisca o número SÓ quando for um tick novo de verdade (timestamp mudou) e o preço mudou
+    if (ehTickNovo && usdLastBid !== null && bid !== usdLastBid) {
       const corPiscada = bid > usdLastBid ? 'var(--green)' : 'var(--red)';
       valorEl.style.color = corPiscada;
-      valorEl.style.transform = 'scale(1.04)';
+      valorEl.style.transform = 'scale(1.05)';
       setTimeout(() => { valorEl.style.transform = 'scale(1)'; }, 220);
     }
     usdLastBid = bid;
+    usdLastTimestamp = tickTs;
 
-    // Horário da última cotação recebida (não é mais "FECHAMENTO")
-    const dt = new Date(v.create_date.replace(' ', 'T'));
-    const hh = String(dt.getHours()).padStart(2,'0');
-    const mi = String(dt.getMinutes()).padStart(2,'0');
-    const ss = String(dt.getSeconds()).padStart(2,'0');
+    // Mostra o horário (relógio) do tick recebido — formato simples como era antes
+    const dt = new Date(tickTs * 1000);
+    const hh = String(dt.getHours()).padStart(2, '0');
+    const mi = String(dt.getMinutes()).padStart(2, '0');
+    const ss = String(dt.getSeconds()).padStart(2, '0');
     dataEl.textContent = `· ATUALIZADO ${hh}:${mi}:${ss}`;
     dotEl.style.background = 'var(--green)';
   } catch (e) {
@@ -5272,9 +6416,12 @@ async function fetchUSDLive() {
 }
 
 fetchUSDLive();
-// Atualiza em tempo real a cada 5 segundos (AwesomeAPI sem chave faz cache de ~1min,
-// então o valor pode repetir entre alguns ticks, mas o card sempre busca o mais recente disponível)
-setInterval(fetchUSDLive, 5000);
+// Com token ativo: busca a cada 2s (100k req/mês gratuitas cobrem isso de sobra).
+// Sem token (modo gratuito, seja por nunca ter tido token ou por ter excedido a cota):
+// busca a cada 60s, que é o tempo de cache da própria API — não tem ganho em buscar mais rápido que isso.
+let usdPollingIntervalId = setInterval(fetchUSDLive, AWESOMEAPI_TOKEN ? 2000 : 60000);
+
+
 
 if ("serviceWorker" in navigator) {
   // Use relative path to work on any GitHub Pages subdirectory
