@@ -2832,6 +2832,36 @@
     const docRef = doc(_db, 'chamadas', 'ativas');
     onSnapshot(docRef, (snap) => {
       const chamadas = snap.exists() ? (snap.data().lista || []) : [];
+
+      // Sincroniza historicoChamadas com os dados do Firestore para todos os dispositivos
+      chamadas.forEach(c => {
+        const idx = historicoChamadas.findIndex(h => h.placa === c.placa);
+        if (idx >= 0) {
+          // Mantém o maior count entre local e remoto
+          if ((c.count || 1) > historicoChamadas[idx].count) {
+            historicoChamadas[idx].count = c.count || 1;
+            historicoChamadas[idx].ultimaHora = c.ultimaHora || c.hora || historicoChamadas[idx].ultimaHora;
+          }
+        } else {
+          historicoChamadas.unshift({
+            placa: c.placa,
+            motorista: c.motorista || '---',
+            hora: c.hora || '',
+            ultimaHora: c.ultimaHora || c.hora || '',
+            count: c.count || 1
+          });
+        }
+        // Atualiza badge inline no card da lista
+        const badgeEl = document.getElementById(`chamada-inline-${c.placa}`);
+        if (badgeEl) {
+          const h = historicoChamadas.find(h => h.placa === c.placa);
+          if (h) {
+            badgeEl.className = 'chamada-inline';
+            badgeEl.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.36 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg> <b>${h.count}x</b> chamado — última: ${h.ultimaHora}`;
+          }
+        }
+      });
+
       renderizarPainelChamadas(chamadas);
     }, (err) => {
       console.warn('[Firebase] onSnapshot chamadas erro:', err);
@@ -2841,9 +2871,12 @@
   // ── LISTENER TEMPO REAL — NOVAS ENTRADAS (notifica admin e balança) ────────
   let _entradaListenerIniciado = false;
   function iniciarListenerEntradas() {
-    // Só escuta em perfis que devem receber a notificação
+    // Só escuta em perfis autorizados
     if (_entradaListenerIniciado) return;
-    if (!['admin', 'balanca'].includes(perfilAtual)) return;
+    const perfisCustom = _carregarPerfisCustom();
+    const pCustom = perfisCustom[perfilAtual];
+    const temPermissaoCustom = pCustom && pCustom.permissoes && pCustom.permissoes.notif_entradas;
+    if (!['admin', 'balanca'].includes(perfilAtual) && !temPermissaoCustom) return;
     _entradaListenerIniciado = true;
 
     const turno = _turnoId();
@@ -2873,6 +2906,11 @@
         const placa     = d.placa     || '';
         const motorista = d.motorista || 'Motorista não informado';
         const produto   = d.produto   || '';
+
+        // Filtra por produto se o perfil tiver produto_filtro configurado
+        const prodFiltro = _getProdutoFiltro();
+        if (prodFiltro && !produto.toUpperCase().includes(prodFiltro.toUpperCase())) return;
+
         const titulo    = `🚛 NOVA ENTRADA — ${placa}`;
         const corpo     = `${motorista}${produto ? '  ·  ' + produto : ''}`;
 
@@ -3410,7 +3448,8 @@
     aplicarPermissoes(perfil.permissoes || {});
     _atualizarTituloPerfil(usuario);
     document.getElementById('telaLogin').classList.add('oculto');
-    mostrarToast(`✅ Bem-vindo, ${perfil.label}!`, 'success', 3000);
+    const filtroMsg = perfil.produto_filtro ? ` · Filtro: ${perfil.produto_filtro}` : '';
+    mostrarToast(`✅ Bem-vindo, ${perfil.label}!${filtroMsg}`, 'success', 3000);
     carregarEstado();
     // Pede permissão de notificação logo após o login (precisa de gesto do usuário)
     _pedirPermissaoNotificacao();
@@ -4931,6 +4970,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // Re-aplica badges NFE OK nas linhas recém-renderizadas (resolve race condition
     // onde o listener do Firestore disparou antes do DOM estar pronto)
     _reaplicarAlertasNfeOkAposRender();
+    // Aplica filtro de produto do perfil (se configurado)
+    _aplicarFiltroProdutoHistorico();
   }
 
   /* ===================== ADD HISTÓRICO ===================== */
@@ -5096,7 +5137,18 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const painel = document.getElementById('painelChamadas');
 
     // Filtra placas já dispensadas localmente (Firestore ainda pode não ter propagado)
-    const chamadasVisiveis = (chamadas || []).filter(c => !_placasDispensadas.has(c.placa));
+    // Também filtra por produto se o perfil tiver produto_filtro configurado
+    const prodFiltro = _getProdutoFiltro();
+    const chamadasVisiveis = (chamadas || []).filter(c => {
+      if (_placasDispensadas.has(c.placa)) return false;
+      if (prodFiltro) {
+        // Busca o produto do veículo na lista atual
+        const veiculo = veiculosPatio.find(v => v.placa === c.placa);
+        const prodVeiculo = (veiculo && veiculo.produto) ? veiculo.produto.toUpperCase() : '';
+        if (!prodVeiculo.includes(prodFiltro.toUpperCase())) return false;
+      }
+      return true;
+    });
 
     if (chamadasVisiveis.length === 0) {
       // Remove apenas cards que não estão mais na lista — preserva os que ainda estão
@@ -5417,11 +5469,16 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       // runTransaction garante leitura+escrita atômica: sem duplicate, sem race
       const snap = await getDoc(docRef);
       const listaAtual = snap.exists() ? (snap.data().lista || []) : [];
-      // Só adiciona se ainda não estiver na lista (idempotente)
-      if (!listaAtual.some(c => c.placa === placa)) {
-        listaAtual.push({ placa, motorista: nome, hora: horaStr });
-        await setDoc(docRef, { lista: listaAtual, atualizadoEm: new Date().toISOString() });
+      const idxFirestore = listaAtual.findIndex(c => c.placa === placa);
+      if (idxFirestore >= 0) {
+        // Já existe: incrementa o contador e atualiza a hora no Firestore
+        listaAtual[idxFirestore].count = (listaAtual[idxFirestore].count || 1) + 1;
+        listaAtual[idxFirestore].ultimaHora = horaStr;
+      } else {
+        // Nova chamada: adiciona com count inicial 1
+        listaAtual.push({ placa, motorista: nome, hora: horaStr, ultimaHora: horaStr, count: 1 });
       }
+      await setDoc(docRef, { lista: listaAtual, atualizadoEm: new Date().toISOString() });
     } catch(e) { console.warn('[Firebase] Erro ao salvar chamada:', e); }
 
     try {
@@ -6070,6 +6127,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     { id: 'dashboard',        nome: 'Dashboard Desktop',     desc: 'Abrir painel dashboard em nova janela (admin/balança)' },
     { id: 'janela_mini',      nome: 'Janela Mini (PiP)',     desc: 'Abrir janela flutuante sempre no topo (admin/balança)' },
     { id: 'cotton',           nome: 'Cotton',                desc: 'Acessar o painel Cotton (link externo)' },
+    { id: 'notif_entradas',   nome: '🔔 Notif. Nova Entrada', desc: 'Receber notificação em tempo real quando um novo veículo entrar (independente do produto filtro)' },
     // ↑ ADICIONE NOVAS PERMISSÕES AQUI — siga o padrão acima.
     // Lembre de registrar também em aplicarPermissoes() e, se for botão no gear,
     // adicione data-permissao="id_da_permissao" no elemento HTML do botão.
@@ -6316,6 +6374,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     document.getElementById('perfilEditUsuario').value = '';
     document.getElementById('perfilEditSenha').value = '';
     _renderPermissoes({}); // tudo desmarcado por padrão
+    _renderProdutosFiltro(null);
     document.getElementById('perfisListaView').style.display = 'none';
     document.getElementById('perfisEditView').classList.add('ativo');
   }
@@ -6330,8 +6389,76 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     document.getElementById('perfilEditUsuario').value = p.usuario;
     document.getElementById('perfilEditSenha').value = p.senha;
     _renderPermissoes(p.permissoes || {});
+    _renderProdutosFiltro(p.produto_filtro || null);
     document.getElementById('perfisListaView').style.display = 'none';
     document.getElementById('perfisEditView').classList.add('ativo');
+  }
+
+  // Renderiza os pills de seleção de produto para filtro de perfil
+  function _renderProdutosFiltro(selecionado) {
+    const container = document.getElementById('perfilProdutosList');
+    if (!container) return;
+    const produtos = _carregarProdutos();
+    container.innerHTML = '';
+
+    // Pill "Todos" (sem filtro)
+    const pillTodos = document.createElement('div');
+    pillTodos.dataset.val = '';
+    pillTodos.textContent = 'Todos';
+    _estilizarPillProduto(pillTodos, !selecionado);
+    pillTodos.addEventListener('click', () => {
+      container.querySelectorAll('[data-val]').forEach(p => _estilizarPillProduto(p, false));
+      _estilizarPillProduto(pillTodos, true);
+    });
+    container.appendChild(pillTodos);
+
+    produtos.forEach(prod => {
+      const nome = typeof prod === 'string' ? prod : prod.nome;
+      const pill = document.createElement('div');
+      pill.dataset.val = nome;
+      pill.textContent = nome;
+      const ativo = selecionado === nome;
+      _estilizarPillProduto(pill, ativo);
+      pill.addEventListener('click', () => {
+        container.querySelectorAll('[data-val]').forEach(p => _estilizarPillProduto(p, false));
+        _estilizarPillProduto(pill, true);
+      });
+      container.appendChild(pill);
+    });
+  }
+
+  function _estilizarPillProduto(el, ativo) {
+    el.style.cssText = [
+      'padding:5px 12px',
+      'border-radius:20px',
+      'font-size:0.7rem',
+      'font-weight:700',
+      'cursor:pointer',
+      'user-select:none',
+      'transition:all 0.15s',
+      ativo
+        ? 'background:var(--accent);color:#fff;border:1.5px solid var(--accent);'
+        : 'background:var(--bg);color:var(--text-muted);border:1.5px solid var(--border);'
+    ].join(';');
+  }
+
+  // Retorna o produto filtrado do perfil atual (string ou null)
+  function _getProdutoFiltro() {
+    try {
+      const perfis = _carregarPerfisCustom();
+      const p = perfis[perfilAtual];
+      return (p && p.produto_filtro) ? p.produto_filtro : null;
+    } catch(e) { return null; }
+  }
+
+  // Aplica filtro de produto no histórico (oculta linhas que não batem)
+  function _aplicarFiltroProdutoHistorico() {
+    const prod = _getProdutoFiltro();
+    if (!prod) return; // sem filtro — mostra tudo
+    document.querySelectorAll('#tabDia tbody tr, #tabNoite tbody tr').forEach(tr => {
+      const trProd = (tr.dataset.produto || '').toUpperCase();
+      tr.classList.toggle('tr-hidden', !trProd.includes(prod.toUpperCase()));
+    });
   }
 
   function perfilVoltarLista() {
@@ -6427,12 +6554,20 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const emoji = _getEmoji(nome);
     const key = _perfilEditKey || usuario;
 
+    // Coleta produto filtro selecionado
+    const produtoFiltroContainer = document.getElementById('perfilProdutosList');
+    let produto_filtro = null;
+    if (produtoFiltroContainer) {
+      const pillAtivo = produtoFiltroContainer.querySelector('[data-val][style*="var(--accent)"]');
+      if (pillAtivo && pillAtivo.dataset.val) produto_filtro = pillAtivo.dataset.val;
+    }
+
     // Se mudou a key (novo login), remove a antiga
     if (_perfilEditKey && _perfilEditKey !== key) {
       delete perfis[_perfilEditKey];
     }
 
-    perfis[key] = { label: emoji + ' ' + nome, usuario, senha, permissoes };
+    perfis[key] = { label: emoji + ' ' + nome, usuario, senha, permissoes, produto_filtro };
     _salvarPerfisCustom(perfis);
     // Se editou o próprio perfil logado, re-aplica permissões imediatamente
     if (key === perfilAtual || _perfilEditKey === perfilAtual) {
@@ -6930,6 +7065,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         existentes.forEach(n => n.close());
       } catch(_) {}
 
+      // No mobile (Android) requireInteraction=true mantém na tela bloqueada.
+      // No desktop (PC) deixamos false → o SO fecha sozinho em ~4s, igual ao WhatsApp Web.
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
       await reg.showNotification(titulo, {
         body:    corpo,
         icon:    'icons/icon-192.png',
@@ -6942,15 +7081,12 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         // Padrão de vibração chamativo (Samsung e Motorola respeitam)
         vibrate: ehChamada ? [300, 150, 300, 150, 600] : [150, 75, 150],
 
-        // requireInteraction: true em AMBOS os tipos
-        // → notificação não some automaticamente (essencial em tela bloqueada)
-        requireInteraction: true,
+        // Mobile: fica até o usuário fechar (essencial na tela bloqueada)
+        // Desktop: some automaticamente após alguns segundos (comportamento WhatsApp Web)
+        requireInteraction: isMobile,
 
         // silent: false + som padrão garante heads-up no One UI / My UX
         silent: false,
-
-        // actions aparecem na notificação expandida (Android 7+)
-        // Sem actions — toque na notificação abre o app diretamente
 
         // Dados para o SW tratar o clique mesmo com app fechado
         data: { placa, tipo, url: location.href }
@@ -7256,6 +7392,13 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         <input class="perfil-edit-input" id="perfilEditNome" placeholder="NOME DO PERFIL" maxlength="20" autocomplete="off">
         <input class="perfil-edit-input" id="perfilEditUsuario" placeholder="LOGIN (sem espaços)" maxlength="20" autocomplete="off">
         <input class="perfil-edit-input senha" id="perfilEditSenha" type="password" placeholder="SENHA" autocomplete="new-password">
+      </div>
+      <div style="padding: 0 14px; margin-bottom: 12px;">
+        <div class="permissoes-titulo" style="margin-bottom:8px;">🌾 Filtro de Produto</div>
+        <div style="font-size:0.65rem;color:var(--text-muted);margin-bottom:10px;line-height:1.5;">
+          Restringe este perfil a um produto específico — histórico, notificações e chamadas filtrarão apenas pelo produto selecionado. Deixe em branco para ver tudo.
+        </div>
+        <div id="perfilProdutosList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
       </div>
       <div style="padding: 0 14px;">
         <div class="permissoes-titulo">Permissões de acesso</div>
