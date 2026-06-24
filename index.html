@@ -2915,7 +2915,7 @@
         const corpo     = `${motorista}${produto ? '  ·  ' + produto : ''}`;
 
         vibrar([60, 40, 60, 40, 120]);
-        _exibirNotificacaoLocal(titulo, corpo, placa);
+        _exibirNotificacaoLocal(titulo, corpo, placa, 'entrada');
 
         // Pisca o título da aba enquanto o app estiver em background
         _piscarTituloEntrada(`🚛 NOVA ENTRADA — ${placa}`);
@@ -5136,11 +5136,20 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   function renderizarPainelChamadas(chamadas) {
     const painel = document.getElementById('painelChamadas');
 
+    // Assinatura única da chamada: placa + horário (ultimaHora/hora).
+    // Usado para nunca mais re-notificar a MESMA chamada, mesmo que o
+    // Firestore reenvie dados antigos (cache offline / reconexão) muito
+    // tempo depois — isso era o bug do "chamada reaparece sozinha".
+    // Uma chamada genuinamente NOVA tem um horário novo, então tem uma
+    // assinatura diferente e continua notificando normalmente.
+    const _sigChamada = c => `${c.placa}|${c.ultimaHora || c.hora || ''}`;
+
     // Filtra placas já dispensadas localmente (Firestore ainda pode não ter propagado)
     // Também filtra por produto se o perfil tiver produto_filtro configurado
     const prodFiltro = _getProdutoFiltro();
     const chamadasVisiveis = (chamadas || []).filter(c => {
       if (_placasDispensadas.has(c.placa)) return false;
+      if (_assinaturasDispensadas.has(_sigChamada(c))) return false;
       if (prodFiltro) {
         // Busca o produto do veículo na lista atual
         const veiculo = veiculosPatio.find(v => v.placa === c.placa);
@@ -5174,14 +5183,34 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       }
     });
 
-    // Adiciona cards novos
+    // Adiciona cards novos e detecta RECHAMADAS (mesma placa, card já na
+    // tela, porém com assinatura/horário diferente — ou seja, a portaria
+    // chamou de novo antes de receber o OK). Antes disso só comparava se o
+    // card existia, então uma rechamada não tocava nem vibrava de novo.
     const novasChamadas = [];
     chamadasVisiveis.forEach(c => {
-      if (painel.querySelector(`.chamada-card[data-placa="${c.placa}"]`)) return;
+      const sig = _sigChamada(c);
+      const cardExistente = painel.querySelector(`.chamada-card[data-placa="${c.placa}"]`);
+
+      if (cardExistente) {
+        if (cardExistente.dataset.sig === sig) return; // mesma chamada já mostrada — ignora
+
+        // Rechamada: mesma placa, horário/assinatura nova → atualiza o card
+        // existente e trata como nova para notificar+vibrar de novo.
+        cardExistente.dataset.sig = sig;
+        const horaEl = cardExistente.querySelector('.chamada-hora');
+        if (horaEl) horaEl.textContent = (c.hora && c.hora.length <= 5) ? ('⏱ ' + c.hora) : 'CHAMADA ATIVA';
+        cardExistente.style.animation = 'none';
+        requestAnimationFrame(() => { cardExistente.style.animation = ''; });
+        novasChamadas.push(c);
+        return;
+      }
+
       novasChamadas.push(c);
       const card = document.createElement('div');
       card.className = 'chamada-card';
       card.dataset.placa = c.placa;
+      card.dataset.sig = sig;
       card.innerHTML = `
         <div class="chamada-icone">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -5334,6 +5363,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   // enquanto o Firestore ainda não propagou a remoção
   const _placasDispensadas = new Set();
 
+  // Set PERSISTENTE de assinaturas (placa+horário) já dispensadas.
+  // Diferente do _placasDispensadas (que expira em 5s), este nunca expira
+  // automaticamente — garante que dados antigos reenviados pelo cache do
+  // Firestore (offline/reconexão) nunca mais disparem notificação para a
+  // MESMA chamada já atendida. Persiste em window para sobreviver mesmo
+  // se essa função for redefinida em algum hot-reload.
+  const _assinaturasDispensadas = (window.__assinaturasDispensadas = window.__assinaturasDispensadas || new Set());
+
   // Dispensar chamada individual: marca como CARREGANDO
   async function dispensarChamadaPlaca(btn, placa) {
     btn.disabled = true;
@@ -5342,6 +5379,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     _placasDispensadas.add(placa);
     const card = btn.closest('.chamada-card');
     if (card) {
+      // Grava a assinatura (placa+horário) definitivamente — essa chamada
+      // específica nunca mais vai notificar, mesmo se o Firestore reenviar
+      // o mesmo dado antigo do cache offline minutos/horas depois.
+      if (card.dataset.sig) _assinaturasDispensadas.add(card.dataset.sig);
       card.style.opacity = '0';
       card.style.transform = 'translateX(20px)';
       card.style.transition = 'all 0.2s ease';
@@ -7051,9 +7092,26 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
   // Exibe notificação local via SW (foreground, background e tela bloqueada)
   // Compatível com Samsung One UI, Motorola (My UX), MIUI e Android puro.
+  //
+  // ── Anti-duplicidade (WEB) ──────────────────────────────────────────────
+  // No navegador, o mesmo evento pode chegar por DOIS caminhos quase ao
+  // mesmo tempo: o listener local do Firestore (instantâneo) E o onMessage
+  // do FCM (quando a aba está em foreground). Sem essa guarda, isso fazia
+  // a MESMA notificação de entrada/chamada aparecer duas vezes na web.
+  // Isso é puramente em memória da página (não afeta o app Android, que
+  // usa o plugin nativo FirebaseMessaging e nunca passa por aqui via push).
+  const _ULTIMA_NOTIF_TAG = (window.__ultimaNotifTag = window.__ultimaNotifTag || new Map());
   async function _exibirNotificacaoLocal(titulo, corpo, placa, tipo = 'chamada') {
     if (Notification.permission !== 'granted') return;
     const ehChamada = tipo === 'chamada';
+    const _tagDedupe = `${tipo}-${placa}`;
+    const _agora = Date.now();
+    const _ultimoTs = _ULTIMA_NOTIF_TAG.get(_tagDedupe);
+    if (_ultimoTs && (_agora - _ultimoTs) < 4000) {
+      // Mesma notificação (mesma tag) já exibida há menos de 4s — ignora o duplicado.
+      return;
+    }
+    _ULTIMA_NOTIF_TAG.set(_tagDedupe, _agora);
     try {
       const reg = await navigator.serviceWorker.ready;
 

@@ -119,45 +119,14 @@ self.addEventListener('message', event => {
 });
 
 
-// ── Recebe push do FCM quando app está fechado/background ────
-// (O firebase-messaging-sw.js cuida do FCM, mas este fallback
-//  garante que qualquer push genérico seja exibido)
-self.addEventListener('push', event => {
-  if (!event.data) return;
-
-  let titulo = 'Portaria Savana';
-  let corpo  = '';
-  let placa  = '';
-  let tipo   = 'chamada';
-
-  try {
-    const payload = event.data.json();
-    titulo = payload.notification?.title || payload.data?.titulo || titulo;
-    corpo  = payload.notification?.body  || payload.data?.corpo  || corpo;
-    placa  = payload.data?.placa || '';
-    tipo   = payload.data?.tipo  || 'chamada';
-  } catch(e) {
-    titulo = event.data.text() || titulo;
-  }
-
-  const ehChamada = tipo === 'chamada';
-
-  event.waitUntil(
-    self.registration.showNotification(titulo, {
-      body:               corpo,
-      icon:               '/icons/icon-192.png',
-      badge:              '/icons/ic_notification_xxhdpi.png',
-      tag:                `${tipo}-${placa}`,
-      renotify:           true,
-      vibrate:            ehChamada ? [200, 100, 200, 100, 400] : [100, 50, 100],
-      requireInteraction: ehChamada,
-      silent:             false,
-      data:               { placa, tipo, url: self.location.origin + '/' }
-    })
-  );
-});
-
-// ── Clique na notificação: abre/foca o app ───────────────────
+// ── Push do FCM ────────────────────────────────────────────
+// IMPORTANTE: o tratamento de push FCM é feito INTEIRAMENTE pelo
+// firebase-messaging-sw.js (via messaging.onBackgroundMessage).
+// Antes havia um listener 'push' genérico aqui também — isso fazia
+// o mesmo push ser tratado duas vezes (uma por cada Service Worker),
+// causando notificação duplicada na web. Removido de propósito.
+// Isso NÃO afeta o Android: o app nativo (Capacitor) nunca usa
+// nenhum dos dois Service Workers para receber notificações.
 self.addEventListener('notificationclick', event => {
   event.notification.close();
 

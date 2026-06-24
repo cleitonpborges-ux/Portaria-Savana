@@ -46,6 +46,14 @@ messaging.onBackgroundMessage((payload) => {
   const ehChamada = tipo === "chamada";
   const tag = `${tipo}-${placa}`;
 
+  // Mobile (Android/iOS) → fica fixa até o usuário interagir (essencial pra
+  // tela bloqueada). Desktop/PC → some sozinha depois de alguns segundos,
+  // igual ao WhatsApp Web. Sem essa checagem, toda notificação no PC ficava
+  // travada na tela até fechar manualmente — era esse o bug.
+  // (Isso NÃO altera o app Android: lá o caminho é outro, via plugin nativo
+  // FirebaseMessaging, que nunca passa por este Service Worker.)
+  const _ehMobile = /Android|iPhone|iPad|iPod/i.test(self.navigator.userAgent);
+
   // Fecha notificação anterior com mesma tag ANTES de mostrar a nova.
   // Isso força heads-up no Samsung One UI e Motorola My UX, que às vezes
   // agrupam silenciosamente quando recebem renotify sem o close() prévio.
@@ -58,9 +66,9 @@ messaging.onBackgroundMessage((payload) => {
       tag,
       renotify: true,
 
-      // true para TODOS os tipos (era só ehChamada antes).
-      // Garante notificação na tela bloqueada e heads-up de alta prioridade.
-      requireInteraction: true,
+      // Mobile: true (mantém na tela bloqueada). Desktop: false (some
+      // sozinha, igual WhatsApp Web — comportamento de antes do bug).
+      requireInteraction: _ehMobile,
 
       // Vibração mais longa = maior chance de heads-up no One UI
       vibrate: ehChamada ? [300, 150, 300, 150, 600] : [150, 75, 150],
