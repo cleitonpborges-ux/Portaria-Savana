@@ -1611,7 +1611,7 @@ const DEFAULT_IES = [
 ];
 
 const DEFAULT_MAPA = {
-  'RUA A': {lotes:[298,306,310,313,318,320,321,325,327,329,330,333,334,335,336,340], done:[310,318,320,333,334,335,340]},
+  'RUA A': {lotes:[298,306,310,313,318,320,321,325,327,329,330,333,334,335,336,340,341], done:[310,318,320,333,334,335,340]},
   'RUA B': {lotes:[290,304,305,307,308,309,311,314,315,316,317,319,322,326], done:[7,10,287,304,305,307,308,309,311,314,315,317,319,322]},
   'RUA C': {lotes:[1,38,63,200,220,233,236,239,242,243,244,296,323,331,332,337,338,342,344,346], done:[63,220,236,243,244,331,332,337,338,342,346]},
   'RUA D': {lotes:[34,199,201,202,209,210,211,235,261,269,285,293,324,339,343,347,348], done:[34,211,261,285,293,324,339,343,347]},
@@ -1622,6 +1622,7 @@ const DEFAULT_MAPA = {
   'RUA I': {lotes:[95,98,101,102,103,104,105,106,107,108,109,110,111,112,114,115,116,117,118,119,129,132,134,135,137,138,139,140,142,143,145,146,147,168,174,178,180,181,182,184,185], done:[]},
   'RUA J': {lotes:[62,83,97,113,120,121,122,123,131,133,136,144,148,164,165,166,167,169,170,171,172,175,176,177,179,183,205,214,215,241,245,246,249,250,251,255,262,263,266,267,268,273,274,275,281,282,283,300,312,345,349,350], done:[245,246,267,273,274,275,281,283,300,312]},
   'RUA K': {lotes:[66,71,84,86,88,89,90,91,92,93,94,96,99,100,124,125,126,127,128,141,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,187,188,228,237,238,240,247,258,259,278,291,297,301], done:[247,278]},
+  'RUA L': {lotes:[2,4,5,11,15,16,18,19,20,21,29,30,35,36,37,39,40,41,42,43,44,45,47,48,49,51,52,53,54,55,57,58,59,60,61,64,65,67,68,69,70,72,73,74,75,76,77,78,79,80,81,82,85,87], done:[]},
   'RUA M': {lotes:[207,208,213], done:[]},
 };
 
@@ -1778,8 +1779,90 @@ function assignIEColor(existingIEs) {
 
 // Ordem de exibição das IEs: 'recent' = mais recentes primeiro, 'oldest' = mais antigas primeiro
 let IE_SORT_ORDER = localStorage.getItem('viterra_ie_sort') || 'recent';
-let IE_STATUS_FILTER = null; // null | 'carregadas' | 'a_carregar'
+let IE_STATUS_FILTER = null; // null | 'carregadas' | 'a_carregar' | 'sem_ie'
 let IE_SEARCH_TERM = '';
+
+// Lotes sem instrução de embarque (cadastrados manualmente)
+const LOTES_SEM_IE = [
+  { lote: 28,  tipo: '31.2', fardos: 6   },
+  { lote: 108, tipo: '31.3', fardos: 110 },
+  { lote: 109, tipo: '31.3', fardos: 110 },
+  { lote: 227, tipo: '51.4', fardos: 110 },
+  { lote: 269, tipo: 'AP',   fardos: 22  },
+  { lote: 290, tipo: 'AP',   fardos: 110 },
+  { lote: 341, tipo: '31.3', fardos: 10  },
+  { lote: 350, tipo: '31.4', fardos: 10  },
+];
+
+// Lotes com contrato definido (tipo, fardos, contrato)
+const LOTES_CONTRATO = [
+  { lote: 2,   tipo: '31.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 4,   tipo: '31.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 5,   tipo: '41.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 11,  tipo: '31.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 15,  tipo: '42.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 16,  tipo: '42.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 18,  tipo: '41.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 19,  tipo: '31.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 20,  tipo: '31.2', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 21,  tipo: '32.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 29,  tipo: '41.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 30,  tipo: '31.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 35,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 36,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 37,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 39,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 40,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 41,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 42,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 43,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 44,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 45,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 47,  tipo: '32.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 48,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 49,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 51,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 52,  tipo: '32.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 53,  tipo: '42.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 54,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 55,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 57,  tipo: '32.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 58,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 59,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 60,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 61,  tipo: '32.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 64,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 65,  tipo: '32.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 67,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 68,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 69,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 70,  tipo: '32.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 72,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 73,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 74,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 75,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 76,  tipo: '32.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 77,  tipo: '32.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 78,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 79,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 80,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 81,  tipo: '32.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 82,  tipo: '32.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 83,  tipo: '42.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 85,  tipo: '32.3', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 87,  tipo: '32.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 93,  tipo: '42.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 106, tipo: '42.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 124, tipo: '42.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 129, tipo: '42.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 140, tipo: '42.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+  { lote: 158, tipo: '42.4', fardos: 110, contrato: 'LDC - CTR 01-0194-2025-0045' },
+];
+
+// Índice rápido lote → dados do contrato
+const LOTE_CONTRATO_MAP = {};
+LOTES_CONTRATO.forEach(l => { LOTE_CONTRATO_MAP[l.lote] = l; });
+
 function setIEStatusFilter(f) {
   IE_STATUS_FILTER = (IE_STATUS_FILTER === f) ? null : f;
   renderDash();
@@ -1893,6 +1976,10 @@ function _aplicarDadosNuvem(d, origem, silent) {
   // Só usa MAPA da nuvem se for um objeto com chaves (não array vazio)
   if (d.MAPA && !Array.isArray(d.MAPA) && Object.keys(d.MAPA).length > 0) {
     MAPA = d.MAPA;
+    // Mescla rutas novas do DEFAULT_MAPA que não existem no MAPA salvo
+    Object.keys(DEFAULT_MAPA).forEach(rua => {
+      if (!MAPA[rua]) MAPA[rua] = JSON.parse(JSON.stringify(DEFAULT_MAPA[rua]));
+    });
   } else {
     MAPA = JSON.parse(JSON.stringify(DEFAULT_MAPA));
   }
@@ -3326,8 +3413,8 @@ function renderDash() {
   if (progressoIEHeader) {
     // Lotes sem nenhuma instrução atribuída (presentes no mapa, mas fora de LOTE_IE)
     const todosLotesMapa = Object.values(MAPA).reduce((arr, d) => arr.concat(d.lotes), []);
-    const lotesSemIE = todosLotesMapa.filter(l => !LOTE_IE[l]);
-    const fardosSemIE = lotesSemIE.length * 110; // estimativa padrão de 110 fardos/lote
+    const lotesSemIE = LOTES_SEM_IE.map(l => l.lote);
+    const fardosSemIE = LOTES_SEM_IE.reduce((s, l) => s + l.fardos, 0);
     const pctComIE = totalFardos ? Math.round(doneFardos / totalFardos * 100) : 0;
     const fardosACarregar = Math.max(0, totalFardos - doneFardos);
 
@@ -3348,10 +3435,10 @@ function renderDash() {
           <div style="font-family:var(--font-mono);font-size:9px;color:#A78BFA;text-transform:uppercase;letter-spacing:.06em;">A carregar</div>
           <div style="font-family:var(--font-mono);font-size:16px;font-weight:700;color:#A78BFA;">${fardosACarregar.toLocaleString('pt-BR')} <span style="font-size:10px;font-weight:400;opacity:.7;">fds</span></div>
         </button>
-        <div style="flex:1;min-width:140px;background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-radius:8px;padding:6px 10px;">
+        <button onclick="setIEStatusFilter('sem_ie')" style="flex:1;min-width:140px;text-align:left;cursor:pointer;background:rgba(245,166,35,.08);border:1px solid ${IE_STATUS_FILTER === 'sem_ie' ? 'var(--amber)' : 'rgba(245,166,35,.25)'};box-shadow:${IE_STATUS_FILTER === 'sem_ie' ? '0 0 0 1px var(--amber)' : 'none'};border-radius:8px;padding:6px 10px;font-family:inherit;">
           <div style="font-family:var(--font-mono);font-size:9px;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;">Sem instrução informada</div>
           <div style="font-family:var(--font-mono);font-size:16px;font-weight:700;color:var(--amber);">${fardosSemIE.toLocaleString('pt-BR')} <span style="font-size:10px;font-weight:400;opacity:.7;">fds (${lotesSemIE.length} lotes)</span></div>
-        </div>
+        </button>
       </div>
     `;
   }
@@ -3424,6 +3511,24 @@ function renderDash() {
         <div style="font-size:30px;line-height:1;margin-bottom:10px;filter:grayscale(100%) brightness(.75);opacity:.85;animation:ieHandBounce 2.2s ease-in-out infinite;">☝️</div>
         <div style="font-family:var(--font-mono);font-size:12px;letter-spacing:.04em;">
           ESCOLHA UMA DAS OPÇÕES ACIMA PARA VER DETALHES
+        </div>
+      </div>`;
+  } else if (IE_STATUS_FILTER === 'sem_ie') {
+    // Renderiza lista de lotes sem instrução de embarque
+    const totalFardosSemIE = LOTES_SEM_IE.reduce((s, l) => s + l.fardos, 0);
+    document.getElementById('ie-progs').innerHTML = `
+      <div style="padding:10px 0 6px 0;">
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--amber);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;">
+          ⚠ Lotes sem instrução de embarque · ${LOTES_SEM_IE.length} lotes · ${totalFardosSemIE} fardos
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          ${LOTES_SEM_IE.map(item => `
+            <div style="background:rgba(245,166,35,.07);border:1px solid rgba(245,166,35,.25);border-radius:8px;padding:8px 12px;min-width:130px;">
+              <div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--amber);">Lote ${item.lote}</div>
+              <div style="font-family:var(--font-mono);font-size:11px;color:var(--text3);margin-top:3px;">Tipo: <span style="color:var(--text);">${item.tipo}</span></div>
+              <div style="font-family:var(--font-mono);font-size:11px;color:var(--text3);">Fardos: <span style="color:var(--text);font-weight:600;">${item.fardos}</span></div>
+            </div>
+          `).join('')}
         </div>
       </div>`;
   } else {
@@ -3646,27 +3751,40 @@ function renderMapa() {
     '<div class="li"><div class="ld" style="background:var(--bg4);border:2px dashed var(--border2);"></div>Parcial</div>' +
     '<div class="li"><div class="ld" style="background:var(--green);opacity:1;border:1px solid var(--border2);"></div>Pendente (cor da IE)</div>' +
     '<div class="li"><div class="ld" style="background:var(--green);opacity:.25;filter:grayscale(60%);border:1px solid var(--border2);"></div>Concluído</div>' +
+    '<div class="li"><div class="ld" style="background:rgba(96,165,250,0.12);border:1px solid rgba(96,165,250,0.3);"></div>Com contrato · sem IE</div>' +
     '<div class="li"><div class="ld" style="background:var(--bg4);opacity:.4;border:1px solid var(--border2);"></div>Sem IE</div>';
 
   document.getElementById('mapcont').innerHTML = Object.entries(MAPA).map(([rua, data]) => {
     const boxes = data.lotes.map(l => {
       const info = LOTE_IE[l];
-      const bg   = info ? info.ie.color : 'var(--bg4)';
-      const fg   = info ? '#000' : 'var(--text3)';
-      let op, borderStyle, titleSuffix;
+      const ctrData = LOTE_CONTRATO_MAP[l];
+      let bg, fg, op, borderStyle, titleSuffix;
       if (!info) {
-        op = '0.5'; borderStyle = ''; titleSuffix = ' · sem IE atribuída';
+        if (ctrData) {
+          // Lote com contrato mas sem IE — azul-acinzentado discreto
+          bg = 'rgba(96,165,250,0.12)';
+          fg = 'rgba(96,165,250,0.7)';
+          op = '1';
+          borderStyle = 'border:1px solid rgba(96,165,250,0.3);';
+          titleSuffix = ` · ${ctrData.contrato} · Tipo ${ctrData.tipo} · ${ctrData.fardos} fds`;
+        } else {
+          bg = 'var(--bg4)'; fg = 'var(--text3)'; op = '0.5'; borderStyle = ''; titleSuffix = ' · sem IE atribuída';
+        }
       } else if (info.done) {
+        bg = info.ie.color; fg = '#000';
         op = '0.25'; borderStyle = 'filter:grayscale(60%);'; titleSuffix = ` · ${info.ie.name} · ✓ concluído`;
       } else if (info.parcial) {
+        bg = info.ie.color; fg = '#000';
         const aut = info.ie.lotes_fardos && info.ie.lotes_fardos[l] != null ? info.ie.lotes_fardos[l] : 110;
         op = '1';
         borderStyle = `outline:2px dashed ${info.ie.color};outline-offset:-2px;`;
         titleSuffix = ` · ${info.ie.name} · ⚡ parcial ${info.fardosCarregados}/${aut} fds`;
       } else {
+        bg = info.ie.color; fg = '#000';
         op = '1'; borderStyle = ''; titleSuffix = ` · ${info.ie.name} · ⏳ pendente`;
       }
-      return `<div class="lb" id="lote-cell-${l}" style="background:${bg};color:${fg};opacity:${op};${borderStyle}transition:box-shadow .2s,outline .2s;" title="Lote ${l}${titleSuffix}">${l}</div>`;
+      const ctrTitle = (ctrData && info) ? ` · 📋 ${ctrData.contrato}` : '';
+      return `<div class="lb" id="lote-cell-${l}" style="background:${bg};color:${fg};opacity:${op};${borderStyle}transition:box-shadow .2s,outline .2s;" title="Lote ${l}${titleSuffix}${ctrTitle}">${l}</div>`;
     }).join('');
     return `<div class="mr"><div class="rl">${rua}</div><div class="lr">${boxes}</div></div>`;
   }).join('');
@@ -3732,6 +3850,31 @@ function buscaLote(val) {
   if (!val || !val.trim()) { result.textContent = ''; return; }
 
   const trimmed = val.trim();
+
+  // ── Modo 0: Busca por contrato — detecta se o valor contém "CTR" ou "LDC" ou "0194"
+  const isContratoSearch = /CTR|LDC|0194/i.test(trimmed) || trimmed.toLowerCase().includes('contrato');
+  if (isContratoSearch) {
+    const query = trimmed.toLowerCase();
+    const lotesCTR = LOTES_CONTRATO.filter(l => l.contrato.toLowerCase().includes(query));
+    if (!lotesCTR.length) {
+      result.textContent = `Nenhum lote encontrado para contrato "${trimmed}"`;
+      result.style.color = 'var(--amber)';
+      return;
+    }
+    let found = 0, firstCell = null;
+    lotesCTR.forEach(item => {
+      const cell = document.getElementById(`lote-cell-${item.lote}`);
+      if (!cell) return;
+      found++;
+      _highlightCell(cell, true, 'var(--amber)');
+      if (!firstCell) firstCell = cell;
+    });
+    if (firstCell) firstCell.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const totalFds = lotesCTR.reduce((s, l) => s + l.fardos, 0);
+    result.textContent = `📋 ${lotesCTR[0].contrato} · ${found} lote(s) pulsando · ${totalFds} fardos total`;
+    result.style.color = 'var(--amber)';
+    return;
+  }
 
   // ── Modo 1: Busca por IE — detecta quando o valor não é numérico/vírgulas
   const isNumericInput = /^[\d,\s]+$/.test(trimmed);
@@ -3835,7 +3978,7 @@ function buscaLote(val) {
     found.push(num);
     const info = LOTE_IE[num];
     const isPend = info ? !info.done : true; // sem IE → trata como pendente
-    const color = info ? (info.ie.color || '#fff') : '#fff';
+    const color = info ? (info.ie.color || '#fff') : (LOTE_CONTRATO_MAP[num] ? 'var(--amber)' : '#fff');
     _highlightCell(cell, isPend, color);
     if (!firstCell) firstCell = cell;
   });
@@ -3850,10 +3993,15 @@ function buscaLote(val) {
       result.style.color = 'var(--amber)';
     } else {
       const info = LOTE_IE[num];
+      const ctr = LOTE_CONTRATO_MAP[num];
       if (info) {
         const status = info.done ? '✅ concluído' : '⏳ pendente · pulsando';
-        result.textContent = `L${num} · ${info.ie.name} · ${status}`;
+        const ctrSuffix = ctr ? ` · Tipo ${ctr.tipo} · ${ctr.fardos} fds · ${ctr.contrato}` : '';
+        result.textContent = `L${num} · ${info.ie.name} · ${status}${ctrSuffix}`;
         result.style.color = info.done ? 'var(--green)' : 'var(--amber)';
+      } else if (ctr) {
+        result.textContent = `L${num} · Tipo ${ctr.tipo} · ${ctr.fardos} fardos · ${ctr.contrato} · ⏳ pulsando`;
+        result.style.color = 'var(--amber)';
       } else {
         result.textContent = `L${num} · sem IE atribuída`;
         result.style.color = 'var(--text3)';
