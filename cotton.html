@@ -1625,8 +1625,8 @@ const DEFAULT_MAPA = {
   'RUA I': {lotes:[95,98,101,102,103,104,105,106,107,108,109,110,111,112,114,115,116,117,118,119,129,132,134,135,137,138,139,140,142,143,145,146,147,168,174,178,180,181,182,184,185], done:[]},
   'RUA J': {lotes:[62,83,97,113,120,121,122,123,131,133,136,144,148,164,165,166,167,169,170,171,172,175,176,177,179,183,205,214,215,241,245,246,249,250,251,255,262,263,266,267,268,273,274,275,281,282,283,300,312,345,349,350], done:[245,246,267,273,274,275,281,283,300,312]},
   'RUA K': {lotes:[66,71,84,86,88,89,90,91,92,93,94,96,99,100,124,125,126,127,128,141,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,187,188,228,237,238,240,247,258,259,278,291,297,301], done:[247,278]},
-  'RUA L': {lotes:[2,4,5,11,15,16,18,19,20,21,29,30,35,36,37,39,40,41,42,43,44,45,47,48,49,51,52,53,54,55,57,58,59,60,61,64,65,67,68,69,70,72,73,74,75,76,77,78,79,80,81,82,85,87], done:[]},
-  'RUA M': {lotes:[207,208,213], done:[]},
+  'RUA L': {lotes:[207,208,213], done:[]},
+  'RUA M': {lotes:[2,4,5,11,15,16,18,19,20,21,29,30,35,36,37,39,40,41,42,43,44,45,47,48,49,51,52,53,54,55,57,58,59,60,61,64,65,67,68,69,70,72,73,74,75,76,77,78,79,80,81,82,85,87], done:[]},
 };
 
 const DEFAULT_CARGAS = [
@@ -1807,21 +1807,49 @@ let LOTES_SEM_IE = [
   { lote: 350, tipo: '31.4', fardos: 10  },
 ];
 
-// Remove de LOTES_SEM_IE qualquer lote que já apareça em alguma IE importada
-// (em lotes_done ou lotes_pend). Chamar sempre depois de atualizar o array
-// global IES (ex: após importar uma planilha de instrução de embarque).
-// Retorna a lista de lotes removidos (útil para feedback/log/toast).
+// Sincroniza LOTES_SEM_IE com as IEs importadas.
+// Regra: para cada lote em LOTES_SEM_IE, soma os fardos autorizados para
+// aquele número de lote em TODAS as IEs (lotes_fardos). O saldo sem instrução
+// é o total original do lote menos essa soma.
+//   - Se saldo <= 0: o lote saiu inteiro para IEs → remove do card.
+//   - Se 0 < saldo < total original: parte do lote recebeu instrução, mas
+//     ainda sobra um resíduo → mantém no card com a quantidade reduzida.
+//   - Se nenhuma IE tem o lote: mantém sem alteração.
+// Chamar sempre depois de atualizar o array global IES.
+// Retorna a lista de lotes que saíram completamente (útil para toast).
 function sincronizarLotesSemIE() {
-  const lotesComIE = new Set();
+  // Monta mapa: loteNum → total de fardos autorizados em todas as IEs para esse lote
+  const fardosAutorizadosPorLote = {};
   IES.forEach(ie => {
-    (ie.lotes_done || []).forEach(l => lotesComIE.add(l));
-    (ie.lotes_pend || []).forEach(l => lotesComIE.add(l));
+    if (ie.lotes_fardos) {
+      Object.keys(ie.lotes_fardos).forEach(loteNumStr => {
+        const loteNum = parseInt(loteNumStr, 10);
+        fardosAutorizadosPorLote[loteNum] = (fardosAutorizadosPorLote[loteNum] || 0) + ie.lotes_fardos[loteNum];
+      });
+    }
   });
 
-  const removidos = LOTES_SEM_IE.filter(item => lotesComIE.has(item.lote));
-  if (removidos.length) {
-    LOTES_SEM_IE = LOTES_SEM_IE.filter(item => !lotesComIE.has(item.lote));
-  }
+  const removidos = [];
+  const novosLotesSemIE = [];
+
+  LOTES_SEM_IE.forEach(item => {
+    const autorizados = fardosAutorizadosPorLote[item.lote] || 0;
+    const saldo = item.fardos - autorizados;
+
+    if (autorizados === 0) {
+      // Nenhuma IE tem esse lote → mantém intacto
+      novosLotesSemIE.push(item);
+    } else if (saldo <= 0) {
+      // Todos os fardos receberam instrução → remove do card
+      removidos.push(item);
+    } else {
+      // Fração recebeu instrução, mas ainda sobra um saldo sem instrução
+      // Mantém no card com a quantidade residual (saldo)
+      novosLotesSemIE.push({ ...item, fardos: saldo });
+    }
+  });
+
+  LOTES_SEM_IE = novosLotesSemIE;
   return removidos;
 }
 
@@ -3798,7 +3826,9 @@ function renderMapa() {
     '<div class="li"><div class="ld" style="background:rgba(96,165,250,0.12);border:1px solid rgba(96,165,250,0.3);"></div>Com contrato · sem IE</div>' +
     '<div class="li"><div class="ld" style="background:var(--bg4);opacity:.4;border:1px solid var(--border2);"></div>Sem IE</div>';
 
-  document.getElementById('mapcont').innerHTML = Object.entries(MAPA).map(([rua, data]) => {
+  // Ordena as ruas em ordem alfabética (RUA A → RUA M)
+  const ruaOrder = Object.keys(MAPA).sort((a, b) => a.localeCompare(b));
+  document.getElementById('mapcont').innerHTML = ruaOrder.map(rua => { const data = MAPA[rua]; 
     const boxes = data.lotes.map(l => {
       const info = LOTE_IE[l];
       const ctrData = LOTE_CONTRATO_MAP[l];
@@ -4387,7 +4417,15 @@ async function processImport() {
     const lotesQueSairam = sincronizarLotesSemIE();
     if (lotesQueSairam.length) {
       const numeros = lotesQueSairam.map(l => l.lote).join(', ');
-      showToast(`✓ ${lotesQueSairam.length} lote(s) saíram de "Sem instrução": ${numeros}`, 'success');
+      showToast(`✓ ${lotesQueSairam.length} lote(s) saíram completamente de "Sem instrução": ${numeros}`, 'success');
+    }
+    // Notifica lotes que tiveram saldo reduzido mas ainda permanecem no card
+    const lotesComSaldoResidual = LOTES_SEM_IE.filter(item => {
+      return IES.some(ie => ie.lotes_fardos && ie.lotes_fardos[item.lote] != null);
+    });
+    if (lotesComSaldoResidual.length) {
+      const detalhes = lotesComSaldoResidual.map(l => `L${l.lote}: ${l.fardos} fds restantes`).join(', ');
+      showToast(`ℹ ${lotesComSaldoResidual.length} lote(s) com saldo parcial sem instrução: ${detalhes}`, 'info');
     }
     
     if (CARGAS.length && !selDay) selDay = CARGAS[0].dt;
