@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SAVANA">
-<title>COTTON EXPEDITION 2026 · Premium</title>
+<title>Savana Cotton</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -417,6 +417,8 @@ body::before {
   margin-bottom: 24px;
 }
 @media (max-width: 900px) { .mets { grid-template-columns: repeat(2,1fr); } }
+#graf-mets { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 900px) { #graf-mets { grid-template-columns: repeat(2,1fr); } }
 .met {
   background: var(--bg2);
   border: 1px solid var(--border);
@@ -1307,7 +1309,7 @@ body::before {
     <div class="header-left">
       <div class="header-eyebrow">Carregamento Algodão · 2026</div>
       <div class="header-title">VITERRA <span>·</span> VTSA01731/25</div>
-      <div class="header-sub">Entrega Abr–Jun/2026 &nbsp;·&nbsp; 30.813 fardos comprometidos &nbsp;·&nbsp; Algodoeira Instrucoes</div>
+      <div class="header-sub">Entrega Abr–Jun/2026 &nbsp;·&nbsp; Savana Cotton</div>
     </div>
     <!-- CARD PTAX -->
     <div id="ptax-card" style="padding:10px 16px;font-family:var(--font-mono);min-width:220px;">
@@ -1550,6 +1552,7 @@ body::before {
   <div id="scr-graf" class="scr">
     <div class="mets" id="graf-mets">
       <div class="met"><div class="ml">Média fardos/dia</div><div class="mv" id="avg-f">—</div><div class="ms">média por dia útil</div></div>
+      <div class="met"><div class="ml">D.U. trabalhados</div><div class="mv" id="dias-util-trabalhados">—</div><div class="ms">dias com carregamento</div></div>
       <div class="met"><div class="ml">Média cargas/dia</div><div class="mv" id="avg-c">—</div><div class="ms">caminhões por dia</div></div>
       <div class="met"><div class="ml">Melhor dia</div><div class="mv" id="best-v">—</div><div class="ms" id="best-d"></div></div>
       <div class="met"><div class="ml">Período</div><div class="mv" style="font-size:18px;" id="graf-period">—</div><div class="ms">Viterra 2026</div></div>
@@ -1777,13 +1780,23 @@ function assignIEColor(existingIEs) {
   return null; // sinaliza para usar fallback por índice
 }
 
+// Total real de fardos do contrato (fixo, conforme contrato VTSA01731/25).
+// Não usar a soma das IEs importadas para isso: aquela soma ("totalFardos")
+// só reflete os lotes que já têm instrução de embarque atribuída, e por
+// isso fica menor que o total do contrato enquanto houver lotes sem IE.
+const TOTAL_CONTRATO_FIXO = 30813;
+
 // Ordem de exibição das IEs: 'recent' = mais recentes primeiro, 'oldest' = mais antigas primeiro
 let IE_SORT_ORDER = localStorage.getItem('viterra_ie_sort') || 'recent';
 let IE_STATUS_FILTER = null; // null | 'carregadas' | 'a_carregar' | 'sem_ie'
 let IE_SEARCH_TERM = '';
 
-// Lotes sem instrução de embarque (cadastrados manualmente)
-const LOTES_SEM_IE = [
+// Lotes sem instrução de embarque (cadastrados manualmente).
+// IMPORTANTE: este array é mutável de propósito. Quando uma nova planilha de
+// instrução de embarque (IE) é importada e algum desses lotes aparece nela,
+// a função sincronizarLotesSemIE() remove o lote daqui automaticamente —
+// ele passa a contar só do lado "Com instrução" (mesmo padrão das demais IEs).
+let LOTES_SEM_IE = [
   { lote: 28,  tipo: '31.2', fardos: 6   },
   { lote: 108, tipo: '31.3', fardos: 110 },
   { lote: 109, tipo: '31.3', fardos: 110 },
@@ -1793,6 +1806,24 @@ const LOTES_SEM_IE = [
   { lote: 341, tipo: '31.3', fardos: 10  },
   { lote: 350, tipo: '31.4', fardos: 10  },
 ];
+
+// Remove de LOTES_SEM_IE qualquer lote que já apareça em alguma IE importada
+// (em lotes_done ou lotes_pend). Chamar sempre depois de atualizar o array
+// global IES (ex: após importar uma planilha de instrução de embarque).
+// Retorna a lista de lotes removidos (útil para feedback/log/toast).
+function sincronizarLotesSemIE() {
+  const lotesComIE = new Set();
+  IES.forEach(ie => {
+    (ie.lotes_done || []).forEach(l => lotesComIE.add(l));
+    (ie.lotes_pend || []).forEach(l => lotesComIE.add(l));
+  });
+
+  const removidos = LOTES_SEM_IE.filter(item => lotesComIE.has(item.lote));
+  if (removidos.length) {
+    LOTES_SEM_IE = LOTES_SEM_IE.filter(item => !lotesComIE.has(item.lote));
+  }
+  return removidos;
+}
 
 // Lotes com contrato definido (tipo, fardos, contrato)
 const LOTES_CONTRATO = [
@@ -1916,6 +1947,7 @@ async function saveToStorage(isImport = false) {
     CARGAS,
     FILA: isImport ? [] : FILA,           // importação limpa a fila (dados novos)
     LOTE_TIPO,
+    LOTES_SEM_IE, // persiste a lista atual (já sem os lotes que migraram para "com instrução")
     HISTORICO_DIA: isImport ? [] : HISTORICO_DIA, // importação reseta histórico diário
     updatedAt: nowISO
   };
@@ -1985,8 +2017,14 @@ function _aplicarDadosNuvem(d, origem, silent) {
   }
   // Restaura tipos de lote salvos
   if (d.LOTE_TIPO && typeof d.LOTE_TIPO === 'object') LOTE_TIPO = d.LOTE_TIPO;
+  // Restaura lotes sem IE salvos na nuvem (já refletindo remoções de importações
+  // anteriores); se não houver no documento (dados antigos), mantém a lista atual.
+  if (d.LOTES_SEM_IE && Array.isArray(d.LOTES_SEM_IE)) LOTES_SEM_IE = d.LOTES_SEM_IE;
   // Garante cruzamento de referência ao carregar
   if (IES.length && CARGAS.length) { crossReferenceIEsWithCargas(); rebuildLoteIE(); }
+  // Camada extra de segurança: remove qualquer lote que já tenha instrução
+  // nas IEs carregadas, mesmo que LOTES_SEM_IE salvo ainda não reflita isso.
+  sincronizarLotesSemIE();
   // Atualiza timestamp em memória e cache local
   LOADED_DATA_TS = d.updatedAt || null;
   localStorage.setItem('viterra_cache', JSON.stringify(d));
@@ -3389,12 +3427,18 @@ function renderDash() {
     </div>
   `;
 
-  // CORRIGIDO: usar totalFardos em vez de 30813 hardcoded
-  const pctC = totalFardos ? Math.round(doneFardos / totalFardos * 100) : 0;
-  
-  // Progresso geral baseado nos fardos reais das IEs importadas
-  const TOTAL_CONTRATO = totalFardos || 30813;
+  // Total do contrato é sempre o valor FIXO (30.813), não a soma parcial das
+  // IEs já importadas (que cresce conforme lotes recebem instrução de embarque).
+  const pctC = TOTAL_CONTRATO_FIXO ? Math.round(doneFardos / TOTAL_CONTRATO_FIXO * 100) : 0;
+
+  // Progresso geral do contrato como um todo (com e sem instrução de embarque)
+  const TOTAL_CONTRATO = TOTAL_CONTRATO_FIXO;
   const pctContrato = Math.round(doneFardos / TOTAL_CONTRATO * 100);
+  const fardosSemIE_total = LOTES_SEM_IE.reduce((s, l) => s + l.fardos, 0);
+  // "Faltam" = total do contrato menos o que já foi carregado. TOTAL_CONTRATO
+  // já contempla os lotes sem IE, então NÃO somar fardosSemIE_total de novo
+  // (isso causava contagem dupla / divergência com o card "A carregar").
+  const faltamContrato = Math.max(0, TOTAL_CONTRATO - doneFardos);
   const progressoEl = document.getElementById('progresso-contrato');
   const progressoIEHeader = document.getElementById('progresso-ie-header');
   const progressoHTML = `
@@ -3407,7 +3451,7 @@ function renderDash() {
       </div>
       <div style="display:flex;justify-content:space-between;margin-top:5px;font-family:var(--font-mono);font-size:11px;color:var(--text3);">
         <span>${doneFardos.toLocaleString('pt-BR')} fardos carregados</span>
-        <span>${TOTAL_CONTRATO.toLocaleString('pt-BR')} fardos comprometidos · faltam ${Math.max(0, TOTAL_CONTRATO - doneFardos).toLocaleString('pt-BR')}</span>
+        <span>${TOTAL_CONTRATO.toLocaleString('pt-BR')} fardos total · faltam ${faltamContrato.toLocaleString('pt-BR')}</span>
       </div>
   `;
   if (progressoIEHeader) {
@@ -3469,7 +3513,7 @@ function renderDash() {
         </div>
         <div style="display:flex;justify-content:space-between;margin-top:5px;font-family:var(--font-mono);font-size:11px;color:var(--text3);">
           <span>${doneFardos.toLocaleString('pt-BR')} fardos carregados</span>
-          <span>${TOTAL_CONTRATO.toLocaleString('pt-BR')} fardos comprometidos · faltam ${Math.max(0, TOTAL_CONTRATO - doneFardos).toLocaleString('pt-BR')}</span>
+          <span>${TOTAL_CONTRATO.toLocaleString('pt-BR')} fardos total · faltam ${faltamContrato.toLocaleString('pt-BR')}</span>
         </div>
       </div>
     `;
@@ -4029,6 +4073,7 @@ function renderGraf() {
   if (!days.length) {
     document.getElementById('avg-f').textContent = '—';
     document.getElementById('avg-c').textContent = '—';
+    document.getElementById('dias-util-trabalhados').textContent = '—';
     return;
   }
 
@@ -4037,16 +4082,24 @@ function renderGraf() {
   const lbls = days.map(dt => { const d = new Date(dt + 'T12:00:00'); const dn = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']; return [dn[d.getDay()], `${d.getDate()}/${d.getMonth() + 1}`]; });
   const mi = fdArr.indexOf(Math.max(...fdArr));
 
-  // CORRIGIDO: média sobre dias úteis totais, não apenas dias com carga
+  // CORRIGIDO: ambas as médias (fardos e cargas) usam o mesmo denominador —
+  // total de dias úteis do período, não apenas os dias em que houve carga.
+  // Isso evita que "média cargas/dia" pareça mais alta do que a realidade
+  // operacional por ignorar os dias parados.
   const firstDate = new Date(days[0] + 'T12:00:00');
   const lastDate = new Date(days[days.length - 1] + 'T12:00:00');
   const totalBusinessDays = getBusinessDaysBetween(firstDate, lastDate);
   const totalFardos = fdArr.reduce((a, b) => a + b, 0);
+  const totalCargasPeriodo = caArr.reduce((a, b) => a + b, 0);
   const avgFardosCorrigido = totalBusinessDays ? Math.round(totalFardos / totalBusinessDays) : 0;
-  const avgCargas = (caArr.reduce((a, b) => a + b, 0) / caArr.length).toFixed(1);
+  const avgCargas = totalBusinessDays ? (totalCargasPeriodo / totalBusinessDays).toFixed(1) : '0.0';
+  // D.U. trabalhados = dias úteis em que efetivamente houve carregamento
+  // (days já é o conjunto de datas distintas com carga, vindo de CARGAS)
+  const diasUteisTrabalhados = days.length;
 
   document.getElementById('avg-f').textContent = avgFardosCorrigido.toLocaleString('pt-BR');
   document.getElementById('avg-c').textContent = avgCargas;
+  document.getElementById('dias-util-trabalhados').textContent = diasUteisTrabalhados.toLocaleString('pt-BR');
   document.getElementById('best-v').textContent = Math.max(...fdArr).toLocaleString('pt-BR');
   document.getElementById('best-d').textContent = lbls[mi] ? lbls[mi].join(' ') : '—';
   document.getElementById('graf-period').innerHTML = days.length ? `${fmt(days[0])}–${fmt(days[days.length - 1])}` : '—';
@@ -4326,6 +4379,16 @@ async function processImport() {
     updateMapaFromIES();
     WEEKS = rebuildWeeks();
     rebuildLoteIE();
+
+    // Remove de "Sem instrução informada" qualquer lote que tenha chegado
+    // numa IE nesta importação — ele passa a contar normalmente do lado
+    // "Com instrução" (mesmo padrão das demais IEs), zerando essa contagem
+    // automaticamente conforme os lotes recebem instrução de embarque.
+    const lotesQueSairam = sincronizarLotesSemIE();
+    if (lotesQueSairam.length) {
+      const numeros = lotesQueSairam.map(l => l.lote).join(', ');
+      showToast(`✓ ${lotesQueSairam.length} lote(s) saíram de "Sem instrução": ${numeros}`, 'success');
+    }
     
     if (CARGAS.length && !selDay) selDay = CARGAS[0].dt;
     curWeek = 0;
