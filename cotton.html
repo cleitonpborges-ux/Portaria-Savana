@@ -16,6 +16,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <style>
 :root {
@@ -1611,6 +1612,12 @@ const DEFAULT_IES = [
   {name:'BRZ536/25', color:'#FBBF24', total_fardos:1433, done_fardos:1103, total_lotes:14, done_lotes:11,
    lotes_done:[22,26,34,261,277,280,281,282,285,288,292,294,336], lotes_pend:[344],
    lotes_fardos:{22:110,26:110,34:110,261:3,277:110,280:110,281:90,282:75,285:110,288:110,292:110,294:110,336:110,344:110}},
+  {name:'BRZ596/25', color:'#60A5FA', total_fardos:53, done_fardos:53, total_lotes:1, done_lotes:1,
+   lotes_done:[28], lotes_pend:[],
+   lotes_fardos:{28:53}},
+  {name:'BRZ589/25', color:'#F87171', total_fardos:30, done_fardos:0, total_lotes:1, done_lotes:0,
+   lotes_done:[], lotes_pend:[28],
+   lotes_fardos:{28:30}},
 ];
 
 const DEFAULT_MAPA = {
@@ -1796,8 +1803,8 @@ let IE_SEARCH_TERM = '';
 // instrução de embarque (IE) é importada e algum desses lotes aparece nela,
 // a função sincronizarLotesSemIE() remove o lote daqui automaticamente —
 // ele passa a contar só do lado "Com instrução" (mesmo padrão das demais IEs).
-let LOTES_SEM_IE = [
-  { lote: 28,  tipo: '31.2', fardos: 6   },
+const DEFAULT_LOTES_SEM_IE = [
+  { lote: 28,  tipo: '31.2', fardos: 89  },
   { lote: 108, tipo: '31.3', fardos: 110 },
   { lote: 109, tipo: '31.3', fardos: 110 },
   { lote: 227, tipo: '51.4', fardos: 110 },
@@ -1806,6 +1813,7 @@ let LOTES_SEM_IE = [
   { lote: 341, tipo: '31.3', fardos: 10  },
   { lote: 350, tipo: '31.4', fardos: 10  },
 ];
+let LOTES_SEM_IE = JSON.parse(JSON.stringify(DEFAULT_LOTES_SEM_IE));
 
 // Sincroniza LOTES_SEM_IE com as IEs importadas.
 // Regra: para cada lote em LOTES_SEM_IE, soma os fardos autorizados para
@@ -1829,23 +1837,26 @@ function sincronizarLotesSemIE() {
     }
   });
 
+  // IMPORTANTE: o saldo é sempre recalculado a partir do total ORIGINAL de cada
+  // lote (DEFAULT_LOTES_SEM_IE), nunca a partir do valor atual de LOTES_SEM_IE.
+  // Isso torna a função idempotente — pode ser chamada quantas vezes for
+  // necessário (ex: a cada importação de planilha) sem subtrair os fardos
+  // autorizados mais de uma vez.
   const removidos = [];
   const novosLotesSemIE = [];
 
-  LOTES_SEM_IE.forEach(item => {
-    const autorizados = fardosAutorizadosPorLote[item.lote] || 0;
-    const saldo = item.fardos - autorizados;
+  DEFAULT_LOTES_SEM_IE.forEach(baseItem => {
+    const autorizados = fardosAutorizadosPorLote[baseItem.lote] || 0;
+    const saldo = baseItem.fardos - autorizados;
 
-    if (autorizados === 0) {
-      // Nenhuma IE tem esse lote → mantém intacto
-      novosLotesSemIE.push(item);
-    } else if (saldo <= 0) {
+    if (saldo <= 0) {
       // Todos os fardos receberam instrução → remove do card
-      removidos.push(item);
+      if (autorizados > 0) removidos.push(baseItem);
+      else novosLotesSemIE.push(baseItem);
     } else {
-      // Fração recebeu instrução, mas ainda sobra um saldo sem instrução
-      // Mantém no card com a quantidade residual (saldo)
-      novosLotesSemIE.push({ ...item, fardos: saldo });
+      // Sem instrução (autorizados = 0) ou só uma fração recebeu instrução →
+      // mantém no card com a quantidade residual (saldo)
+      novosLotesSemIE.push({ ...baseItem, fardos: saldo });
     }
   });
 
@@ -2151,13 +2162,18 @@ function resetToDefault() {
 }
 
 function resetAndReload() {
-  if (!confirm('Isso vai limpar o cache e recarregar os dados padrão do arquivo. Continuar?')) return;
+  if (!confirm('Isso vai limpar o cache local e recarregar os dados padrão do arquivo (inclusive lotes sem instrução). Continuar?')) return;
   localStorage.removeItem('viterra_ies');
   localStorage.removeItem('viterra_mapa');
   localStorage.removeItem('viterra_cargas');
+  localStorage.removeItem('viterra_cache');
+  localStorage.removeItem('viterra_cache_ts');
+  localStorage.removeItem('viterra_last_import_ts');
   IES = JSON.parse(JSON.stringify(DEFAULT_IES));
   MAPA = JSON.parse(JSON.stringify(DEFAULT_MAPA));
   CARGAS = JSON.parse(JSON.stringify(DEFAULT_CARGAS));
+  LOTES_SEM_IE = JSON.parse(JSON.stringify(DEFAULT_LOTES_SEM_IE));
+  sincronizarLotesSemIE();
   saveToStorage();
   WEEKS = rebuildWeeks();
   rebuildLoteIE();
@@ -2327,6 +2343,31 @@ function crossReferenceIEsWithCargas() {
       return;
     }
 
+    // Preenchimento guloso: distribui o total carregado entre as IEs em ordem,
+    // completando cada uma até seu máximo antes de passar para a próxima.
+    // Ex: lote 28 — REC596=53 (tachado), REC589=30, carregado=81
+    //   → REC596 recebe 53 (concluída), sobra 28
+    //   → REC589 recebe 28 (parcial 28/30)
+    if (carregado <= somaAutorizados) {
+      let restante = carregado;
+      // IEs com lote tachado (concluído na planilha) têm prioridade, depois maior autorizado primeiro
+      const ordenadas = [...iesComEsseLote].sort((a, b) => {
+        const aTach = a._lotesTachados && a._lotesTachados.includes(loteNum) ? 0 : 1;
+        const bTach = b._lotesTachados && b._lotesTachados.includes(loteNum) ? 0 : 1;
+        if (aTach !== bTach) return aTach - bTach;
+        return (b.lotes_fardos[loteNum] || 0) - (a.lotes_fardos[loteNum] || 0);
+      });
+      ordenadas.forEach(ie => {
+        if (restante <= 0) return;
+        const autorizado = ie.lotes_fardos[loteNum] || 0;
+        const atribuido = Math.min(autorizado, restante);
+        ie._carregadoPorLote = ie._carregadoPorLote || {};
+        ie._carregadoPorLote[loteNum] = atribuido;
+        restante -= atribuido;
+      });
+      return;
+    }
+
     // Nenhuma regra resolveu com segurança — reporta para revisão manual em vez de chutar
     lotesAmbiguos.push({
       loteNum, carregado,
@@ -2336,6 +2377,7 @@ function crossReferenceIEsWithCargas() {
 
   let totalBaixados = 0;
   let totalParciais = 0;
+  const divergencias = []; // [{ie, lote, carregado, instrucao, contrato}] — concluído mas quantidade não bate com o contrato
 
   const novoEstadoLotes = {}; // "INSTRUCAO|loteNum" -> 'done' | 'partial' | 'pending' (snapshot desta passada)
 
@@ -2368,6 +2410,20 @@ function crossReferenceIEsWithCargas() {
         doneLotes++;
         novoEstadoLotes[chave] = 'done';
         delete ie.lotes_parcial[loteNum];
+
+        // CRUZAMENTO COM A PLANILHA DE CONTRATOS: o fato de a instrução marcar o lote
+        // como tachado/concluído não garante que a quantidade carregada de verdade
+        // (planilha de Cargas) bate com o total oficial do lote (planilha de Contratos).
+        // Aqui conferimos isso e sinalizamos divergência em vez de aceitar de olhos fechados.
+        const ctrInfo = LOTE_CONTRATO_MAP[loteNum];
+        const totalOficial = ctrInfo ? ctrInfo.fardos : null;
+        if (totalOficial != null && carregado > 0 && carregado !== totalOficial) {
+          divergencias.push({ ie: ie.name, lote: loteNum, carregado, instrucao: autorizado, contrato: totalOficial });
+          ie._lotesDivergentes = ie._lotesDivergentes || [];
+          if (!ie._lotesDivergentes.includes(loteNum)) ie._lotesDivergentes.push(loteNum);
+        } else if (ie._lotesDivergentes) {
+          ie._lotesDivergentes = ie._lotesDivergentes.filter(l => l !== loteNum);
+        }
       } else if (carregado <= 0) {
         ie.lotes_pend.push(loteNum);
         novoEstadoLotes[chave] = 'pending';
@@ -2420,6 +2476,17 @@ function crossReferenceIEsWithCargas() {
     ).join(' · ');
     console.warn('[Cruzamento] Lotes ambíguos não resolvidos automaticamente:', lotesAmbiguos);
     showToast(`⚠ Revisar manualmente: ${resumo}${lotesAmbiguos.length > 3 ? ` · +${lotesAmbiguos.length - 3} outro(s)` : ''}`, 'error');
+  }
+
+  // Avisa sobre lotes marcados como concluídos (tachado/vermelho na instrução) cuja
+  // quantidade carregada real não bate com o total oficial na planilha de Contratos —
+  // pode indicar erro de digitação na instrução, lote errado, ou carga incompleta.
+  if (divergencias.length) {
+    const resumo = divergencias.slice(0, 3).map(d =>
+      `Lote ${d.lote} (${d.ie}): tachado como concluído, mas carregou ${d.carregado} fds (contrato = ${d.contrato} fds, instrução = ${d.instrucao} fds)`
+    ).join(' · ');
+    console.warn('[Cruzamento] Divergência entre lote concluído e planilha de Contratos:', divergencias);
+    showToast(`🚩 Divergência de quantidade: ${resumo}${divergencias.length > 3 ? ` · +${divergencias.length - 3} outro(s)` : ''}`, 'error');
   }
 }
 
@@ -2798,6 +2865,46 @@ function readXlsxRaw(data) {
   return { workbook, results };
 }
 
+// Lê mapa de células tachadas+vermelhas direto do XML do xlsx (mais confiável que cellStyles do SheetJS)
+async function buildStrikeMapFromXml(arrayBuffer, sheetIndex = 0) {
+  try {
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    const stylesFile = zip.file('xl/styles.xml');
+    if (!stylesFile) return null;
+    const stylesXml = await stylesFile.async('string');
+    const parser = new DOMParser();
+    const stylesDoc = parser.parseFromString(stylesXml, 'application/xml');
+    const fonts = [...stylesDoc.querySelectorAll('fonts > font')];
+    const fontStrikeRed = fonts.map(f => {
+      const strike = !!f.querySelector('strike');
+      const colorEl = f.querySelector('color');
+      const rgb = colorEl ? (colorEl.getAttribute('rgb') || '') : '';
+      const red = !rgb || /^(FF)?FF0000$/i.test(rgb) || /^(FF)?FF3300$/i.test(rgb);
+      return { strike, red };
+    });
+    const xfs = [...stylesDoc.querySelectorAll('cellXfs > xf')];
+    const sheetFiles = zip.file(/^xl\/worksheets\/sheet\d+\.xml$/).sort((a, b) => a.name.localeCompare(b.name));
+    const sheetFile = sheetFiles[sheetIndex];
+    if (!sheetFile) return null;
+    const sheetXml = await sheetFile.async('string');
+    const sheetDoc = parser.parseFromString(sheetXml, 'application/xml');
+    const strikeMap = {};
+    sheetDoc.querySelectorAll('c').forEach(c => {
+      const ref = c.getAttribute('r');
+      const sIdx = parseInt(c.getAttribute('s') || '0');
+      const xf = xfs[sIdx];
+      if (!xf) return;
+      const fontId = parseInt(xf.getAttribute('fontId') || '0');
+      const f = fontStrikeRed[fontId];
+      if (f && f.strike && f.red) strikeMap[ref] = true;
+    });
+    return strikeMap;
+  } catch(e) {
+    console.warn('[StrikeMap] Erro ao ler XML:', e);
+    return null;
+  }
+}
+
 // ── Detecta e parseia planilha de CARGAS (Contratos_de_Algodão…)
 // Estrutura real VITERRA: duas linhas de cabeçalho
 //   R58: [No de Cargas | Data Carregamento | Contrato | Classif | _ | Peso Liq | Romaneio | ...]
@@ -2972,7 +3079,7 @@ function _parseCargasFixed(rows2d, dataStart, colN, colDt, colLiq, colLote, colF
 
 // ── Detecta e parseia planilha de IEs (INSTRUCOES_DE_CARREGAMENTO…)
 // Regra: LOTE em VERMELHO + TACHADO = já carregado (done). Sem formatação = pendente.
-function parseIesFromRaw(rows2d, workbookRaw) {
+function parseIesFromRaw(rows2d, workbookRaw, strikeMap) {
   const ieMap = {};
 
   // ── Acessa sheet com estilos via workbook SheetJS (leitura de cellStyles)
@@ -3023,7 +3130,7 @@ function parseIesFromRaw(rows2d, workbookRaw) {
   // Depois as linhas de dados, até "Total Geral"
   // ── Detecta se o formato é "flat" (BRZ na col 0 com cabeçalho direto)
   // Ex: INSTRUÇÃO | FORNECEDOR | CONTRATO | LOTE | TIPO | FARDOS | PLACA
-  function tryParseFlatFormat(rows2d, workbookRaw) {
+  function tryParseFlatFormat(rows2d, workbookRaw, strikeMap) {
     if (!rows2d.length) return null;
     const hdr = rows2d[0].map(v => v.toString().toUpperCase().trim());
     const colIE   = hdr.findIndex(v => /^INSTRU/i.test(v) || v === 'I.E.' || v === 'IE' || v === 'BRZ');
@@ -3048,14 +3155,19 @@ function parseIesFromRaw(rows2d, workbookRaw) {
       return s;
     }
     function isCellStrikeRed2(rowIdx, colIdx) {
-      if (!sheetWS) return false;
       const addr = colIdxToLetter2(colIdx) + (rowIdx + 1);
+      // Prioridade: mapa XML (mais confiável que cellStyles do SheetJS)
+      if (strikeMap) return strikeMap[addr] === true;
+      // Fallback: SheetJS cellStyles
+      if (!sheetWS) return false;
       const cell = sheetWS[addr];
       if (!cell || !cell.s) return false;
       const s = cell.s;
-      const strike = s.strike === true || (s.font && s.font.strike === true);
+      const strike = s.strike === true || s.strikethrough === true
+        || (s.font && (s.font.strike === true || s.font.strikethrough === true));
       if (!strike) return false;
       const rgb = (s.font && s.font.color && s.font.color.rgb) || (s.color && s.color.rgb) || '';
+      if (!rgb) return strike;
       return /^(FF)?FF0000$/i.test(rgb) || rgb.toUpperCase() === 'FFFF0000';
     }
 
@@ -3146,7 +3258,7 @@ function parseIesFromRaw(rows2d, workbookRaw) {
   }
 
   // Tenta formato flat primeiro
-  const flatResult = tryParseFlatFormat(rows2d, workbookRaw);
+  const flatResult = tryParseFlatFormat(rows2d, workbookRaw, strikeMap);
   if (flatResult && flatResult.ies.length) return flatResult;
 
   let i = 0;
@@ -3362,7 +3474,7 @@ function parseFile(file) {
           // Para header-based parsing, usa a primeira sheet com header=true
           const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
           const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
-          resolve({ rows, raw2d: results, sheetNames: workbook.SheetNames, fileName: file.name, workbook });
+          resolve({ rows, raw2d: results, sheetNames: workbook.SheetNames, fileName: file.name, workbook, arrayBuffer: e.target.result });
         } catch (err) { reject(err); }
       };
       reader.onerror = () => reject(new Error('Falha ao ler arquivo XLSX'));
@@ -3444,9 +3556,9 @@ function renderDash() {
       <div class="ms">instruções de embarque</div>
     </div>
     <div class="met" onclick="S('graf')">
-      <div class="ml">Progresso Geral</div>
+      <div class="ml">Progresso das IEs</div>
       <div class="mv"><span class="met-accent">${pct}%</span></div>
-      <div class="ms">fardos embarcados</div>
+      <div class="ms">fardos das instruções já emitidas</div>
     </div>
     <div class="met" onclick="S('diario')">
       <div class="ml">Cargas Realizadas</div>
@@ -3647,6 +3759,12 @@ function renderDash() {
             ${ie.lotes_done.map(l => {
               const aut = (ie.lotes_fardos && ie.lotes_fardos[l] != null) ? ie.lotes_fardos[l] : 110;
               const isMatch = IE_SEARCH_TERM && String(l) === IE_SEARCH_TERM;
+              const divergente = ie._lotesDivergentes && ie._lotesDivergentes.includes(l);
+              if (divergente) {
+                const ctrInfo = LOTE_CONTRATO_MAP[l];
+                const tip = ctrInfo ? `Contrato indica ${ctrInfo.fardos} fds, instrução marcou ${aut} fds` : 'Quantidade não confere com a planilha de Contratos';
+                return `<span class="${isMatch ? 'lote-found-pulse' : ''}" title="${tip}" style="font-family:var(--font-mono);font-size:11px;padding:2px 7px;border-radius:4px;background:rgba(255,92,92,.1);color:var(--red);border:1px solid rgba(255,92,92,.5);">🚩 L${l}: ${aut} fds</span>`;
+              }
               return `<span class="${isMatch ? 'lote-found-pulse' : ''}" style="font-family:var(--font-mono);font-size:11px;padding:2px 7px;border-radius:4px;background:rgba(0,229,160,.08);color:var(--green);border:1px solid rgba(0,229,160,.15);">L${l}: ${aut} fds</span>`;
             }).join('')}
           </div>
@@ -4339,8 +4457,8 @@ async function processImport() {
       } else if (isIes && raw2d) {
         setLoading(true, 'Processando IEs...');
         const rows2d = raw2d[sheetNames[0]] || [];
-        let result = parseIesFromRaw(rows2d, workbook);
-        // Fallback: header-based
+        const strikeMap = p.arrayBuffer ? await buildStrikeMapFromXml(p.arrayBuffer, 0) : null;
+        let result = parseIesFromRaw(rows2d, workbook, strikeMap);
         if (!result.ies.length) result = parseIesSheet(rows);
         if (result.ies.length) { IES = result.ies; updated = true; }
         if (result.errors.length) showToast(result.errors[0], 'error');
