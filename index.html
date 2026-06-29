@@ -819,6 +819,45 @@
 
     .card.active { display: block; }
 
+    /* ===================== CARD BG PERSONALIZADO ===================== */
+    .mini-card.card-bg-ativo {
+      position: relative;
+      overflow: hidden;
+    }
+    .mini-card.card-bg-ativo::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,var(--card-overlay-op, 0.45));
+      border-radius: var(--radius-md);
+      z-index: 1;
+      pointer-events: none;
+    }
+    .mini-card.card-bg-ativo > * {
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Texto claro quando há imagem de fundo nos mini-cards */
+    .mini-card.card-bg-ativo span {
+      color: rgba(255,255,255,0.85) !important;
+    }
+    .mini-card.card-bg-ativo b {
+      color: #ffffff !important;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    }
+    .mini-card.card-bg-ativo .resumo-produto .prod-pill {
+      background: rgba(255,255,255,0.18) !important;
+      color: #ffffff !important;
+      border: 1px solid rgba(255,255,255,0.35);
+    }
+    .mini-card.card-bg-ativo .detalhe-produto {
+      color: rgba(255,255,255,0.82) !important;
+    }
+    .mini-card.card-bg-ativo .detalhe-produto div {
+      color: rgba(255,255,255,0.82) !important;
+    }
+
     /* ===================== PS4 LIGHT BAR SWEEP ===================== */
     /* Animação pulsante na seta quando há dados em DIVERSOS */
     @keyframes pulseArrow {
@@ -2440,6 +2479,15 @@
           </svg>
           <span class="gear-item-label">Produtos</span>
         </button>
+        <!-- Personalizar Cards (admin) -->
+        <button class="gear-item" id="btnPersonalizarCards" title="Personalizar Cards" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+            <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.8"/>
+            <polyline points="21,15 16,10 5,21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="gear-item-label">Cards</span>
+        </button>
         <!-- Dashboard Desktop (admin e balanca) -->
         <button class="gear-item" id="btnDashboard" data-permissao="dashboard" onclick="abrirDashboard(); fecharGear()" title="Dashboard Desktop" style="display:none">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
@@ -2986,6 +3034,285 @@
       } catch(e) { console.warn('[Firebase] Erro ao processar produtos:', e); }
     }, (err) => { console.warn('[Firebase] onSnapshot produtos erro:', err); });
   }
+
+  function _reaplicarCardImages() {
+    // Busca a última imagem conhecida (do Firestore via listener) e re-aplica
+    // necessário pois processarDados pode apagar estilos inline dos filhos
+    try {
+      getDoc(doc(_db, 'config', 'cardImages')).then(snap => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        _aplicarCardBg('patio', data.patio || null, data.opacidade ?? 45);
+        _aplicarCardBg('carga', data.carga || null, data.opacidade ?? 45);
+      }).catch(() => {});
+    } catch(e) {}
+  }
+
+  // ── LISTENER TEMPO REAL — IMAGENS DOS CARDS ──────────────────────────────
+  let _cardImgListenerIniciado = false;
+  function iniciarListenerCardImages() {
+    if (_cardImgListenerIniciado) return;
+    _cardImgListenerIniciado = true;
+    onSnapshot(doc(_db, 'config', 'cardImages'), (snap) => {
+      if (!snap.exists()) return;
+      try {
+        const data = snap.data();
+        _aplicarCardBg('patio', data.patio || null, data.opacidade ?? 45);
+        _aplicarCardBg('carga', data.carga || null, data.opacidade ?? 45);
+      } catch(e) { console.warn('[CardImages] Erro ao aplicar:', e); }
+    }, (err) => { console.warn('[CardImages] onSnapshot erro:', err); });
+  }
+
+  function _aplicarCardBg(tipo, base64, opacidade) {
+    const card = document.querySelector(`.mini-card[data-tipo="${tipo}"]`);
+    if (!card) return;
+    const op = (opacidade !== undefined && opacidade !== null) ? opacidade / 100 : 0.45;
+    if (base64) {
+      card.style.backgroundImage = `url(${base64})`;
+      card.style.backgroundSize  = 'cover';
+      card.style.backgroundPosition = 'center';
+      card.classList.add('card-bg-ativo');
+      card.dataset.cardOverlayOp = op;
+      card.querySelectorAll('span, b').forEach(el => {
+        el.style.position = 'relative';
+        el.style.zIndex   = '2';
+        el.style.color    = '#ffffff';
+        if (el.tagName === 'B') el.style.textShadow = '0 2px 8px rgba(0,0,0,0.7)';
+        else el.style.textShadow = '0 1px 4px rgba(0,0,0,0.7)';
+      });
+      card.querySelectorAll('.resumo-produto .prod-pill').forEach(pill => {
+        pill.style.background = 'rgba(255,255,255,0.2)';
+        pill.style.color      = '#ffffff';
+        pill.style.backdropFilter = 'blur(4px)';
+        pill.style.position   = 'relative';
+        pill.style.zIndex     = '2';
+      });
+      // Injeta/atualiza pseudo-elemento via CSS custom property no elemento
+      card.style.setProperty('--card-overlay-op', op);
+    } else {
+      card.style.backgroundImage = '';
+      card.style.backgroundSize  = '';
+      card.style.backgroundPosition = '';
+      card.classList.remove('card-bg-ativo');
+      card.style.removeProperty('--card-overlay-op');
+      card.querySelectorAll('span, b').forEach(el => {
+        el.style.color = '';
+        el.style.textShadow = '';
+        el.style.position = '';
+        el.style.zIndex = '';
+      });
+      card.querySelectorAll('.resumo-produto .prod-pill').forEach(pill => {
+        pill.style.background = '';
+        pill.style.color      = '';
+        pill.style.backdropFilter = '';
+        pill.style.position   = '';
+        pill.style.zIndex     = '';
+      });
+    }
+  }
+
+  // Estado temporário das imagens no modal
+  const _cardImgPending = { patio: undefined, carga: undefined };
+  // undefined = não alterado, null = remover, string = nova imagem base64
+
+  function abrirPersonalizarCards() {
+    try {
+      // Zera pendentes
+      _cardImgPending.patio = undefined;
+      _cardImgPending.carga = undefined;
+      const inpP = document.getElementById('inputImgPatio');
+      const inpC = document.getElementById('inputImgCarga');
+      if (inpP) inpP.value = '';
+      if (inpC) inpC.value = '';
+
+      // Reset botão salvar
+      const btn = document.getElementById('btnSalvarCardImgs');
+      if (btn) { btn.disabled = false; btn.textContent = '✓ Salvar e Aplicar para Todos'; btn.style.background = ''; }
+      const st = document.getElementById('cardImgStatus');
+      if (st) st.style.display = 'none';
+
+      // Abre o modal
+      const modal = document.getElementById('modalPersonalizarCards');
+      if (modal) modal.classList.add('open');
+
+      // Carrega imagens atuais do Firestore
+      _preCarregarPreviews();
+    } catch(e) {
+      console.error('[PersonalizarCards] abrirPersonalizarCards erro:', e);
+    }
+  }
+
+  async function _preCarregarPreviews() {
+    try {
+      const snap = await getDoc(doc(_db, 'config', 'cardImages'));
+      if (snap.exists()) {
+        const data = snap.data();
+        _setPreview('patio', data.patio || null);
+        _setPreview('carga', data.carga || null);
+        // Restaura opacidade salva
+        const op = data.opacidade !== undefined ? data.opacidade : 45;
+        const slider = document.getElementById('sliderOpacidade');
+        if (slider) { slider.value = op; atualizarOpacidade(op); }
+      } else {
+        _setPreview('patio', null);
+        _setPreview('carga', null);
+      }
+    } catch(e) {
+      _setPreview('patio', null);
+      _setPreview('carga', null);
+    }
+  }
+
+  function _setPreview(tipo, base64) {
+    const img     = document.getElementById(`preview${_cap(tipo)}Img`);
+    const overlay = document.getElementById(`preview${_cap(tipo)}Overlay`);
+    const hint    = document.getElementById(`preview${_cap(tipo)}Hint`);
+    const btnRem  = document.getElementById(`btnRemover${_cap(tipo)}`);
+    if (!img) return;
+    if (base64) {
+      img.src = base64;
+      img.style.display = 'block';
+      overlay.style.display = 'block';
+      hint.textContent = 'Toque para trocar a imagem';
+      btnRem.style.display = '';
+    } else {
+      img.src = '';
+      img.style.display = 'none';
+      overlay.style.display = 'none';
+      hint.textContent = 'Toque para escolher imagem';
+      btnRem.style.display = 'none';
+    }
+  }
+
+  function _cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  function onCardImgChange(input, tipo) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    // Comprimir/redimensionar via canvas antes de salvar
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const imgEl = new Image();
+      imgEl.onload = function() {
+        const canvas = document.createElement('canvas');
+        const MAX = 600;
+        let w = imgEl.width, h = imgEl.height;
+        if (w > h && w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+        else if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imgEl, 0, 0, w, h);
+        const b64 = canvas.toDataURL('image/jpeg', 0.78);
+        _cardImgPending[tipo] = b64;
+        _setPreview(tipo, b64);
+      };
+      imgEl.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removerCardImg(tipo) {
+    _cardImgPending[tipo] = null;
+    _setPreview(tipo, null);
+    document.getElementById(`inputImg${_cap(tipo)}`).value = '';
+  }
+
+  async function salvarCardImagens() {
+    const btn = document.getElementById('btnSalvarCardImgs');
+    const status = document.getElementById('cardImgStatus');
+    btn.disabled = true;
+    btn.textContent = '⏳ Salvando...';
+    status.style.display = 'block';
+    status.textContent = 'Enviando imagens para o Firebase...';
+
+    try {
+      // Busca dados atuais para não sobrescrever o que não foi alterado
+      let dadosAtuais = {};
+      try {
+        const snap = await getDoc(doc(_db, 'config', 'cardImages'));
+        if (snap.exists()) dadosAtuais = snap.data();
+      } catch(e) {}
+
+      const novoDado = { ...dadosAtuais };
+      if (_cardImgPending.patio !== undefined) {
+        novoDado.patio = _cardImgPending.patio; // null ou base64
+      }
+      if (_cardImgPending.carga !== undefined) {
+        novoDado.carga = _cardImgPending.carga;
+      }
+      novoDado.atualizadoEm = new Date().toISOString();
+      novoDado.atualizadoPor = perfilAtual || 'admin';
+      // Salva opacidade do slider
+      const slider = document.getElementById('sliderOpacidade');
+      novoDado.opacidade = slider ? parseInt(slider.value) : 45;
+
+      await setDoc(doc(_db, 'config', 'cardImages'), novoDado);
+
+      status.textContent = '✅ Aplicado para todos os dispositivos!';
+      status.style.color = 'var(--success)';
+      btn.textContent = '✓ Salvo!';
+      btn.style.background = 'linear-gradient(135deg,#16a34a,#15803d)';
+      _cardImgPending.patio = undefined;
+      _cardImgPending.carga = undefined;
+      mostrarToast('🎨 Cards personalizados aplicados!', 'success', 3000);
+      setTimeout(() => fecharPersonalizarCards(), 1500);
+    } catch(e) {
+      status.textContent = '❌ Erro ao salvar. Tente novamente.';
+      status.style.color = 'var(--danger)';
+      btn.disabled = false;
+      btn.textContent = '✓ Salvar e Aplicar para Todos';
+      console.error('[CardImages] Erro:', e);
+    }
+  }
+
+  function fecharPersonalizarCards() {
+    document.getElementById('modalPersonalizarCards').classList.remove('open');
+    // Reset botão
+    const btn = document.getElementById('btnSalvarCardImgs');
+    btn.disabled = false;
+    btn.textContent = '✓ Salvar e Aplicar para Todos';
+    btn.style.background = '';
+  }
+
+  // Fecha o modal ao clicar no overlay (via delegação — modal é inserido depois do script)
+  document.addEventListener("click", function(e) {
+    const m = document.getElementById("modalPersonalizarCards");
+    if (m && e.target === m) fecharPersonalizarCards();
+  });
+
+  // Listener direto no botão — garante abertura mesmo se onclick inline conflitar com fecharGear
+  // (scripts type=module rodam após o DOM estar completo, então getElementById já funciona aqui)
+  const _btnPCards = document.getElementById('btnPersonalizarCards');
+  if (_btnPCards) {
+    _btnPCards.addEventListener('click', function(e) {
+      e.stopPropagation();
+      fecharGear();
+      setTimeout(abrirPersonalizarCards, 50);
+    });
+  }
+
+  function atualizarOpacidade(val) {
+    const v = parseInt(val);
+    const label = document.getElementById('labelOpacidade');
+    if (label) label.textContent = v + '%';
+    // Atualiza preview dos dois cards em tempo real
+    const oPatioEl  = document.getElementById('previewPatioOverlay');
+    const oCargaEl  = document.getElementById('previewCargaOverlay');
+    if (oPatioEl)  oPatioEl.style.background  = `rgba(0,0,0,${v/100})`;
+    if (oCargaEl)  oCargaEl.style.background  = `rgba(0,0,0,${v/100})`;
+  }
+  window.atualizarOpacidade = atualizarOpacidade;
+
+  // Expõe funções do modal de cards para o escopo global
+  // (type="module" isola o escopo — handlers inline no HTML não encontram funções do módulo)
+  window.abrirPersonalizarCards  = abrirPersonalizarCards;
+  window.fecharPersonalizarCards = fecharPersonalizarCards;
+  window.onCardImgChange         = onCardImgChange;
+  window.removerCardImg          = removerCardImg;
+  window.salvarCardImagens       = salvarCardImagens;
+
+
+
 
   // Gera turnoId = YYYYMMDD
   function _turnoId() {
@@ -4774,6 +5101,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       if (veiculosPatio.length !== anteriorPatio) setTimeout(() => pulsarCard('patio'), 80);
       if (veiculosCarregados.length !== anteriorCarga) setTimeout(() => pulsarCard('carga'), 80);
     }
+
+    // Re-aplica imagens de fundo dos cards (caso o DOM tenha sido recriado)
+    _reaplicarCardImages();
   }
 
   /* ===================== CARREGAR ESTADO ===================== */
@@ -5987,6 +6317,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     iniciarListenerConfig();    // push em tempo real para perfis e produtos
     iniciarListenerNfeOk();     // push em tempo real para alerta NFE OK → portaria
     iniciarListenerVeiculos();  // push em tempo real para saída e mudança de status
+    iniciarListenerCardImages(); // push em tempo real para imagens dos cards
     atualizarContadorIDB();
     // Mede em múltiplos momentos para garantir que fontes e layout já renderizaram
     ajustarContainerTop();
@@ -6318,6 +6649,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // Botão limpar dados (só admin)
     const btnLD = document.getElementById('btnLimparDados');
     if (btnLD) btnLD.style.display = perm.gerenciar_perfis ? '' : 'none';
+
+    // Botão personalizar cards (só admin)
+    const btnPC = document.getElementById('btnPersonalizarCards');
+    if (btnPC) btnPC.style.display = perm.gerenciar_perfis ? '' : 'none';
 
     // Botão gerenciar produtos (só admin)
     const btnGP2 = document.getElementById('btnGerenciarProdutos');
@@ -7416,6 +7751,90 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         </div>
         <button class="btn-salvar-perfil" onclick="produtoSalvar()">✓ Salvar Produto</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PERSONALIZAR CARDS -->
+<div class="modal-perfis-overlay" id="modalPersonalizarCards">
+  <div class="modal-perfis-box" style="max-height:92vh;overflow-y:auto;">
+    <div class="modal-perfis-handle"></div>
+    <div class="modal-perfis-header">
+      <div class="modal-perfis-titulo" style="display:flex;align-items:center;gap:8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+        Personalizar Cards
+      </div>
+      <button class="btn-novo-perfil" style="background:transparent;border:none;color:var(--text-muted);font-size:1.2rem;cursor:pointer;padding:4px 8px;" onclick="fecharPersonalizarCards()">✕</button>
+    </div>
+
+    <div style="padding:0 14px 28px;display:flex;flex-direction:column;gap:20px;">
+
+      <p style="font-size:0.72rem;color:var(--text-muted);margin:0;line-height:1.6;">
+        Adicione uma imagem de fundo nos cards <b>Pátio</b> e <b>Carregados</b> — ideal para personalizar no dia de jogo do Brasil. O texto fica em branco para garantir boa leitura sobre a imagem.
+      </p>
+
+      <!-- CARD PÁTIO -->
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <label style="font-size:0.62rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">🏟️ Card Pátio — Imagem de Fundo</label>
+        <div id="previewPatioWrap" style="position:relative;border-radius:12px;overflow:hidden;min-height:90px;background:var(--bg);border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;" onclick="document.getElementById('inputImgPatio').click()">
+          <img id="previewPatioImg" src="" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;">
+          <div id="previewPatioOverlay" style="position:absolute;inset:0;background:rgba(0,0,0,0.45);display:none;border-radius:12px;"></div>
+          <div id="previewPatioConteudo" style="position:relative;z-index:2;text-align:center;padding:16px;">
+            <div id="previewPatioMiniCard" style="background:var(--card-bg);border-radius:10px;padding:10px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.12);display:inline-block;min-width:90px;">
+              <div style="font-size:0.52rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:2px;">No Pátio</div>
+              <div style="font-size:1.4rem;font-weight:800;color:var(--text-main);font-family:'JetBrains Mono',monospace;">5</div>
+            </div>
+          </div>
+          <div id="previewPatioHint" style="position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:0.6rem;color:var(--text-muted);font-weight:600;">Toque para escolher imagem</div>
+        </div>
+        <input type="file" id="inputImgPatio" accept="image/*" style="display:none" onchange="onCardImgChange(this,'patio')">
+        <div style="display:flex;gap:8px;">
+          <button onclick="document.getElementById('inputImgPatio').click()" style="flex:1;padding:9px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;font-size:0.72rem;font-weight:700;color:var(--text-main);cursor:pointer;font-family:inherit;">📁 Escolher foto</button>
+          <button id="btnRemoverPatio" onclick="removerCardImg('patio')" style="padding:9px 14px;background:var(--danger-light);border:1.5px solid rgba(220,38,38,0.25);border-radius:8px;font-size:0.72rem;font-weight:700;color:var(--danger);cursor:pointer;font-family:inherit;display:none;">Remover</button>
+        </div>
+      </div>
+
+      <!-- CARD CARREGADOS -->
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <label style="font-size:0.62rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">✅ Card Carregados — Imagem de Fundo</label>
+        <div id="previewCargaWrap" style="position:relative;border-radius:12px;overflow:hidden;min-height:90px;background:var(--bg);border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;" onclick="document.getElementById('inputImgCarga').click()">
+          <img id="previewCargaImg" src="" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;">
+          <div id="previewCargaOverlay" style="position:absolute;inset:0;background:rgba(0,0,0,0.45);display:none;border-radius:12px;"></div>
+          <div id="previewCargaConteudo" style="position:relative;z-index:2;text-align:center;padding:16px;">
+            <div id="previewCargaMiniCard" style="background:var(--card-bg);border-radius:10px;padding:10px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.12);display:inline-block;min-width:90px;">
+              <div style="font-size:0.52rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:2px;">Carregados</div>
+              <div style="font-size:1.4rem;font-weight:800;color:var(--text-main);font-family:'JetBrains Mono',monospace;">3</div>
+            </div>
+          </div>
+          <div id="previewCargaHint" style="position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:0.6rem;color:var(--text-muted);font-weight:600;">Toque para escolher imagem</div>
+        </div>
+        <input type="file" id="inputImgCarga" accept="image/*" style="display:none" onchange="onCardImgChange(this,'carga')">
+        <div style="display:flex;gap:8px;">
+          <button onclick="document.getElementById('inputImgCarga').click()" style="flex:1;padding:9px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;font-size:0.72rem;font-weight:700;color:var(--text-main);cursor:pointer;font-family:inherit;">📁 Escolher foto</button>
+          <button id="btnRemoverCarga" onclick="removerCardImg('carga')" style="padding:9px 14px;background:var(--danger-light);border:1.5px solid rgba(220,38,38,0.25);border-radius:8px;font-size:0.72rem;font-weight:700;color:var(--danger);cursor:pointer;font-family:inherit;display:none;">Remover</button>
+        </div>
+      </div>
+
+      <!-- OPACIDADE DO OVERLAY -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <label style="font-size:0.62rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">🌑 Escurecimento da imagem</label>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:0.65rem;color:var(--text-muted);font-weight:600;white-space:nowrap;">Transparente</span>
+          <input type="range" id="sliderOpacidade" min="0" max="85" value="45"
+            oninput="atualizarOpacidade(this.value)"
+            style="flex:1;height:6px;border-radius:3px;accent-color:var(--primary);cursor:pointer;outline:none;border:none;background:linear-gradient(to right,rgba(0,0,0,0.08),rgba(0,0,0,0.85));">
+          <span style="font-size:0.65rem;color:var(--text-muted);font-weight:600;white-space:nowrap;">Escuro</span>
+        </div>
+        <div style="display:flex;justify-content:center;">
+          <span id="labelOpacidade" style="font-size:0.68rem;font-weight:800;color:var(--primary);background:var(--accent-light);padding:3px 10px;border-radius:20px;">45%</span>
+        </div>
+      </div>
+
+      <!-- BOTÃO SALVAR -->
+      <button id="btnSalvarCardImgs" onclick="salvarCardImagens()" style="width:100%;padding:14px;background:linear-gradient(135deg,var(--primary),var(--primary-light));border:none;border-radius:10px;color:#fff;font-size:0.9rem;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:0.4px;text-transform:uppercase;box-shadow:0 4px 14px rgba(15,32,64,0.25);">
+        ✓ Salvar e Aplicar para Todos
+      </button>
+      <div id="cardImgStatus" style="display:none;text-align:center;font-size:0.72rem;color:var(--text-muted);font-weight:600;margin-top:-8px;"></div>
     </div>
   </div>
 </div>
