@@ -6499,7 +6499,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     { id: 'dashboard',        nome: 'Dashboard Desktop',     desc: 'Abrir painel dashboard em nova janela (admin/balança)' },
     { id: 'janela_mini',      nome: 'Janela Mini (PiP)',     desc: 'Abrir janela flutuante sempre no topo (admin/balança)' },
     { id: 'cotton',           nome: 'Cotton',                desc: 'Acessar o painel Cotton (link externo)' },
-    { id: 'notif_entradas',   nome: '🔔 Notif. Nova Entrada', desc: 'Receber notificação em tempo real quando um novo veículo entrar (independente do produto filtro)' },
+    { id: 'notif_entradas',   nome: '🔔 Notif. Nova Entrada', desc: 'Receber notificação push de nova entrada. Respeita o filtro de produto do perfil (só notifica se o produto do filtro estiver marcado abaixo); sem filtro configurado, recebe de todos os produtos.' },
+    { id: 'notif_chamada',    nome: '📢 Notif. Chamada',      desc: 'Receber notificação push quando o porteiro for chamado pela balança' },
     // ↑ ADICIONE NOVAS PERMISSÕES AQUI — siga o padrão acima.
     // Lembre de registrar também em aplicarPermissoes() e, se for botão no gear,
     // adicione data-permissao="id_da_permissao" no elemento HTML do botão.
@@ -6528,15 +6529,15 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   const PERFIS_PADRAO = {
     portaria: {
       label: '🚛 Portaria', usuario: 'portaria', senha: 'portaria123',
-      permissoes: { aba_entrada:true, aba_saida:true, aba_historico:true, trocar_turno:true, relatorio:true, planilha:false, modo_noite:true, gerenciar_perfis:false, card_descarregados:true, cotton:true }
+      permissoes: { aba_entrada:true, aba_saida:true, aba_historico:true, trocar_turno:true, relatorio:true, planilha:false, modo_noite:true, gerenciar_perfis:false, card_descarregados:true, cotton:true, notif_entradas:false, notif_chamada:true }
     },
     balanca: {
       label: '⚖️ Balança', usuario: 'balanca', senha: 'balanca123',
-      permissoes: { aba_entrada:false, aba_saida:false, aba_historico:true, trocar_turno:false, relatorio:false, planilha:false, modo_noite:true, gerenciar_perfis:false, card_descarregados:false, cotton:true }
+      permissoes: { aba_entrada:false, aba_saida:false, aba_historico:true, trocar_turno:false, relatorio:false, planilha:false, modo_noite:true, gerenciar_perfis:false, card_descarregados:false, cotton:true, notif_entradas:true, notif_chamada:false }
     },
     admin: {
       label: '⚙️ Admin', usuario: 'admin', senha: 'admin123',
-      permissoes: { aba_entrada:true, aba_saida:true, aba_historico:true, trocar_turno:true, relatorio:true, planilha:true, modo_noite:true, gerenciar_perfis:true, card_descarregados:true, cotton:true }
+      permissoes: { aba_entrada:true, aba_saida:true, aba_historico:true, trocar_turno:true, relatorio:true, planilha:true, modo_noite:true, gerenciar_perfis:true, card_descarregados:true, cotton:true, notif_entradas:true, notif_chamada:true }
     }
   };
 
@@ -6552,9 +6553,24 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     //    chave no objeto. Para manter o comportamento atual (botão visível pra
     //    todos), preenche com true apenas quando a chave ainda não existe —
     //    nunca sobrescreve uma escolha que o admin já tenha feito manualmente.
+    // ── MIGRAÇÃO: notif_entradas / notif_chamada ────────────────────────────
+    // Perfis salvos antes dessas permissões existirem não têm essas chaves.
+    // Para os 3 perfis padrão (admin/balanca/portaria) já sabemos a regra
+    // correta e aplicamos automaticamente (sem precisar reconfigurar nada).
+    // Para perfis CUSTOM (ex: "lucas"), não temos como adivinhar o papel dele
+    // — entram como false e precisam ser marcados manualmente em
+    // "Gerenciar Perfis" (isso evita mandar notificação pra quem não pediu).
+    const _padraoEntrada = { admin: true,  balanca: true,  portaria: false };
+    const _padraoChamada = { admin: true,  balanca: false, portaria: true  };
     Object.keys(perfis).forEach(k => {
       if (perfis[k].permissoes && !('cotton' in perfis[k].permissoes)) {
         perfis[k].permissoes.cotton = true;
+      }
+      if (perfis[k].permissoes && !('notif_entradas' in perfis[k].permissoes)) {
+        perfis[k].permissoes.notif_entradas = _padraoEntrada[k] ?? false;
+      }
+      if (perfis[k].permissoes && !('notif_chamada' in perfis[k].permissoes)) {
+        perfis[k].permissoes.notif_chamada = _padraoChamada[k] ?? false;
       }
     });
     return perfis;
@@ -7353,20 +7369,51 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         }
         console.log('[FCM] Permissão concedida (nativo)');
 
+        // Cria explicitamente o canal Android usado pela Cloud Function
+        // (channelId: "high_importance_channel"). Sem isso, no Android 8+
+        // o sistema DESCARTA silenciosamente notificações em background
+        // que apontam pra um canal que o app nunca criou — não dá erro,
+        // simplesmente não aparece nada. Chamar de novo em cada login não
+        // tem custo (o Android ignora se o canal já existe).
+        try {
+          if (typeof FirebaseMessaging.createChannel === 'function') {
+            await FirebaseMessaging.createChannel({
+              id: 'high_importance_channel',
+              name: 'Chamadas e Entradas',
+              description: 'Notificações de chamada e nova entrada',
+              importance: 5,   // MAX — necessário pro heads-up (pop-up)
+              visibility: 1,   // PUBLIC
+              sound: 'default',
+              vibration: true,
+              lights: true
+            });
+            console.log('[FCM] Canal Android "high_importance_channel" garantido');
+          }
+        } catch (eChannel) {
+          console.warn('[FCM] Falha ao criar canal Android:', eChannel);
+        }
+
         // Obtém token FCM nativo — SEM vapidKey (isso é só para web)
         const tokenResult = await FirebaseMessaging.getToken();
         _fcmToken = tokenResult?.token;
 
         if (_fcmToken) {
           const perfil = perfilAtual || localStorage.getItem('portaria_perfil') || 'desconhecido';
+          // Lê as permissões e o filtro de produto atuais do perfil, pra saber
+          // quais tipos de notificação (e de quais produtos) esse dispositivo deve receber.
+          const _perfilObj   = _carregarPerfisCustom()[perfil] || {};
+          const _permPerfil  = _perfilObj.permissoes || {};
+          const notifEntrada = !!_permPerfil.notif_entradas;
+          const notifChamada = !!_permPerfil.notif_chamada;
+          const produtoFiltro = _perfilObj.produto_filtro || null;
           // ID único por perfil+dispositivo — evita que a portaria sobrescreva o token do admin
           const docId = `${perfil}_android_${_fcmToken.slice(-16)}`;
           await setDoc(
             doc(_db, 'fcm_tokens', docId),
-            { token: _fcmToken, perfil, plataforma: 'android', atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
+            { token: _fcmToken, perfil, plataforma: 'android', notifEntrada, notifChamada, produtoFiltro, atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
             { merge: true }
           );
-          console.log('[FCM] Token nativo registrado — perfil:', perfil, '| doc:', docId);
+          console.log('[FCM] Token nativo registrado — perfil:', perfil, '| entrada:', notifEntrada, '| chamada:', notifChamada, '| filtroProduto:', produtoFiltro, '| doc:', docId);
         }
 
         // Listener de mensagens com app aberto (foreground) — nativo
@@ -7398,14 +7445,19 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         if (_fcmToken) {
           console.log('[FCM] Token web obtido:', _fcmToken);
           const perfilWeb = perfilAtual || localStorage.getItem('portaria_perfil') || 'desconhecido';
+          const _perfilObjWeb  = _carregarPerfisCustom()[perfilWeb] || {};
+          const _permPerfilWeb = _perfilObjWeb.permissoes || {};
+          const notifEntradaWeb  = !!_permPerfilWeb.notif_entradas;
+          const notifChamadaWeb  = !!_permPerfilWeb.notif_chamada;
+          const produtoFiltroWeb = _perfilObjWeb.produto_filtro || null;
           // ID único por perfil+dispositivo — evita sobrescrita entre perfis
           const docIdWeb = `${perfilWeb}_web_${_fcmToken.slice(-16)}`;
           await setDoc(
             doc(_db, 'fcm_tokens', docIdWeb),
-            { token: _fcmToken, perfil: perfilWeb, plataforma: 'web', atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
+            { token: _fcmToken, perfil: perfilWeb, plataforma: 'web', notifEntrada: notifEntradaWeb, notifChamada: notifChamadaWeb, produtoFiltro: produtoFiltroWeb, atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
             { merge: true }
           );
-          console.log('[FCM] Token web registrado — perfil:', perfilWeb, '| doc:', docIdWeb);
+          console.log('[FCM] Token web registrado — perfil:', perfilWeb, '| entrada:', notifEntradaWeb, '| chamada:', notifChamadaWeb, '| filtroProduto:', produtoFiltroWeb, '| doc:', docIdWeb);
         }
         if (!_onMessageRegistrado) {
           _onMessageRegistrado = true;
@@ -7498,13 +7550,13 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       // Exibe localmente (app aberto)
       await _exibirNotificacaoLocal(titulo, corpo, placa, 'entrada');
 
-      // Grava na push_queue → Cloud Function envia para todos os dispositivos
+      // Grava na push_queue → Cloud Function envia respeitando o filtro de
+      // produto de cada perfil (produtoFiltro salvo junto com o token)
       await setDoc(
         doc(_db, 'push_queue', `entrada-${placa}-${Date.now()}`),
         {
-          titulo, corpo, placa,
-          tipo:    'entrada',
-          perfis:  ['admin', 'balanca'],   // quem recebe
+          titulo, corpo, placa, produto: produto || '',
+          tipo:    'entrada',   // a Cloud Function decide quem recebe pela permissão notif_entradas + filtro de produto
           ts:      serverTimestamp(),
           enviado: false
         }
@@ -7528,8 +7580,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         doc(_db, 'push_queue', `chamada-${placa}-${Date.now()}`),
         {
           titulo, corpo, placa,
-          tipo:    'chamada',
-          perfis:  ['porteiro', 'admin'],  // quem recebe
+          tipo:    'chamada',   // a Cloud Function decide quem recebe pela permissão notif_chamada
           ts:      serverTimestamp(),
           enviado: false
         }

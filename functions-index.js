@@ -15,10 +15,11 @@ exports.enviarPushNotificacao = onDocumentCreated(
     const data = snap.data();
     if (data.enviado) return;
 
-    const titulo = data.titulo || "Portaria Savana";
-    const corpo  = data.corpo  || "";
-    const placa  = data.placa  || "";
-    const tipo   = data.tipo   || "chamada";
+    const titulo  = data.titulo  || "Portaria Savana";
+    const corpo   = data.corpo   || "";
+    const placa   = data.placa   || "";
+    const tipo    = data.tipo    || "chamada";
+    const produto = (data.produto || "").toUpperCase();
 
     const ehChamada = tipo === "chamada";
 
@@ -30,8 +31,9 @@ exports.enviarPushNotificacao = onDocumentCreated(
       android: {
         priority: "high",
         notification: {
-          // high_importance_channel é criado automaticamente pelo Firebase SDK
-          // Android em todos os dispositivos (Samsung, Motorola, etc.)
+          // IMPORTANTE: este canal precisa ser criado pelo app (FirebaseMessaging.createChannel
+          // no Capacitor) antes da 1ª notificação. Se o canal não existir no dispositivo,
+          // o Android 8+ descarta a notificação em background SEM erro nenhum.
           channelId:             "high_importance_channel",
           color:                 "#0f2040",
           sound:                 "default",
@@ -69,19 +71,39 @@ exports.enviarPushNotificacao = onDocumentCreated(
         await getMessaging().send({ ...mensagemBase, token: data.token });
         console.log(`[FCM] Push enviado para token ${data.token.slice(-8)} — ${titulo}`);
       } else {
-        // Chamada: todos os perfis recebem. Entrada: só admin e balança.
-        const perfisAlvo = data.perfis || (ehChamada ? ["porteiro", "admin", "balanca"] : ["admin", "balanca"]);
+        // Quem recebe é decidido pela permissão marcada no perfil de cada
+        // usuário (notif_entradas / notif_chamada, configurável em "Gerenciar
+        // Perfis"), não por uma lista fixa de nomes de login. Assim, qualquer
+        // perfil novo (ex: um segundo porteiro) entra só marcando a permissão
+        // dele — sem precisar editar esta função de novo.
+        // "perfis" (lista de nomes) ainda é aceito como override manual, caso
+        // algum caller queira mirar perfis específicos pelo nome de login.
+        const campoFiltro = ehChamada ? "notifChamada" : "notifEntrada";
 
-        const tokensSnap = await db
-          .collection("fcm_tokens")
-          .where("perfil", "in", perfisAlvo)
-          .get();
+        const tokensSnap = data.perfis
+          ? await db.collection("fcm_tokens").where("perfil", "in", data.perfis).get()
+          : await db.collection("fcm_tokens").where(campoFiltro, "==", true).get();
 
         if (tokensSnap.empty) {
-          console.warn("[FCM] Nenhum token encontrado para perfis:", perfisAlvo);
+          console.warn(`[FCM] Nenhum token encontrado para ${campoFiltro}=true`);
         } else {
-          const tokens = tokensSnap.docs.map(d => d.data().token).filter(Boolean);
-          console.log(`[FCM] Enviando para ${tokens.length} token(s) — perfis: ${perfisAlvo.join(", ")}`);
+          // Para "entrada": respeita o filtro de produto de cada perfil
+          // (mesmo critério usado na notificação local em primeiro plano —
+          // produtoFiltro vazio/nulo = recebe de todos os produtos).
+          const tokens = tokensSnap.docs
+            .map(d => d.data())
+            .filter(t => {
+              if (!t.token) return false;
+              if (ehChamada) return true; // chamada não tem conceito de produto
+              const filtro = (t.produtoFiltro || "").toUpperCase();
+              return !filtro || produto.includes(filtro);
+            })
+            .map(t => t.token);
+
+          if (tokens.length === 0) {
+            console.warn(`[FCM] ${tokensSnap.size} token(s) tinham ${campoFiltro}=true, mas nenhum passou no filtro de produto "${produto}"`);
+          }
+          console.log(`[FCM] Enviando para ${tokens.length} token(s) — filtro: ${campoFiltro}${!ehChamada ? ` / produto: ${produto || '(nenhum)'}` : ''}`);
 
           const LOTE = 500;
           for (let i = 0; i < tokens.length; i += LOTE) {
