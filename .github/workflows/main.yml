@@ -155,6 +155,31 @@ jobs:
             echo "❌ AndroidManifest.xml não encontrado"
           fi
 
+      # ── 11b. Canal padrão FCM no AndroidManifest (rede de segurança) ──
+      #  Isso diz ao Google Play Services qual canal usar quando uma
+      #  notificação FCM chega e o app não especificou (ou o specify
+      #  falhou por qualquer motivo). Funciona em conjunto com o canal
+      #  criado nativamente no MainActivity (passo 14) — são duas
+      #  camadas independentes apontando pro MESMO canal, então mesmo
+      #  que uma falhe, a outra garante que a notificação nunca caia
+      #  no canal genérico "Miscellaneous" do Android.
+      - name: Configurar canal padrão FCM no AndroidManifest
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if [ ! -f "$MANIFEST" ]; then
+            echo "❌ AndroidManifest.xml não encontrado"
+            exit 1
+          fi
+          if ! grep -q "com.google.firebase.messaging.default_notification_channel_id" "$MANIFEST"; then
+            sed -i 's|</application>|    <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="high_importance_channel"/>\n    </application>|' "$MANIFEST"
+          fi
+          if ! grep -q "com.google.firebase.messaging.default_notification_channel_id" "$MANIFEST"; then
+            echo "❌ Falha ao configurar canal padrão FCM no manifest — build abortado"
+            exit 1
+          fi
+          echo "✅ Canal padrão FCM configurado e VERIFICADO"
+          grep "default_notification_channel_id" "$MANIFEST"
+
       # ── 12. google-services.json (FCM nativo) ────────────────
       - name: Restaurar google-services.json
         run: |
@@ -176,8 +201,18 @@ jobs:
             echo "❌ AndroidManifest.xml não encontrado"
             find . -name "AndroidManifest.xml" 2>/dev/null
           fi
+          grep -q "POST_NOTIFICATIONS" "$MANIFEST" || { echo "❌ Falha ao injetar POST_NOTIFICATIONS — build abortado"; exit 1; }
 
-      # ── 14. Canal FCM high_importance_channel ────────────────
+      # ── 14. Canal FCM high_importance_channel (MainActivity nativo) ──
+      #  IMPORTANTE: o MainActivity.java que o Capacitor gera por padrão
+      #  é só "public class MainActivity extends BridgeActivity {}" —
+      #  SEM onCreate() sobrescrito. Por isso não dá pra usar sed
+      #  procurando "super.onCreate(...)" (não existe essa linha pra
+      #  achar, e o sed falha em silêncio sem dar erro). A solução é
+      #  reescrever o arquivo inteiro de forma determinística, sempre,
+      #  e depois VERIFICAR que o resultado tem o que precisa —
+      #  se não tiver, o build quebra aqui em vez de gerar um APK
+      #  silenciosamente sem push funcionando.
       - name: Injetar canal FCM de alta prioridade
         run: |
           MAIN_ACTIVITY=$(find android -name "MainActivity.java" | head -1)
@@ -186,16 +221,59 @@ jobs:
             exit 1
           fi
           echo "📄 MainActivity: $MAIN_ACTIVITY"
+          echo "--- conteúdo original ---"
+          cat "$MAIN_ACTIVITY"
 
-          if grep -q "high_importance_channel" "$MAIN_ACTIVITY"; then
-            echo "ℹ️  Canal FCM já presente"
-          else
-            sed -i 's/import com.getcapacitor.BridgeActivity;/import com.getcapacitor.BridgeActivity;\nimport android.app.NotificationChannel;\nimport android.app.NotificationManager;\nimport android.os.Build;/' "$MAIN_ACTIVITY"
-
-            sed -i 's/super.onCreate(savedInstanceState);/super.onCreate(savedInstanceState);\n        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {\n            NotificationChannel channel = new NotificationChannel(\n                "high_importance_channel",\n                "Portaria Savana",\n                NotificationManager.IMPORTANCE_HIGH\n            );\n            channel.setDescription("Notificações de chamadas e entradas");\n            channel.enableVibration(true);\n            channel.setShowBadge(true);\n            channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);\n            NotificationManager manager = getSystemService(NotificationManager.class);\n            if (manager != null) manager.createNotificationChannel(channel);\n        }/' "$MAIN_ACTIVITY"
-
-            echo "✅ Canal high_importance_channel injetado"
+          PACKAGE_LINE=$(grep -m1 '^package ' "$MAIN_ACTIVITY")
+          if [ -z "$PACKAGE_LINE" ]; then
+            echo "❌ Não encontrei a linha 'package ...;' no MainActivity.java — build abortado"
+            exit 1
           fi
+
+          cat > "$MAIN_ACTIVITY" <<EOF
+          ${PACKAGE_LINE}
+
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
+          import android.os.Build;
+          import android.os.Bundle;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      NotificationChannel channel = new NotificationChannel(
+                          "high_importance_channel",
+                          "Portaria Savana",
+                          NotificationManager.IMPORTANCE_HIGH
+                      );
+                      channel.setDescription("Notificações de chamadas e entradas");
+                      channel.enableVibration(true);
+                      channel.setShowBadge(true);
+                      channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+                      NotificationManager manager = getSystemService(NotificationManager.class);
+                      if (manager != null) manager.createNotificationChannel(channel);
+                  }
+              }
+          }
+          EOF
+
+          echo "--- conteúdo novo ---"
+          cat "$MAIN_ACTIVITY"
+
+          # Verificação obrigatória — se isso falhar, o build quebra AQUI,
+          # nunca mais silenciosamente num APK sem push.
+          if ! grep -q "createNotificationChannel" "$MAIN_ACTIVITY"; then
+            echo "❌ Falha ao injetar canal FCM — build abortado"
+            exit 1
+          fi
+          if ! grep -q "high_importance_channel" "$MAIN_ACTIVITY"; then
+            echo "❌ channelId não encontrado após injeção — build abortado"
+            exit 1
+          fi
+          echo "✅ Canal high_importance_channel injetado e VERIFICADO"
 
       # ── 15. Restaurar Keystore ────────────────────────────────
       - name: Restaurar Keystore
