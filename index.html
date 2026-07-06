@@ -5908,7 +5908,12 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     };
 
     try {
-      if (!navigator.onLine) { await idbAdicionarPendente(d); throw new Error('offline'); }
+      // IMPORTANTE: não usamos mais "if (!navigator.onLine)" pra decidir se tenta enviar.
+      // Essa API é conhecida por reportar "offline" errado dentro de WebViews Android
+      // (o motor do Capacitor), mesmo com internet funcionando — quando isso acontece,
+      // o app pulava direto pra fila local e a notificação de nova entrada nunca disparava.
+      // Agora sempre tentamos enviar primeiro; só cai na fila offline se o envio
+      // realmente falhar (erro de rede de verdade).
       await enviar();
       vibrar(60);
       pulsarCard('patio');
@@ -5940,8 +5945,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       _aplicarRegraGatilho();
       carregarEstado();
     } catch(e) {
-      if (e.message !== 'offline') { await idbAdicionarPendente(d); }
-      setStatusEnt('erro', e.message === 'offline' ? '📴 Sem conexão — salvo no IndexedDB' : '⚠️ Erro — salvo localmente');
+      // Qualquer falha no envio (offline de verdade ou erro transitório) → guarda local
+      await idbAdicionarPendente(d);
+      setStatusEnt('erro', '📴 Sem conexão — salvo no IndexedDB');
       setTimeout(() => setStatusEnt(null), 4000);
       atualizarContadorIDB();
     } finally {
@@ -5971,7 +5977,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
                  || veiculosAguardandoNfeBusca.find(v => v.placa === placa);
     const payload = { placa, nfe, acao:"SAIDA" };
     try {
-      if (!navigator.onLine) { await idbAdicionarPendente(payload); throw new Error('offline'); }
+      // Mesmo ajuste do registrarEntrada: não confiamos mais em navigator.onLine
+      // pra decidir se tenta enviar — sempre tenta, só cai pra fila offline se
+      // o envio realmente falhar.
       await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(payload) });
       // Firebase (dashboard tempo real)
       _fbSaida(placa, nfe); // deleta docs do veículo e limpa nfeok/ativas
@@ -6009,8 +6017,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       setTimeout(() => { fb.style.display = 'none'; }, 5000);
       carregarEstado();
     } catch(e) {
-      if (e.message !== 'offline') { await idbAdicionarPendente(payload); }
-      mostrarToast(e.message === 'offline' ? '📴 Sem conexão — salvo no IndexedDB' : '⚠️ Erro — salvo localmente', 'warn', 4000);
+      await idbAdicionarPendente(payload);
+      mostrarToast('📴 Sem conexão — salvo no IndexedDB', 'warn', 4000);
       atualizarContadorIDB();
     } finally {
       btn.disabled = false;
