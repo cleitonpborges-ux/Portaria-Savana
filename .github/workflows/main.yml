@@ -46,6 +46,25 @@ jobs:
       - name: Instalar dependências npm
         run: npm install
 
+      # ── 6b. Deploy Firebase Functions ────────────────────────
+      #  CRÍTICO: até agora só o Hosting (step 5) era publicado
+      #  automaticamente. O functions-index.js NUNCA ia pra produção
+      #  sozinho — a Cloud Function ativa ficava presa numa versão
+      #  antiga (deployada manualmente algum dia), com lógica
+      #  desatualizada que ignora o sistema notifChamada/notifEntrada
+      #  e usa nomes de perfil fixos no código (por isso "porteiro"
+      #  continuava aparecendo e "portaria" nunca era encontrado).
+      #  Esse passo garante que toda mudança em functions-index.js
+      #  vai pro ar junto com o Hosting, a cada push.
+      - name: Deploy Firebase Functions
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PORTARIA_SAVANA }}' > /tmp/firebase-sa.json
+          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa.json
+          npx firebase-tools@latest deploy --only functions --project portaria-savana --non-interactive
+          rm -f /tmp/firebase-sa.json
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
+
       # ── 7. Criar pasta www ANTES do cap add ──────────────────
       - name: Preparar pasta www
         run: |
