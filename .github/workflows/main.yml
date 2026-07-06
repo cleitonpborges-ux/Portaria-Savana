@@ -57,6 +57,8 @@ jobs:
       #  Esse passo garante que toda mudança em functions-index.js
       #  vai pro ar junto com o Hosting, a cada push.
       - name: Deploy Firebase Functions
+        id: deploy_functions
+        continue-on-error: true
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PORTARIA_SAVANA }}' > /tmp/firebase-sa.json
           export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa.json
@@ -64,6 +66,14 @@ jobs:
           rm -f /tmp/firebase-sa.json
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
+
+      - name: Avisar se o deploy de Functions falhou
+        if: steps.deploy_functions.outcome == 'failure'
+        run: |
+          echo "⚠️⚠️⚠️ ATENÇÃO: o deploy da Cloud Function FALHOU nesta execução."
+          echo "⚠️ Isso significa que a função rodando em produção continua sendo a versão ANTIGA."
+          echo "⚠️ O APK/Hosting vão ser gerados normalmente, mas as notificações push"
+          echo "⚠️ podem não refletir as últimas mudanças em functions-index.js até isso ser corrigido."
 
       # ── 7. Criar pasta www ANTES do cap add ──────────────────
       - name: Preparar pasta www
