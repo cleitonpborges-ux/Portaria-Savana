@@ -5897,20 +5897,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     setStatusEnt('enviando', '📡 Dados subindo...');
 
     const enviar = async () => {
-      // IMPORTANTE: Firebase + notificação disparam PRIMEIRO e de forma independente.
-      // Antes, isso só rodava DEPOIS do fetch pra planilha (Apps Script) terminar —
-      // se esse fetch falhasse/travasse dentro do WebView nativo do Android, a
-      // notificação nunca era nem tentada, mesmo com internet normal. Agora a
-      // planilha é "melhor esforço": tentamos em paralelo, mas se falhar, só loga
-      // um aviso — nunca bloqueia nem impede a entrada/notificação de irem pro ar.
+      // Apps Script (planilha)
+      await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(d) });
+      // Firebase — edição atualiza doc existente; entrada cria novo
       if (isEdit) { _fbEditar(d); } else {
         _fbEntrada(d);
         // Notifica admin e balanca sobre nova entrada
         _notificarNovaEntrada(d.placa, d.motorista, d.produto);
       }
-      // Planilha (Apps Script) — melhor esforço, não bloqueia o fluxo principal
-      fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(d) })
-        .catch(e => console.warn('[Planilha] Falha ao sincronizar com Apps Script (não afeta Firebase/notificação):', e));
     };
 
     try {
@@ -5983,12 +5977,12 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
                  || veiculosAguardandoNfeBusca.find(v => v.placa === placa);
     const payload = { placa, nfe, acao:"SAIDA" };
     try {
-      // Mesmo ajuste do registrarEntrada: Firebase dispara primeiro e de forma
-      // independente; a planilha (Apps Script) é melhor esforço, em paralelo,
-      // e uma falha nela não trava mais o resto do fluxo.
+      // Mesmo ajuste do registrarEntrada: não confiamos mais em navigator.onLine
+      // pra decidir se tenta enviar — sempre tenta, só cai pra fila offline se
+      // o envio realmente falhar.
+      await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(payload) });
+      // Firebase (dashboard tempo real)
       _fbSaida(placa, nfe); // deleta docs do veículo e limpa nfeok/ativas
-      fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(payload) })
-        .catch(e => console.warn('[Planilha] Falha ao sincronizar com Apps Script (não afeta Firebase):', e));
       try {
         const _s1 = _ssNfeOkGet(_SS_NFE_OK_KEY);
         _s1.delete(placa);
