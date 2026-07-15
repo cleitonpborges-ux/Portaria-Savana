@@ -2868,6 +2868,50 @@
   const _db        = getFirestore(_fbApp);
   const _messaging = getMessaging(_fbApp);
 
+  /* ===== DIAGNÓSTICO TEMPORÁRIO — captura qualquer erro silencioso e ==========
+     mostra na tela, pra investigar o bug de "nova entrada" sem precisar de
+     PC/ADB. Pode remover esse bloco depois que o problema for resolvido. === */
+  window.addEventListener('error', (ev) => {
+    console.error('[ERRO GLOBAL]', ev.error || ev.message);
+    try {
+      const msg = (ev.error && ev.error.message) ? ev.error.message : String(ev.message || 'erro desconhecido');
+      if (typeof mostrarToast === 'function') mostrarToast(`💥 Erro JS: ${msg}`.slice(0, 160), 'error', 15000);
+    } catch(_) {}
+  });
+  window.addEventListener('unhandledrejection', (ev) => {
+    console.error('[PROMISE REJEITADA]', ev.reason);
+    try {
+      const msg = (ev.reason && ev.reason.message) ? ev.reason.message : String(ev.reason || 'erro desconhecido');
+      if (typeof mostrarToast === 'function') mostrarToast(`💥 Promise falhou: ${msg}`.slice(0, 160), 'error', 15000);
+    } catch(_) {}
+  });
+
+  /* ===== TELA DE LOGS (botão discreto) =========================
+     Guarda um histórico de tudo que passa por console.log/warn/error
+     + erros globais, num buffer em memória, pra poder abrir uma tela
+     e copiar/printar sem precisar de PC/ADB. */
+  window.__logsDiagnostico = window.__logsDiagnostico || [];
+  function _logDiag(nivel, ...args) {
+    try {
+      const hora = new Date().toLocaleTimeString('pt-BR', { hour12:false });
+      const texto = args.map(a => {
+        if (typeof a === 'string') return a;
+        try { return JSON.stringify(a); } catch(e) { return String(a); }
+      }).join(' ');
+      window.__logsDiagnostico.push(`[${hora}] [${nivel}] ${texto}`);
+      if (window.__logsDiagnostico.length > 500) window.__logsDiagnostico.shift();
+    } catch(_) {}
+  }
+  (function _interceptarConsole() {
+    const _origLog = console.log.bind(console);
+    const _origWarn = console.warn.bind(console);
+    const _origError = console.error.bind(console);
+    console.log   = (...a) => { _logDiag('LOG',   ...a); _origLog(...a); };
+    console.warn  = (...a) => { _logDiag('WARN',  ...a); _origWarn(...a); };
+    console.error = (...a) => { _logDiag('ERRO',  ...a); _origError(...a); };
+  })();
+
+
   // Persistência offline nativa
   enableIndexedDbPersistence(_db).catch(() => {});
 
@@ -3397,6 +3441,18 @@
         await setDoc(docRef, { lista, atualizadoEm: new Date().toISOString() });
       }
     } catch(e) { console.warn('[Firebase] Saída (limpar nfeok) falhou:', e); }
+
+    // Limpa qualquer chamada pendente dessa placa — evita que uma chamada
+    // esquecida (sem clicar "OK") fique "ativa" pra sempre e volte a
+    // notificar sozinha depois que o veículo já foi liberado.
+    try {
+      const docRefChamada = doc(_db, 'chamadas', 'ativas');
+      const snapChamada = await getDoc(docRefChamada);
+      if (snapChamada.exists()) {
+        const listaChamadas = (snapChamada.data().lista || []).filter(c => c.placa !== placa);
+        await setDoc(docRefChamada, { lista: listaChamadas, atualizadoEm: new Date().toISOString() });
+      }
+    } catch(e) { console.warn('[Firebase] Saída (limpar chamada pendente) falhou:', e); }
   }
 
   // Grava AGUARDANDO NFE no Firestore
@@ -3766,6 +3822,7 @@
     }
     perfilAtual = perfil.key;
     localStorage.setItem(LS_PERFIL_KEY, perfilAtual);
+    _atualizarVisibilidadeBtnLogs();
     // Limpa sessionStorage NFE ao fazer login — evita que dados de sessão
     // anterior (mesma placa, outro turno) causem badge/toast indevido.
     try {
@@ -3782,9 +3839,16 @@
     _pedirPermissaoNotificacao();
   }
 
+  function _atualizarVisibilidadeBtnLogs() {
+    const btn = document.getElementById('btnLogsDiag');
+    if (!btn) return;
+    btn.style.display = (perfilAtual === 'admin') ? 'flex' : 'none';
+  }
+
   function trocarPerfil() {
     localStorage.removeItem(LS_PERFIL_KEY);
     perfilAtual = null;
+    _atualizarVisibilidadeBtnLogs();
     ultimoDadosHash = '';
     // Limpa sessionStorage NFE ao trocar perfil — impede que dados da sessão
     // do perfil anterior (ex: balança) contaminem o próximo perfil (ex: portaria).
@@ -3828,6 +3892,7 @@
       const perfis = _carregarPerfisCustom();
       if (perfis[salvo]) {
         perfilAtual = salvo;
+        _atualizarVisibilidadeBtnLogs();
         aplicarPermissoes(perfis[salvo].permissoes || {});
         const usuarioSalvo = perfis[salvo].usuario || salvo;
         _atualizarTituloPerfil(usuarioSalvo);
@@ -5697,9 +5762,25 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   // Diferente do _placasDispensadas (que expira em 5s), este nunca expira
   // automaticamente — garante que dados antigos reenviados pelo cache do
   // Firestore (offline/reconexão) nunca mais disparem notificação para a
-  // MESMA chamada já atendida. Persiste em window para sobreviver mesmo
-  // se essa função for redefinida em algum hot-reload.
-  const _assinaturasDispensadas = (window.__assinaturasDispensadas = window.__assinaturasDispensadas || new Set());
+  // MESMA chamada já atendida. Persiste em localStorage (não só em window)
+  // porque o Android mata o app em segundo plano com frequência — se fosse
+  // só memória, toda reabertura esquecia quais chamadas já tinham sido "OK"'d
+  // e re-notificava chamadas antigas já resolvidas.
+  const _LS_CHAMADAS_DISPENSADAS = 'chamadas_dispensadas_v1';
+  function _carregarAssinaturasDispensadas() {
+    try {
+      const arr = JSON.parse(localStorage.getItem(_LS_CHAMADAS_DISPENSADAS) || '[]');
+      return new Set(Array.isArray(arr) ? arr : []);
+    } catch(e) { return new Set(); }
+  }
+  const _assinaturasDispensadas = (window.__assinaturasDispensadas = window.__assinaturasDispensadas || _carregarAssinaturasDispensadas());
+  function _persistirAssinaturasDispensadas() {
+    try {
+      // Mantém só as últimas 200 pra não crescer pra sempre
+      const arr = [..._assinaturasDispensadas].slice(-200);
+      localStorage.setItem(_LS_CHAMADAS_DISPENSADAS, JSON.stringify(arr));
+    } catch(e) {}
+  }
 
   // Dispensar chamada individual: marca como CARREGANDO
   async function dispensarChamadaPlaca(btn, placa) {
@@ -5712,7 +5793,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       // Grava a assinatura (placa+horário) definitivamente — essa chamada
       // específica nunca mais vai notificar, mesmo se o Firestore reenviar
       // o mesmo dado antigo do cache offline minutos/horas depois.
-      if (card.dataset.sig) _assinaturasDispensadas.add(card.dataset.sig);
+      if (card.dataset.sig) { _assinaturasDispensadas.add(card.dataset.sig); _persistirAssinaturasDispensadas(); }
       card.style.opacity = '0';
       card.style.transform = 'translateX(20px)';
       card.style.transition = 'all 0.2s ease';
@@ -5952,9 +6033,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       carregarEstado();
     } catch(e) {
       // Qualquer falha no envio (offline de verdade ou erro transitório) → guarda local
+      console.error('[Entrada] Falha ao enviar:', e);
       await idbAdicionarPendente(d);
-      setStatusEnt('erro', '📴 Sem conexão — salvo no IndexedDB');
-      setTimeout(() => setStatusEnt(null), 4000);
+      const _msgErro = (e && e.message) ? e.message : String(e);
+      // TEMPORÁRIO (diagnóstico): mostra o erro real na tela por mais tempo,
+      // pra conseguir ler/fotografar sem precisar de PC/ADB.
+      setStatusEnt('erro', `⚠️ ${_msgErro}`.slice(0, 140));
+      if (typeof mostrarToast === 'function') mostrarToast(`⚠️ Falha ao enviar entrada: ${_msgErro}`, 'error', 12000);
+      setTimeout(() => setStatusEnt(null), 12000);
       atualizarContadorIDB();
     } finally {
       btn.disabled = false;
@@ -7605,6 +7691,47 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   }
 
   /* ───────────────────────────────────────────────────────────────────────
+   * Tela de logs — abre uma tela branca com o histórico de console/erros ── */
+  function abrirTelaLogs() {
+    const tela = document.getElementById('telaLogsDiag');
+    const pre  = document.getElementById('conteudoLogsDiag');
+    if (!tela || !pre) return;
+    pre.textContent = window.__logsDiagnostico.length
+      ? window.__logsDiagnostico.join('\n')
+      : '(nenhum log registrado ainda)';
+    tela.style.display = 'flex';
+    pre.scrollTop = pre.scrollHeight;
+  }
+  function fecharTelaLogs() {
+    const tela = document.getElementById('telaLogsDiag');
+    if (tela) tela.style.display = 'none';
+  }
+  async function copiarLogsDiag() {
+    const texto = window.__logsDiagnostico.join('\n') || '(nenhum log)';
+    try {
+      await navigator.clipboard.writeText(texto);
+      mostrarToast('📋 Logs copiados!', 'success', 2000);
+    } catch(e) {
+      // Fallback: seleciona o texto pra copiar manualmente (Ctrl+C / segurar e copiar)
+      const pre = document.getElementById('conteudoLogsDiag');
+      if (pre) {
+        const range = document.createRange();
+        range.selectNodeContents(pre);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      mostrarToast('Texto selecionado — copie manualmente', 'error', 4000);
+    }
+  }
+  function limparLogsDiag() {
+    window.__logsDiagnostico = [];
+    const pre = document.getElementById('conteudoLogsDiag');
+    if (pre) pre.textContent = '(logs limpos)';
+    mostrarToast('🗑️ Logs limpos', 'success', 1500);
+  }
+
+  /* ───────────────────────────────────────────────────────────────────────
    * Expõe funções ao escopo global (type=module isola o escopo) ── */
   Object.assign(window, {
     fazerLogin, trocarPerfil, aplicarPerfil, switchTab,
@@ -7634,6 +7761,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     abrirDashboard,
     // Cotton (link externo)
     abrirCotton,
+    // Tela de logs (diagnóstico)
+    abrirTelaLogs, fecharTelaLogs, copiarLogsDiag, limparLogsDiag,
   });
 
 
@@ -7949,6 +8078,31 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       </div>
     </div>
   </div>
+</div>
+
+<!-- Botão discreto de logs (diagnóstico) -->
+<div id="btnLogsDiag" onclick="abrirTelaLogs()"
+     style="display:none; position:fixed; bottom:8px; right:8px; width:22px; height:22px;
+            border-radius:50%; background:rgba(120,120,120,0.18);
+            align-items:center; justify-content:center;
+            font-size:11px; z-index:9998; opacity:0.35; cursor:pointer;
+            user-select:none;">🐞</div>
+
+<!-- Tela de logs (diagnóstico) -->
+<div id="telaLogsDiag" style="display:none; position:fixed; inset:0; z-index:99999;
+            background:#ffffff; flex-direction:column;">
+  <div style="display:flex; align-items:center; justify-content:space-between;
+              padding:10px 12px; border-bottom:1px solid #ddd; gap:8px; flex-wrap:wrap;">
+    <strong style="color:#111; font-size:0.85rem;">📋 Logs do app</strong>
+    <div style="display:flex; gap:6px;">
+      <button onclick="copiarLogsDiag()" style="font-size:0.75rem; padding:6px 10px; border-radius:6px; border:1px solid #ccc; background:#f3f3f3; color:#111;">Copiar</button>
+      <button onclick="limparLogsDiag()" style="font-size:0.75rem; padding:6px 10px; border-radius:6px; border:1px solid #ccc; background:#f3f3f3; color:#111;">Limpar</button>
+      <button onclick="fecharTelaLogs()" style="font-size:0.75rem; padding:6px 10px; border-radius:6px; border:1px solid #ccc; background:#f3f3f3; color:#111;">Fechar</button>
+    </div>
+  </div>
+  <pre id="conteudoLogsDiag" style="flex:1; margin:0; padding:12px; overflow:auto;
+              white-space:pre-wrap; word-break:break-word; font-family:monospace;
+              font-size:0.7rem; color:#111; background:#fff;"></pre>
 </div>
 
 </body>
