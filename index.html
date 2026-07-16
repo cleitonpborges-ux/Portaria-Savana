@@ -2874,14 +2874,14 @@
   window.addEventListener('error', (ev) => {
     console.error('[ERRO GLOBAL]', ev.error || ev.message);
     try {
-      const msg = (ev.error && ev.error.message) ? ev.error.message : String(ev.message || 'erro desconhecido');
+      const msg = _serializarErro(ev.error || ev.message);
       if (typeof mostrarToast === 'function') mostrarToast(`💥 Erro JS: ${msg}`.slice(0, 160), 'error', 15000);
     } catch(_) {}
   });
   window.addEventListener('unhandledrejection', (ev) => {
     console.error('[PROMISE REJEITADA]', ev.reason);
     try {
-      const msg = (ev.reason && ev.reason.message) ? ev.reason.message : String(ev.reason || 'erro desconhecido');
+      const msg = _serializarErro(ev.reason);
       if (typeof mostrarToast === 'function') mostrarToast(`💥 Promise falhou: ${msg}`.slice(0, 160), 'error', 15000);
     } catch(_) {}
   });
@@ -2891,11 +2891,31 @@
      + erros globais, num buffer em memória, pra poder abrir uma tela
      e copiar/printar sem precisar de PC/ADB. */
   window.__logsDiagnostico = window.__logsDiagnostico || [];
+  function _serializarErro(e) {
+    if (e === null || e === undefined) return '(erro nulo/indefinido)';
+    if (typeof e === 'string') return e;
+    const partes = [];
+    if (e.name)    partes.push(`name=${e.name}`);
+    if (e.code)    partes.push(`code=${e.code}`);
+    if (e.message) partes.push(`message=${e.message}`);
+    if (partes.length) return partes.join(' | ');
+    // Fallback: Error/DOMException guardam tudo no protótipo — JSON.stringify
+    // sozinho vira "{}". Pega as propriedades próprias explicitamente.
+    try {
+      const props = {};
+      Object.getOwnPropertyNames(e).forEach(k => { try { props[k] = e[k]; } catch(_){} });
+      const j = JSON.stringify(props);
+      if (j && j !== '{}') return j;
+    } catch(_) {}
+    try { return String(e); } catch(_) { return '(erro não serializável)'; }
+  }
+
   function _logDiag(nivel, ...args) {
     try {
       const hora = new Date().toLocaleTimeString('pt-BR', { hour12:false });
       const texto = args.map(a => {
         if (typeof a === 'string') return a;
+        if (a instanceof Error || (a && (a.name || a.code || a.message))) return _serializarErro(a);
         try { return JSON.stringify(a); } catch(e) { return String(a); }
       }).join(' ');
       window.__logsDiagnostico.push(`[${hora}] [${nivel}] ${texto}`);
@@ -6034,8 +6054,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     } catch(e) {
       // Qualquer falha no envio (offline de verdade ou erro transitório) → guarda local
       console.error('[Entrada] Falha ao enviar:', e);
-      await idbAdicionarPendente(d);
-      const _msgErro = (e && e.message) ? e.message : String(e);
+      try { await idbAdicionarPendente(d); }
+      catch(e2) { console.error('[Entrada] Falha TAMBÉM ao salvar localmente (IndexedDB):', e2); }
+      const _msgErro = _serializarErro(e);
       // TEMPORÁRIO (diagnóstico): mostra o erro real na tela por mais tempo,
       // pra conseguir ler/fotografar sem precisar de PC/ADB.
       setStatusEnt('erro', `⚠️ ${_msgErro}`.slice(0, 140));
@@ -6109,8 +6130,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       setTimeout(() => { fb.style.display = 'none'; }, 5000);
       carregarEstado();
     } catch(e) {
-      await idbAdicionarPendente(payload);
-      mostrarToast('📴 Sem conexão — salvo no IndexedDB', 'warn', 4000);
+      console.error('[Saída] Falha ao enviar:', e);
+      try { await idbAdicionarPendente(payload); }
+      catch(e2) { console.error('[Saída] Falha TAMBÉM ao salvar localmente (IndexedDB):', e2); }
+      mostrarToast(`⚠️ Falha ao registrar saída: ${_serializarErro(e)}`.slice(0,160), 'error', 12000);
       atualizarContadorIDB();
     } finally {
       btn.disabled = false;
@@ -7589,7 +7612,16 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   // usa o plugin nativo FirebaseMessaging e nunca passa por aqui via push).
   const _ULTIMA_NOTIF_TAG = (window.__ultimaNotifTag = window.__ultimaNotifTag || new Map());
   async function _exibirNotificacaoLocal(titulo, corpo, placa, tipo = 'chamada') {
-    if (Notification.permission !== 'granted') return;
+    // No app nativo (Capacitor) essa função depende de APIs 100% web
+    // (Notification, navigator.serviceWorker.ready) que não funcionam de
+    // forma confiável dentro do WebView — e como não registramos Service
+    // Worker lá dentro (de propósito, não é suportado), "serviceWorker.ready"
+    // pode nunca resolver e travar quem chamou essa função pra sempre,
+    // impedindo o código de chegar até o push_queue de verdade. No nativo,
+    // a exibição já é feita pelo sistema Android via canal FCM — não
+    // precisa (e não deve) tentar de novo por aqui.
+    if (_isCapacitor()) return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
     const ehChamada = tipo === 'chamada';
     const _tagDedupe = `${tipo}-${placa}`;
     const _agora = Date.now();
@@ -7643,15 +7675,13 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
   // Notifica perfis admin e balanca quando uma nova entrada é cadastrada
   async function _notificarNovaEntrada(placa, motorista, produto) {
+    const titulo = `🚛 NOVA ENTRADA — ${placa}`;
+    const corpo  = `${motorista || 'Motorista não informado'}${produto ? '  ·  ' + produto : ''}`;
+
+    // Grava na push_queue PRIMEIRO — isso é o que realmente importa (dispara
+    // a Cloud Function). A exibição local (abaixo) é só um extra pro app
+    // aberto e nunca pode bloquear nem derrubar isso aqui.
     try {
-      const titulo = `🚛 NOVA ENTRADA — ${placa}`;
-      const corpo  = `${motorista || 'Motorista não informado'}${produto ? '  ·  ' + produto : ''}`;
-
-      // Exibe localmente (app aberto)
-      await _exibirNotificacaoLocal(titulo, corpo, placa, 'entrada');
-
-      // Grava na push_queue → Cloud Function envia respeitando o filtro de
-      // produto de cada perfil (produtoFiltro salvo junto com o token)
       await setDoc(
         doc(_db, 'push_queue', `entrada-${placa}-${Date.now()}`),
         {
@@ -7662,8 +7692,12 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         }
       );
     } catch(e) {
-      console.warn('[FCM] Erro ao notificar nova entrada:', e);
+      console.error('[FCM] Erro ao notificar nova entrada (push_queue):', e);
     }
+
+    // Exibição local (app aberto) — melhor esforço, isolada, nunca derruba o resto
+    try { await _exibirNotificacaoLocal(titulo, corpo, placa, 'entrada'); }
+    catch(e) { console.warn('[Notificação local] Falha (não afeta o push real):', e); }
   }
 
   // Dispara notificação para chamada nova
@@ -7671,10 +7705,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const titulo = `📢 CHAMADA — ${placa}`;
     const corpo  = `${motorista || 'Motorista não informado'}${hora ? '  ·  ' + hora : ''}`;
 
-    // Exibe localmente (app aberto/background)
-    await _exibirNotificacaoLocal(titulo, corpo, placa, 'chamada');
-
-    // Grava na push_queue → Cloud Function envia para todos os porteiros
+    // Grava na push_queue PRIMEIRO → Cloud Function envia para todos os
+    // porteiros. Igual à entrada: isso é o que importa de verdade.
     try {
       await setDoc(
         doc(_db, 'push_queue', `chamada-${placa}-${Date.now()}`),
@@ -7686,9 +7718,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         }
       );
     } catch(e) {
-      console.warn('[FCM] Erro ao enfileirar chamada:', e);
+      console.error('[FCM] Erro ao enfileirar chamada (push_queue):', e);
     }
+
+    // Exibição local (app aberto/background) — melhor esforço, isolada
+    try { await _exibirNotificacaoLocal(titulo, corpo, placa, 'chamada'); }
+    catch(e) { console.warn('[Notificação local] Falha (não afeta o push real):', e); }
   }
+
 
   /* ───────────────────────────────────────────────────────────────────────
    * Tela de logs — abre uma tela branca com o histórico de console/erros ── */
