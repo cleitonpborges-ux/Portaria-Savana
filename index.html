@@ -7678,6 +7678,18 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const titulo = `🚛 NOVA ENTRADA — ${placa}`;
     const corpo  = `${motorista || 'Motorista não informado'}${produto ? '  ·  ' + produto : ''}`;
 
+    // DIAGNÓSTICO TEMPORÁRIO — confirma que a função começou a rodar.
+    // Remover este bloco (e os outros marcados DIAGNÓSTICO TEMPORÁRIO abaixo)
+    // depois de identificar o problema.
+    try {
+      await setDoc(doc(_db, 'debug_push_log', `${Date.now()}-inicio`), {
+        etapa: 'inicio_notificarNovaEntrada',
+        placa, nativo: _isCapacitor(), ts: serverTimestamp()
+      });
+    } catch (eDebug) {
+      console.error('[DEBUG] Nem o log de diagnóstico conseguiu gravar:', eDebug);
+    }
+
     // Grava na push_queue PRIMEIRO — isso é o que realmente importa (dispara
     // a Cloud Function). A exibição local (abaixo) é só um extra pro app
     // aberto e nunca pode bloquear nem derrubar isso aqui.
@@ -7691,8 +7703,21 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           enviado: false
         }
       );
+      // DIAGNÓSTICO TEMPORÁRIO — confirma sucesso da escrita
+      try {
+        await setDoc(doc(_db, 'debug_push_log', `${Date.now()}-ok`), {
+          etapa: 'push_queue_sucesso', placa, nativo: _isCapacitor(), ts: serverTimestamp()
+        });
+      } catch(_) {}
     } catch(e) {
       console.error('[FCM] Erro ao notificar nova entrada (push_queue):', e);
+      // DIAGNÓSTICO TEMPORÁRIO — grava o erro real pra conferir no Firestore
+      try {
+        await setDoc(doc(_db, 'debug_push_log', `${Date.now()}-erro`), {
+          etapa: 'push_queue_falhou', placa, nativo: _isCapacitor(),
+          erro: String((e && e.message) || e), ts: serverTimestamp()
+        });
+      } catch(_) {}
     }
 
     // Exibição local (app aberto) — melhor esforço, isolada, nunca derruba o resto
