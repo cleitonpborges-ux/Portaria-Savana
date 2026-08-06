@@ -1403,6 +1403,71 @@
     .btn-ok-chamada:active { transform: scale(0.95); }
     .btn-ok-chamada:disabled { background: #4b5563; cursor: not-allowed; }
 
+    /* ===================== PAINEL NFE OK (verde, separado do de chamadas) ===================== */
+    #painelNfeOk {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    #painelNfeOk.ativo { display: flex; }
+
+    .nfeok-card {
+      background: var(--primary);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: var(--shadow-md);
+      animation: slideInChamada 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .nfeok-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 4px;
+      background: #16a34a;
+      border-radius: 4px 0 0 4px;
+      animation: pulsarBordaVerde 1.4s infinite;
+    }
+    @keyframes pulsarBordaVerde {
+      0%,100% { background: #16a34a; }
+      50%     { background: #22c55e; }
+    }
+    .nfeok-icone {
+      flex-shrink: 0;
+      width: 38px;
+      height: 38px;
+      background: rgba(34,197,94,0.15);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .nfeok-icone svg {
+      filter: drop-shadow(0 0 6px rgba(34,197,94,0.7));
+    }
+    .nfeok-info { flex: 1; min-width: 0; }
+    .nfeok-placa {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 1.5px;
+      line-height: 1;
+    }
+    .nfeok-texto {
+      font-size: 0.68rem;
+      color: #4ade80;
+      font-weight: 800;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
     /* Linha do histórico com status CARREGANDO */
     tr.status-carregando { background: rgba(37,99,235,0.08) !important; }
     tr.status-carregando td:first-child { border-left: 3px solid #2563eb; }
@@ -2716,6 +2781,9 @@
   <div id="abaEntrada" class="card active">
     <!-- PAINEL DE CHAMADAS MÚLTIPLAS -->
     <div id="painelChamadas"></div>
+    <!-- PAINEL NFE OK (verde) — separado do painel de chamadas de propósito,
+         pra nunca competir/confundir com o alerta amarelo de chamada -->
+    <div id="painelNfeOk"></div>
     <div class="card-header" id="headerEntrada">
       <button id="btnVoltarHistorico" class="btn-voltar-hist" onclick="voltarDoEditor()" title="Voltar ao histórico">
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
@@ -2865,8 +2933,21 @@
     messagingSenderId: "983062289504",
     appId:             "1:983062289504:web:38ececbd6ec52fafc4f705"
   });
-  const _db        = getFirestore(_fbApp);
-  const _messaging = getMessaging(_fbApp);
+  const _db = getFirestore(_fbApp);
+
+  // O SDK web do Firebase Messaging não é suportado dentro do WebView do
+  // Capacitor (falta Push API completa lá dentro — quem cuida disso no
+  // nativo é o plugin FirebaseMessaging, chamado separadamente mais abaixo).
+  // Chamar getMessaging() incondicionalmente fazia isso rejeitar sozinho
+  // logo na abertura do app, gerando o erro "messaging/unsupported-browser".
+  let _messaging = null;
+  if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) {
+    try {
+      _messaging = getMessaging(_fbApp);
+    } catch (eMsgInit) {
+      console.warn('[FCM] getMessaging indisponível neste ambiente:', eMsgInit);
+    }
+  }
 
   /* ===== DIAGNÓSTICO TEMPORÁRIO — captura qualquer erro silencioso e ==========
      mostra na tela, pra investigar o bug de "nova entrada" sem precisar de
@@ -3549,8 +3630,10 @@
     }
 
     // Marca localmente (sessionStorage) e notifica portaria via Firestore
+    // (badge piscando no histórico) + push real (barra de notificação)
     _nfeOkPlacas.add(placa);
     _fbMarcarNfeOk(placa);
+    _notificarNfeOk(placa);
 
     vibrar([60, 40, 60]);
     mostrarToast(`✅ ${placa} — NFE OK! Portaria será alertada.`, 'success', 4000);
@@ -3645,16 +3728,83 @@
   // Listener em tempo real para alertas NFE OK (portaria recebe push)
   // REGRA: só reage a mudanças APÓS o login. Ignora o snapshot inicial
   // para não processar placas de turnos anteriores que ainda estão no Firestore.
+  //
+  // OBS: renderizarPainelNfeOk (o cartão verde flutuante) roda em TODO
+  // snapshot, inclusive o 1º — se a placa já estiver com NFE OK pendente
+  // quando a portaria abre o app, o cartão deve aparecer na hora, não só
+  // na próxima mudança. Já o toast/vibração (_alertarPortariaNfeOk) continua
+  // pulando o 1º snapshot, como já era.
+  let _ultimaListaNfeOk = [];
   function iniciarListenerNfeOk() {
     try {
       let _primeiroSnapNfe = true;
       onSnapshot(doc(_db, 'nfeok', 'ativas'), (snap) => {
+        const lista = snap.exists() ? (snap.data().lista || []) : [];
+        _ultimaListaNfeOk = lista;
+        renderizarPainelNfeOk(lista);
         if (_primeiroSnapNfe) { _primeiroSnapNfe = false; return; }
-        if (!snap.exists()) return;
-        const lista = snap.data().lista || [];
         _alertarPortariaNfeOk(lista);
       });
     } catch(e) { console.warn('[NFeOK] Listener falhou:', e); }
+  }
+
+  // Cartão verde flutuante (painel #painelNfeOk) — visualmente equivalente ao
+  // painel de chamadas, mas em painel SEPARADO de propósito (nunca mistura
+  // com #painelChamadas). Só aparece para quem não é balança/admin, e só
+  // para placas que ainda estão fisicamente em AGUARDANDO NFE hoje (evita
+  // mostrar resíduo de turnos antigos). Só some quando a placa sai da lista
+  // 'nfeok/ativas' no Firestore — o que só acontece quando a portaria
+  // registra a saída de verdade (_fbSaida limpa a lista automaticamente).
+  function renderizarPainelNfeOk(placasOk) {
+    const painel = document.getElementById('painelNfeOk');
+    if (!painel) return;
+
+    const _isBA = (perfilAtual === 'balanca' || perfilAtual === 'admin' ||
+      (() => { try { const p = _carregarPerfisCustom()[perfilAtual]; return p && p.permissoes && p.permissoes.gerenciar_perfis; } catch(e){return false;} })()
+    );
+    if (_isBA) { painel.classList.remove('ativo'); painel.innerHTML = ''; return; }
+
+    const visiveis = (placasOk || []).filter(placa =>
+      (typeof veiculosCarregados !== 'undefined') &&
+      veiculosCarregados.some(v => v.placa === placa && v.status === 'AGUARDANDO NFE')
+    );
+
+    if (visiveis.length === 0) {
+      painel.classList.remove('ativo');
+      painel.innerHTML = '';
+      return;
+    }
+    painel.classList.add('ativo');
+
+    // Remove cards de placas que já não estão mais pendentes (saída registrada)
+    [...painel.querySelectorAll('.nfeok-card')].forEach(card => {
+      if (!visiveis.includes(card.dataset.placa)) {
+        card.style.transition = 'opacity 0.2s';
+        card.style.opacity = '0';
+        setTimeout(() => card.remove(), 200);
+      }
+    });
+
+    // Adiciona cards novos (ignora os que já existem no DOM)
+    visiveis.forEach(placa => {
+      if (painel.querySelector(`.nfeok-card[data-placa="${placa}"]`)) return;
+      const card = document.createElement('div');
+      card.className = 'nfeok-card';
+      card.dataset.placa = placa;
+      card.innerHTML = `
+        <div class="nfeok-icone">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <path d="M14 2v6h6"/>
+            <path d="m9 15 2 2 4-4"/>
+          </svg>
+        </div>
+        <div class="nfeok-info">
+          <div class="nfeok-placa">PLACA ${placa}</div>
+          <div class="nfeok-texto">NOTA FISCAL OK</div>
+        </div>`;
+      painel.appendChild(card);
+    });
   }
 
   // Alerta a portaria quando recebe push do Firestore de que NFE foi confirmada.
@@ -3700,6 +3850,13 @@
       const snap = await getDoc(doc(_db, 'nfeok', 'ativas'));
       if (!snap.exists()) return;
       const placasOk = snap.data().lista || [];
+
+      // Re-sincroniza o cartão verde flutuante também — o reload do DOM pode
+      // ter mudado veiculosCarregados (ex: status virou AGUARDANDO NFE agora),
+      // então usamos a lista mais recente conhecida em vez de esperar o próximo snapshot.
+      _ultimaListaNfeOk = placasOk;
+      renderizarPainelNfeOk(placasOk);
+
       if (placasOk.length === 0) return;
 
       const _isBA = (perfilAtual === 'balanca' || perfilAtual === 'admin' ||
@@ -6624,6 +6781,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     { id: 'cotton',           nome: 'Cotton',                desc: 'Acessar o painel Cotton (link externo)' },
     { id: 'notif_entradas',   nome: '🔔 Notif. Nova Entrada', desc: 'Receber notificação push de nova entrada. Respeita o filtro de produto do perfil (só notifica se o produto do filtro estiver marcado abaixo); sem filtro configurado, recebe de todos os produtos.' },
     { id: 'notif_chamada',    nome: '📢 Notif. Chamada',      desc: 'Receber notificação push quando o porteiro for chamado pela balança' },
+    { id: 'notif_nfe_ok',     nome: '📄 Notif. Nota Fiscal OK', desc: 'Receber notificação push quando a balança/admin confirmar NFE OK de uma placa' },
     // ↑ ADICIONE NOVAS PERMISSÕES AQUI — siga o padrão acima.
     // Lembre de registrar também em aplicarPermissoes() e, se for botão no gear,
     // adicione data-permissao="id_da_permissao" no elemento HTML do botão.
@@ -6652,15 +6810,15 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   const PERFIS_PADRAO = {
     portaria: {
       label: '🚛 Portaria', usuario: 'portaria', senha: 'portaria123',
-      permissoes: { aba_entrada:true, aba_saida:true, aba_historico:true, trocar_turno:true, relatorio:true, planilha:false, modo_noite:true, gerenciar_perfis:false, card_descarregados:true, cotton:true, notif_entradas:false, notif_chamada:true }
+      permissoes: { aba_entrada:true, aba_saida:true, aba_historico:true, trocar_turno:true, relatorio:true, planilha:false, modo_noite:true, gerenciar_perfis:false, card_descarregados:true, cotton:true, notif_entradas:false, notif_chamada:true, notif_nfe_ok:true }
     },
     balanca: {
       label: '⚖️ Balança', usuario: 'balanca', senha: 'balanca123',
-      permissoes: { aba_entrada:false, aba_saida:false, aba_historico:true, trocar_turno:false, relatorio:false, planilha:false, modo_noite:true, gerenciar_perfis:false, card_descarregados:false, cotton:true, notif_entradas:true, notif_chamada:false }
+      permissoes: { aba_entrada:false, aba_saida:false, aba_historico:true, trocar_turno:false, relatorio:false, planilha:false, modo_noite:true, gerenciar_perfis:false, card_descarregados:false, cotton:true, notif_entradas:true, notif_chamada:false, notif_nfe_ok:false }
     },
     admin: {
       label: '⚙️ Admin', usuario: 'admin', senha: 'admin123',
-      permissoes: { aba_entrada:true, aba_saida:true, aba_historico:true, trocar_turno:true, relatorio:true, planilha:true, modo_noite:true, gerenciar_perfis:true, card_descarregados:true, cotton:true, notif_entradas:true, notif_chamada:true }
+      permissoes: { aba_entrada:true, aba_saida:true, aba_historico:true, trocar_turno:true, relatorio:true, planilha:true, modo_noite:true, gerenciar_perfis:true, card_descarregados:true, cotton:true, notif_entradas:true, notif_chamada:true, notif_nfe_ok:true }
     }
   };
 
@@ -6685,6 +6843,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // "Gerenciar Perfis" (isso evita mandar notificação pra quem não pediu).
     const _padraoEntrada = { admin: true,  balanca: true,  portaria: false };
     const _padraoChamada = { admin: true,  balanca: false, portaria: true  };
+    const _padraoNfeOk   = { admin: true,  balanca: false, portaria: true  };
     Object.keys(perfis).forEach(k => {
       if (perfis[k].permissoes && !('cotton' in perfis[k].permissoes)) {
         perfis[k].permissoes.cotton = true;
@@ -6694,6 +6853,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       }
       if (perfis[k].permissoes && !('notif_chamada' in perfis[k].permissoes)) {
         perfis[k].permissoes.notif_chamada = _padraoChamada[k] ?? false;
+      }
+      if (perfis[k].permissoes && !('notif_nfe_ok' in perfis[k].permissoes)) {
+        perfis[k].permissoes.notif_nfe_ok = _padraoNfeOk[k] ?? false;
       }
     });
     return perfis;
@@ -7436,6 +7598,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   let   _fcmToken            = null;
   let   _onMessageRegistrado = false; // ✅ evita registrar onMessage múltiplas vezes
 
+  // Título padrão de fallback por tipo de push (usado só se o servidor,
+  // por algum motivo, não mandar o título já pronto no payload)
+  function _tituloPadraoPush(tipo, placa) {
+    if (tipo === 'entrada') return `🚛 NOVA ENTRADA — ${placa}`;
+    if (tipo === 'nfe_ok')  return `PLACA ${placa} - NOTA FISCAL OK`;
+    return `📢 CHAMADA — ${placa}`;
+  }
+
   // Detecta se está rodando dentro do APK Capacitor (nativo)
   // ou no navegador web (PWA)
   function _isCapacitor() {
@@ -7528,12 +7698,13 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           const _permPerfil  = _perfilObj.permissoes || {};
           const notifEntrada = !!_permPerfil.notif_entradas;
           const notifChamada = !!_permPerfil.notif_chamada;
+          const notifNfeOk   = !!_permPerfil.notif_nfe_ok;
           const produtoFiltro = _perfilObj.produto_filtro || null;
           // ID único por perfil+dispositivo — evita que a portaria sobrescreva o token do admin
           const docId = `${perfil}_android_${_fcmToken.slice(-16)}`;
           await setDoc(
             doc(_db, 'fcm_tokens', docId),
-            { token: _fcmToken, perfil, plataforma: 'android', notifEntrada, notifChamada, produtoFiltro, atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
+            { token: _fcmToken, perfil, plataforma: 'android', notifEntrada, notifChamada, notifNfeOk, produtoFiltro, atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
             { merge: true }
           );
           console.log('[FCM] Token nativo registrado — perfil:', perfil, '| entrada:', notifEntrada, '| chamada:', notifChamada, '| filtroProduto:', produtoFiltro, '| doc:', docId);
@@ -7548,7 +7719,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
             const title = notification.notification?.title || '';
             const body  = notification.notification?.body  || '';
             _exibirNotificacaoLocal(
-              title || (tipo === 'entrada' ? `🚛 NOVA ENTRADA — ${placa}` : `📢 CHAMADA — ${placa}`),
+              title || _tituloPadraoPush(tipo, placa),
               body, placa, tipo
             );
           });
@@ -7572,15 +7743,16 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           const _permPerfilWeb = _perfilObjWeb.permissoes || {};
           const notifEntradaWeb  = !!_permPerfilWeb.notif_entradas;
           const notifChamadaWeb  = !!_permPerfilWeb.notif_chamada;
+          const notifNfeOkWeb    = !!_permPerfilWeb.notif_nfe_ok;
           const produtoFiltroWeb = _perfilObjWeb.produto_filtro || null;
           // ID único por perfil+dispositivo — evita sobrescrita entre perfis
           const docIdWeb = `${perfilWeb}_web_${_fcmToken.slice(-16)}`;
           await setDoc(
             doc(_db, 'fcm_tokens', docIdWeb),
-            { token: _fcmToken, perfil: perfilWeb, plataforma: 'web', notifEntrada: notifEntradaWeb, notifChamada: notifChamadaWeb, produtoFiltro: produtoFiltroWeb, atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
+            { token: _fcmToken, perfil: perfilWeb, plataforma: 'web', notifEntrada: notifEntradaWeb, notifChamada: notifChamadaWeb, notifNfeOk: notifNfeOkWeb, produtoFiltro: produtoFiltroWeb, atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
             { merge: true }
           );
-          console.log('[FCM] Token web registrado — perfil:', perfilWeb, '| entrada:', notifEntradaWeb, '| chamada:', notifChamadaWeb, '| filtroProduto:', produtoFiltroWeb, '| doc:', docIdWeb);
+          console.log('[FCM] Token web registrado — perfil:', perfilWeb, '| entrada:', notifEntradaWeb, '| chamada:', notifChamadaWeb, '| nfeOk:', notifNfeOkWeb, '| filtroProduto:', produtoFiltroWeb, '| doc:', docIdWeb);
         }
         if (!_onMessageRegistrado) {
           _onMessageRegistrado = true;
@@ -7589,7 +7761,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
             const placa = payload.data?.placa || '';
             const tipo  = payload.data?.tipo  || 'chamada';
             _exibirNotificacaoLocal(
-              title || (tipo === 'entrada' ? `🚛 NOVA ENTRADA — ${placa}` : `📢 CHAMADA — ${placa}`),
+              title || _tituloPadraoPush(tipo, placa),
               body || '', placa, tipo
             );
           });
@@ -7748,6 +7920,32 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
     // Exibição local (app aberto/background) — melhor esforço, isolada
     try { await _exibirNotificacaoLocal(titulo, corpo, placa, 'chamada'); }
+    catch(e) { console.warn('[Notificação local] Falha (não afeta o push real):', e); }
+  }
+
+  // Notifica a portaria quando balança/admin confirma NFE OK de uma placa
+  async function _notificarNfeOk(placa) {
+    const titulo = `PLACA ${placa} - NOTA FISCAL OK`;
+    const corpo  = '';
+
+    // Grava na push_queue PRIMEIRO — igual chamada/entrada, é isso que
+    // realmente dispara a Cloud Function e alcança o app instalado.
+    try {
+      await setDoc(
+        doc(_db, 'push_queue', `nfe-ok-${placa}-${Date.now()}`),
+        {
+          titulo, corpo, placa,
+          tipo:    'nfe_ok',   // a Cloud Function decide quem recebe pela permissão notif_nfe_ok
+          ts:      serverTimestamp(),
+          enviado: false
+        }
+      );
+    } catch(e) {
+      console.error('[FCM] Erro ao notificar NFE OK (push_queue):', e);
+    }
+
+    // Exibição local (app aberto) — melhor esforço, isolada, nunca derruba o resto
+    try { await _exibirNotificacaoLocal(titulo, corpo, placa, 'nfe_ok'); }
     catch(e) { console.warn('[Notificação local] Falha (não afeta o push real):', e); }
   }
 

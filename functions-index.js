@@ -5,6 +5,19 @@ const { getFirestore }      = require("firebase-admin/firestore");
 
 initializeApp();
 
+// Mapeia cada tipo de push para o campo de permissão (em fcm_tokens) que
+// decide quem recebe. Para adicionar um novo tipo de notificação no futuro,
+// só precisa de uma linha aqui + a permissão correspondente no index.html.
+const CAMPO_FILTRO_POR_TIPO = {
+  chamada: "notifChamada",
+  entrada: "notifEntrada",
+  nfe_ok:  "notifNfeOk",
+};
+
+// Tipos que NÃO respeitam o filtro de produto do perfil (são alertas
+// pontuais sobre uma placa específica, não sobre carregamento de um produto).
+const TIPOS_SEM_FILTRO_PRODUTO = new Set(["chamada", "nfe_ok"]);
+
 exports.enviarPushNotificacao = onDocumentCreated(
   "push_queue/{docId}",
   async (event) => {
@@ -72,13 +85,14 @@ exports.enviarPushNotificacao = onDocumentCreated(
         console.log(`[FCM] Push enviado para token ${data.token.slice(-8)} — ${titulo}`);
       } else {
         // Quem recebe é decidido pela permissão marcada no perfil de cada
-        // usuário (notif_entradas / notif_chamada, configurável em "Gerenciar
-        // Perfis"), não por uma lista fixa de nomes de login. Assim, qualquer
-        // perfil novo (ex: um segundo porteiro) entra só marcando a permissão
-        // dele — sem precisar editar esta função de novo.
+        // usuário (notif_entradas / notif_chamada / notif_nfe_ok, configurável
+        // em "Gerenciar Perfis"), não por uma lista fixa de nomes de login.
+        // Assim, qualquer perfil novo (ex: um segundo porteiro) entra só
+        // marcando a permissão dele — sem precisar editar esta função de novo.
         // "perfis" (lista de nomes) ainda é aceito como override manual, caso
         // algum caller queira mirar perfis específicos pelo nome de login.
-        const campoFiltro = ehChamada ? "notifChamada" : "notifEntrada";
+        const campoFiltro = CAMPO_FILTRO_POR_TIPO[tipo] || "notifEntrada";
+        const respeitaFiltroProduto = !TIPOS_SEM_FILTRO_PRODUTO.has(tipo);
 
         const tokensSnap = data.perfis
           ? await db.collection("fcm_tokens").where("perfil", "in", data.perfis).get()
@@ -90,11 +104,12 @@ exports.enviarPushNotificacao = onDocumentCreated(
           // Para "entrada": respeita o filtro de produto de cada perfil
           // (mesmo critério usado na notificação local em primeiro plano —
           // produtoFiltro vazio/nulo = recebe de todos os produtos).
+          // "chamada" e "nfe_ok" não têm conceito de produto — ignoram o filtro.
           const tokens = tokensSnap.docs
             .map(d => d.data())
             .filter(t => {
               if (!t.token) return false;
-              if (ehChamada) return true; // chamada não tem conceito de produto
+              if (!respeitaFiltroProduto) return true;
               const filtro = (t.produtoFiltro || "").toUpperCase();
               return !filtro || produto.includes(filtro);
             })
@@ -103,7 +118,7 @@ exports.enviarPushNotificacao = onDocumentCreated(
           if (tokens.length === 0) {
             console.warn(`[FCM] ${tokensSnap.size} token(s) tinham ${campoFiltro}=true, mas nenhum passou no filtro de produto "${produto}"`);
           }
-          console.log(`[FCM] Enviando para ${tokens.length} token(s) — filtro: ${campoFiltro}${!ehChamada ? ` / produto: ${produto || '(nenhum)'}` : ''}`);
+          console.log(`[FCM] Enviando para ${tokens.length} token(s) — filtro: ${campoFiltro}${respeitaFiltroProduto ? ` / produto: ${produto || '(nenhum)'}` : ''}`);
 
           const LOTE = 500;
           for (let i = 0; i < tokens.length; i += LOTE) {
