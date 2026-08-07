@@ -1337,6 +1337,14 @@
 
     .chamada-icone {
       flex-shrink: 0;
+      width: 44px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .chamada-sino-wrap {
       width: 38px;
       height: 38px;
       background: rgba(255,255,255,0.08);
@@ -1346,7 +1354,7 @@
       justify-content: center;
       animation: sinoBalanco 0.5s infinite alternate ease-in-out;
     }
-    .chamada-icone svg {
+    .chamada-sino-wrap svg {
       filter: drop-shadow(0 0 6px rgba(251,191,36,0.7));
     }
     @keyframes sinoBalanco {
@@ -1357,10 +1365,10 @@
     .chamada-info { flex: 1; min-width: 0; }
     .chamada-placa {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 1.35rem;
+      font-size: 1.2rem;
       font-weight: 700;
       color: #fff;
-      letter-spacing: 2px;
+      letter-spacing: 1.5px;
       line-height: 1;
     }
     .chamada-motorista {
@@ -1371,12 +1379,21 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .chamada-hora {
-      font-size: 0.6rem;
-      color: var(--warn);
+    .chamada-dirigir {
+      font-size: 0.7rem;
+      color: #fbbf24;
+      font-weight: 800;
+      margin-top: 5px;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+    .chamada-card .chamada-hora {
+      font-size: 0.56rem;
+      color: rgba(255,255,255,0.55);
       font-weight: 700;
-      margin-top: 2px;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+      text-align: center;
     }
 
     .btn-ok-chamada {
@@ -1459,13 +1476,47 @@
       letter-spacing: 1.5px;
       line-height: 1;
     }
+    .nfeok-texto-wrap {
+      margin-top: 4px;
+      perspective: 240px;
+      overflow: hidden;
+    }
     .nfeok-texto {
+      display: inline-block;
       font-size: 0.68rem;
       color: #4ade80;
       font-weight: 800;
-      margin-top: 4px;
       text-transform: uppercase;
       letter-spacing: 0.4px;
+      transform-origin: center;
+      backface-visibility: hidden;
+      will-change: transform;
+    }
+
+    /* Badge "A DESCARREGAR" ⇄ "DESCARREGADOS" — vira sozinha a cada 15s.
+       100% CSS (sem JS/timer): a linha da tabela é reconstruída via innerHTML
+       a cada atualização de dados, então qualquer setInterval preso a esse
+       elemento vazaria a cada rebuild. Com @keyframes, o efeito nasce do
+       zero automaticamente toda vez que a linha é redesenhada. */
+    .status-flip-wrap {
+      position: relative;
+      display: inline-block;
+      perspective: 220px;
+    }
+    .status-flip-sizer { visibility: hidden; }
+    .status-flip-item {
+      position: absolute;
+      left: 0; top: 0;
+      white-space: nowrap;
+      transform-origin: center;
+      backface-visibility: hidden;
+      animation: statusFlipCycle 30s infinite;
+    }
+    .status-flip-item.flip-b { animation-delay: -15s; }
+    @keyframes statusFlipCycle {
+      0%, 46%  { transform: rotateX(0deg); }
+      50%, 96% { transform: rotateX(-90deg); }
+      100%     { transform: rotateX(0deg); }
     }
 
     /* Linha do histórico com status CARREGANDO */
@@ -3785,6 +3836,16 @@
       }
     });
 
+    // Remove cards de placas que saíram da lista (também para o flip pra não vazar timer)
+    [...painel.querySelectorAll('.nfeok-card')].forEach(card => {
+      if (!visiveis.includes(card.dataset.placa)) {
+        if (card._flipTimer) clearInterval(card._flipTimer);
+        card.style.transition = 'opacity 0.2s';
+        card.style.opacity = '0';
+        setTimeout(() => card.remove(), 200);
+      }
+    });
+
     // Adiciona cards novos (ignora os que já existem no DOM)
     visiveis.forEach(placa => {
       if (painel.querySelector(`.nfeok-card[data-placa="${placa}"]`)) return;
@@ -3800,11 +3861,51 @@
           </svg>
         </div>
         <div class="nfeok-info">
-          <div class="nfeok-placa">PLACA ${placa}</div>
-          <div class="nfeok-texto">NOTA FISCAL OK</div>
+          <div class="nfeok-placa">PLACA: ${placa}</div>
+          <div class="nfeok-texto-wrap"><div class="nfeok-texto">NOTA FISCAL OK</div></div>
         </div>`;
       painel.appendChild(card);
+      _iniciarFlipNfeOk(card.querySelector('.nfeok-texto'));
     });
+  }
+
+  // Alterna o texto do cartão NFE OK entre "NOTA FISCAL OK" e "RETIRAR NA
+  // BALANÇA" a cada 15s, com efeito de virada (flip 3D no próprio eixo,
+  // tipo relógio de aeroporto/painel de embarque). Roda até o elemento
+  // sair do DOM (o que acontece quando a portaria registra a saída).
+  function _iniciarFlipNfeOk(el) {
+    if (!el) return;
+    const textos = ['NOTA FISCAL OK', 'RETIRAR NA BALANÇA'];
+    let idx = 0;
+    const card = el.closest('.nfeok-card');
+    const intervalId = setInterval(() => {
+      if (!el.isConnected) { clearInterval(intervalId); return; }
+      idx = (idx + 1) % textos.length;
+      _flipTrocarTexto(el, textos[idx]);
+    }, 15000);
+    if (card) card._flipTimer = intervalId;
+  }
+
+  // Executa a virada: gira 90° (fica de perfil, invisível), troca o texto
+  // sem transição (pulo instantâneo pro outro lado, também de perfil), e
+  // então gira de volta a 0° — o resultado visual é uma virada contínua no
+  // mesmo eixo, sempre na mesma direção, como uma placa de aeroporto.
+  function _flipTrocarTexto(el, novoTexto) {
+    if (!el || !el.isConnected) return;
+    el.style.transition = 'transform 0.32s cubic-bezier(.4,0,.2,1)';
+    el.style.transform  = 'rotateX(-90deg)';
+    setTimeout(() => {
+      if (!el.isConnected) return;
+      el.textContent      = novoTexto;
+      el.style.transition = 'none';
+      el.style.transform  = 'rotateX(90deg)';
+      void el.offsetWidth; // força reflow pra aplicar o "pulo" antes de animar de volta
+      requestAnimationFrame(() => {
+        if (!el.isConnected) return;
+        el.style.transition = 'transform 0.32s cubic-bezier(.4,0,.2,1)';
+        el.style.transform  = 'rotateX(0deg)';
+      });
+    }, 320);
   }
 
   // Alerta a portaria quando recebe push do Firestore de que NFE foi confirmada.
@@ -5316,7 +5417,11 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         const isConcluido = v.status === 'CONCLUIDO';
         const statusHtml = isConcluido
           ? `<span style="color:var(--success);font-weight:800;font-size:0.58rem;">✓ Concluído</span>`
-          : `<span style="color:#b45309;font-weight:800;font-size:0.58rem;">⬇ A descarregar</span>`;
+          : `<span class="status-flip-wrap" style="color:#b45309;font-weight:800;font-size:0.58rem;">
+               <span class="status-flip-sizer">A descarregar</span>
+               <span class="status-flip-item">A descarregar</span>
+               <span class="status-flip-item flip-b">Descarregado</span>
+             </span>`;
         htmlDiv += `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);">
           <span style="font-size:0.68rem;color:var(--text-main);font-weight:600;">1 ${v.produto||'---'} — ${v.transportadora||'---'}</span>
           <span style="margin-left:8px;flex-shrink:0;">${statusHtml}</span>
@@ -5771,7 +5876,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         // existente e trata como nova para notificar+vibrar de novo.
         cardExistente.dataset.sig = sig;
         const horaEl = cardExistente.querySelector('.chamada-hora');
-        if (horaEl) horaEl.textContent = (c.hora && c.hora.length <= 5) ? ('⏱ ' + c.hora) : 'CHAMADA ATIVA';
+        if (horaEl) horaEl.textContent = (c.hora && c.hora.length <= 5) ? ('⏱ ' + c.hora) : '';
         cardExistente.style.animation = 'none';
         requestAnimationFrame(() => { cardExistente.style.animation = ''; });
         novasChamadas.push(c);
@@ -5785,15 +5890,18 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       card.dataset.sig = sig;
       card.innerHTML = `
         <div class="chamada-icone">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-          </svg>
+          <div class="chamada-sino-wrap">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+          </div>
+          <div class="chamada-hora">${c.hora && c.hora.length <= 5 ? '⏱ ' + c.hora : ''}</div>
         </div>
         <div class="chamada-info">
-          <div class="chamada-placa">${c.placa}</div>
+          <div class="chamada-placa">PLACA: ${c.placa}</div>
           <div class="chamada-motorista">${c.motorista || 'Motorista não informado'}</div>
-          <div class="chamada-hora">${c.hora && c.hora.length <= 5 ? '⏱ ' + c.hora : 'CHAMADA ATIVA'}</div>
+          <div class="chamada-dirigir">Dirigir-se à balança</div>
         </div>
         <button class="btn-ok-chamada" onclick="dispensarChamadaPlaca(this,'${c.placa}')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -6073,15 +6181,18 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       card.dataset.placa = placa;
       card.innerHTML = `
         <div class="chamada-icone">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-          </svg>
+          <div class="chamada-sino-wrap">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+          </div>
+          <div class="chamada-hora">⏱ ${horaStr}</div>
         </div>
         <div class="chamada-info">
-          <div class="chamada-placa">${placa}</div>
+          <div class="chamada-placa">PLACA: ${placa}</div>
           <div class="chamada-motorista">${motoristaExibir}</div>
-          <div class="chamada-hora">⏱ ${horaStr}</div>
+          <div class="chamada-dirigir">Dirigir-se à balança</div>
         </div>
         <button class="btn-ok-chamada" onclick="dispensarChamadaPlaca(this,'${placa}')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -7602,7 +7713,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   // por algum motivo, não mandar o título já pronto no payload)
   function _tituloPadraoPush(tipo, placa) {
     if (tipo === 'entrada') return `🚛 NOVA ENTRADA — ${placa}`;
-    if (tipo === 'nfe_ok')  return `PLACA ${placa} - NOTA FISCAL OK`;
+    if (tipo === 'nfe_ok')  return `PLACA: ${placa} - NOTA FISCAL OK`;
     return `📢 CHAMADA — ${placa}`;
   }
 
@@ -7923,9 +8034,11 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     catch(e) { console.warn('[Notificação local] Falha (não afeta o push real):', e); }
   }
 
-  // Notifica a portaria quando balança/admin confirma NFE OK de uma placa
+  // Notifica a portaria quando balança/admin confirma NFE OK de uma placa.
+  // OBS: a notificação do sistema (barra de notificação) não anima — o
+  // efeito de "virar" entre os textos só existe no cartão dentro do app.
   async function _notificarNfeOk(placa) {
-    const titulo = `PLACA ${placa} - NOTA FISCAL OK`;
+    const titulo = `PLACA: ${placa} - NOTA FISCAL OK`;
     const corpo  = '';
 
     // Grava na push_queue PRIMEIRO — igual chamada/entrada, é isso que
