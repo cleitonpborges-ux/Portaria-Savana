@@ -1478,7 +1478,6 @@
     }
     .nfeok-texto-wrap {
       margin-top: 4px;
-      perspective: 240px;
       overflow: hidden;
     }
     .nfeok-texto {
@@ -1489,7 +1488,6 @@
       text-transform: uppercase;
       letter-spacing: 0.4px;
       transform-origin: center;
-      backface-visibility: hidden;
       will-change: transform;
     }
 
@@ -1501,7 +1499,6 @@
     .status-flip-wrap {
       position: relative;
       display: inline-block;
-      perspective: 220px;
     }
     .status-flip-sizer { visibility: hidden; }
     .status-flip-item {
@@ -1509,14 +1506,13 @@
       left: 0; top: 0;
       white-space: nowrap;
       transform-origin: center;
-      backface-visibility: hidden;
       animation: statusFlipCycle 30s infinite;
     }
     .status-flip-item.flip-b { animation-delay: -15s; }
     @keyframes statusFlipCycle {
-      0%, 46%  { transform: rotateX(0deg); }
-      50%, 96% { transform: rotateX(-90deg); }
-      100%     { transform: rotateX(0deg); }
+      0%, 46%  { transform: scaleY(1); }
+      50%, 96% { transform: scaleY(0.05); }
+      100%     { transform: scaleY(1); }
     }
 
     /* Linha do histórico com status CARREGANDO */
@@ -3820,6 +3816,24 @@
       veiculosCarregados.some(v => v.placa === placa && v.status === 'AGUARDANDO NFE')
     );
 
+    // DIAGNÓSTICO TEMPORÁRIO — remover depois de identificar o problema
+    try {
+      setDoc(doc(_db, 'debug_nfeok_log', `${Date.now()}`), {
+        perfil: perfilAtual,
+        isBA: _isBA,
+        placasOk: placasOk || [],
+        veiculosCarregadosTotal: (typeof veiculosCarregados !== 'undefined') ? veiculosCarregados.length : -1,
+        veiculosCarregadosPlacasStatus: (typeof veiculosCarregados !== 'undefined')
+          ? veiculosCarregados.map(v => `${v.placa}:${v.status}`)
+          : ['veiculosCarregados indefinido'],
+        visiveis,
+        painelExiste: !!painel,
+        ts: serverTimestamp()
+      }).catch(eIgnorar => console.warn('[DEBUG NFeOK] Falha ao gravar log:', eIgnorar));
+    } catch (eDebug) {
+      console.warn('[DEBUG NFeOK] Exceção ao montar log:', eDebug);
+    }
+
     if (visiveis.length === 0) {
       painel.classList.remove('ativo');
       painel.innerHTML = '';
@@ -3865,7 +3879,9 @@
           <div class="nfeok-texto-wrap"><div class="nfeok-texto">NOTA FISCAL OK</div></div>
         </div>`;
       painel.appendChild(card);
-      _iniciarFlipNfeOk(card.querySelector('.nfeok-texto'));
+      // TEMPORARIAMENTE DESATIVADO — isolando se o efeito de virada é a causa
+      // do card não aparecer. Texto fica fixo em "NOTA FISCAL OK" por enquanto.
+      // _iniciarFlipNfeOk(card.querySelector('.nfeok-texto'));
     });
   }
 
@@ -3886,26 +3902,28 @@
     if (card) card._flipTimer = intervalId;
   }
 
-  // Executa a virada: gira 90° (fica de perfil, invisível), troca o texto
-  // sem transição (pulo instantâneo pro outro lado, também de perfil), e
-  // então gira de volta a 0° — o resultado visual é uma virada contínua no
-  // mesmo eixo, sempre na mesma direção, como uma placa de aeroporto.
+  // Executa a virada: colapsa verticalmente no próprio eixo (fica "de perfil",
+  // invisível), troca o texto sem transição, e expande de volta — efeito 2D
+  // puro (scaleY), sem perspective/3D. Evitamos rotateX+perspective porque,
+  // combinado com overflow:hidden aninhado, alguns WebViews Android têm bug
+  // de composição que faz o elemento inteiro sumir em vez de só cortar a
+  // rotação — foi exatamente isso que quebrou o card na prática.
   function _flipTrocarTexto(el, novoTexto) {
     if (!el || !el.isConnected) return;
-    el.style.transition = 'transform 0.32s cubic-bezier(.4,0,.2,1)';
-    el.style.transform  = 'rotateX(-90deg)';
+    el.style.transition = 'transform 0.26s ease-in';
+    el.style.transform  = 'scaleY(0.05)';
     setTimeout(() => {
       if (!el.isConnected) return;
       el.textContent      = novoTexto;
       el.style.transition = 'none';
-      el.style.transform  = 'rotateX(90deg)';
-      void el.offsetWidth; // força reflow pra aplicar o "pulo" antes de animar de volta
+      el.style.transform  = 'scaleY(0.05)';
+      void el.offsetWidth; // força reflow pra aplicar o estado colapsado antes de expandir
       requestAnimationFrame(() => {
         if (!el.isConnected) return;
-        el.style.transition = 'transform 0.32s cubic-bezier(.4,0,.2,1)';
-        el.style.transform  = 'rotateX(0deg)';
+        el.style.transition = 'transform 0.26s ease-out';
+        el.style.transform  = 'scaleY(1)';
       });
-    }, 320);
+    }, 260);
   }
 
   // Alerta a portaria quando recebe push do Firestore de que NFE foi confirmada.
