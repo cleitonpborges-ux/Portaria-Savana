@@ -1718,24 +1718,49 @@
     }
     .offline-bar.ativo { display: block; }
 
-    /* ===================== SYNC INDICATOR ===================== */
+    /* ===================== SYNC INDICATOR (círculo) ===================== */
     .sync-badge {
       display: none;
       position: fixed;
       bottom: 16px;
       right: 16px;
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
       background: var(--warn);
       color: white;
-      border-radius: 30px;
-      padding: 8px 14px;
-      font-size: 0.62rem;
-      font-weight: 700;
+      border: none;
+      align-items: center;
+      justify-content: center;
       box-shadow: var(--shadow-md);
       z-index: 90;
-      animation: bounce 1s infinite alternate;
+      cursor: pointer;
+      padding: 0;
+      animation: bounce 1.4s infinite alternate;
     }
-    .sync-badge.ativo { display: block; }
+    .sync-badge.ativo { display: flex; }
+    .sync-badge svg { width: 20px; height: 20px; }
+    .sync-badge.sincronizando svg { animation: girar 1s linear infinite; }
+    @keyframes girar { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
     @keyframes bounce { from{transform:translateY(0);} to{transform:translateY(-4px);} }
+    .sync-badge-count {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: var(--danger);
+      color: white;
+      font-size: 0.6rem;
+      font-weight: 800;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+      border: 2px solid var(--card-bg, #fff);
+      line-height: 1;
+    }
 
     .tr-hidden { display: none; }
 
@@ -2496,8 +2521,52 @@
 <!-- OFFLINE BAR -->
 <div class="offline-bar" id="offlineBar">📡 SEM CONEXÃO — Dados salvos localmente</div>
 
-<!-- SYNC BADGE -->
-<div class="sync-badge" id="syncBadge">⏳ Sincronizando...</div>
+<!-- SYNC BADGE (círculo) -->
+<button class="sync-badge" id="syncBadge" onclick="abrirPainelSync()" title="Registros pendentes de sincronização">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+  <span class="sync-badge-count" id="syncBadgeCount">0</span>
+</button>
+
+<!-- MODAL: PENDENTES DE SINCRONIZAÇÃO -->
+<div class="modal-overlay" id="modalSyncPendentes">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <span style="font-size:0.85rem;font-weight:800;color:var(--text-main);">📴 Pendentes de sincronização</span>
+      <button onclick="fecharPainelSync()" style="background:none;border:none;font-size:1.1rem;color:var(--text-muted);cursor:pointer;padding:2px 6px;">✕</button>
+    </div>
+    <div id="listaSyncPendentes" style="max-height:50vh;overflow-y:auto;"></div>
+    <button id="btnTentarSyncAgora" onclick="tentarSincronizarAgora()" style="width:100%;margin-top:12px;padding:10px;font-size:0.72rem;font-weight:800;color:white;background:var(--accent);border:none;border-radius:10px;cursor:pointer;">🔄 Tentar sincronizar agora</button>
+  </div>
+</div>
+
+<!-- MODAL: ORDEM DE EXIBIÇÃO DO HISTÓRICO -->
+<div class="modal-overlay" id="modalOrdemExibicao">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <span style="font-size:0.85rem;font-weight:800;color:var(--text-main);">⇅ Ordem de exibição</span>
+      <button onclick="fecharOrdemExibicao()" style="background:none;border:none;font-size:1.1rem;color:var(--text-muted);cursor:pointer;padding:2px 6px;">✕</button>
+    </div>
+
+    <div style="font-size:0.62rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;">Dentro de cada produto</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.68rem;font-weight:600;color:var(--text-main);cursor:pointer;">
+        <input type="radio" name="direcaoOrdemHist" id="radioOrdemAntigo" style="margin:0;">
+        Mais antigo no topo
+      </label>
+      <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.68rem;font-weight:600;color:var(--text-main);cursor:pointer;">
+        <input type="radio" name="direcaoOrdemHist" id="radioOrdemRecente" style="margin:0;">
+        Mais recente no topo
+      </label>
+    </div>
+
+    <div style="font-size:0.62rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;">Posição dos produtos — arraste para reordenar</div>
+    <div id="listaOrdemProdutos" style="max-height:45vh;overflow-y:auto;"></div>
+
+    <button onclick="fecharOrdemExibicao()" style="width:100%;margin-top:14px;padding:10px;font-size:0.72rem;font-weight:800;color:white;background:var(--accent);border:none;border-radius:10px;cursor:pointer;">✓ Salvar e fechar</button>
+  </div>
+</div>
 
 <!-- STICKY HEADER -->
 <div class="sticky-header-outer">
@@ -2722,7 +2791,7 @@
     <div class="hist-barra-inner">
       <div class="hist-barra-row">
         <input type="text" class="input-busca" id="campoBusca" placeholder="🔍 Buscar placa ou motorista..." oninput="filtrarHistorico(this.value)">
-        <button class="btn-sort-hist desc" id="btnSortHist" onclick="toggleOrdemHistorico()" title="Ordem de exibição">⇅</button>
+        <button class="btn-sort-hist desc" id="btnSortHist" onclick="abrirOrdemExibicao()" title="Ordem de exibição">⇅</button>
       </div>
     </div>
   </div>
@@ -2858,7 +2927,10 @@
     </div>
     <div class="campo">
       <label>Empresa</label>
-      <input type="text" id="t_ent" autocomplete="off" autocorrect="off">
+      <div class="autocomplete-wrap">
+        <input type="text" id="t_ent" oninput="acTransportadoraInput(this.value)" onfocus="acTransportadoraInput(this.value)" onblur="acTransportadoraFechar()" autocomplete="off" autocorrect="off">
+        <div class="autocomplete-lista" id="acTransportadoraLista"></div>
+      </div>
     </div>
     <!-- Produto e Ordem na mesma linha -->
     <div style="display:flex; gap:10px;">
@@ -2934,17 +3006,34 @@
   <!-- ABA HISTÓRICO -->
   <div id="abaHist" class="card" style="border-top-color: var(--accent); padding-top: 8px;">
 
-    <!-- CARD DIVERSOS (descarregados) — só aparece nesta aba -->
-    <div id="cardDiversos" style="display:none;margin:0 0 12px;background:var(--bg);border-radius:var(--radius-md);border:1.5px solid var(--border);border-bottom:4px solid var(--warn);overflow:hidden;transition:max-height .35s cubic-bezier(.4,0,.2,1);" data-hist-mode="0">
-      <!-- Cabeçalho com seta animada -->
-      <div id="divArrowUp" onclick="toggleDiversos()" style="display:flex;align-items:center;justify-content:center;padding:8px 12px 4px;cursor:pointer;gap:6px;">
-        <span style="font-size:0.72rem;font-weight:700;color:var(--text-muted);letter-spacing:.05em;text-transform:uppercase;">⬇ Descarregados</span>
-        <span id="arrowUp" style="font-size:1.1rem;color:var(--text-muted);" class="arrow-pulse">&#8593;</span>
+    <!-- CARD DIVERSOS (descarregados) — só aparece nesta aba, no padrão dos mini-cards No Pátio/Carregados -->
+    <div id="cardDiversos" style="display:none;position:relative;margin:0 0 12px;background:var(--card-bg);border-radius:var(--radius-md);border:1.5px solid var(--border);border-bottom:4px solid var(--diversos-cor-faixa,#d97706);overflow:visible;box-shadow:var(--shadow-sm);transition:max-height .35s cubic-bezier(.4,0,.2,1);--diversos-cor-texto:#d97706;--diversos-cor-faixa:#d97706;" data-hist-mode="0">
+      <!-- Engrenagem discreta p/ personalizar cores -->
+      <button id="btnCorDiversos" onclick="event.stopPropagation(); toggleCorDiversosPainel();" title="Alterar cores do card" style="position:absolute;top:5px;right:6px;background:none;border:none;font-size:0.8rem;color:var(--text-muted);opacity:0.3;cursor:pointer;padding:3px 5px;line-height:1;z-index:3;">⚙️</button>
+      <!-- Painel de cores (oculto por padrão) -->
+      <div id="painelCorDiversos" onclick="event.stopPropagation();" style="display:none;position:absolute;top:26px;right:6px;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.18);padding:10px;z-index:5;text-align:left;min-width:150px;">
+        <div style="font-size:0.58rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:7px;">Cores — Diversos</div>
+        <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:0.62rem;color:var(--text-main);font-weight:600;margin-bottom:6px;">
+          Letras
+          <input type="color" id="corDiversosTexto" value="#d97706" oninput="aplicarCorDiversos()" style="width:30px;height:22px;border:none;background:none;cursor:pointer;padding:0;">
+        </label>
+        <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:0.62rem;color:var(--text-main);font-weight:600;margin-bottom:8px;">
+          Faixa
+          <input type="color" id="corDiversosFaixa" value="#d97706" oninput="aplicarCorDiversos()" style="width:30px;height:22px;border:none;background:none;cursor:pointer;padding:0;">
+        </label>
+        <button onclick="resetCorDiversos()" style="width:100%;font-size:0.56rem;font-weight:700;color:var(--text-muted);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px;cursor:pointer;">Restaurar padrão</button>
+      </div>
+      <!-- Cabeçalho: label, contador grande, balões de produto e dica de toque -->
+      <div id="divArrowUp" onclick="toggleDiversos()" style="cursor:pointer;padding:14px 12px 6px;text-align:center;">
+        <span style="display:block;font-size:0.55rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">DIVERSOS</span>
+        <b id="contDiversos" style="font-size:1.6rem;color:var(--diversos-cor-texto,#d97706);font-weight:800;display:block;line-height:1.1;font-family:'JetBrains Mono',monospace;margin:2px 0;">0</b>
+        <div class="resumo-produto" id="resumoDiversos"></div>
+        <span style="display:block;font-size:0.52rem;font-weight:600;color:var(--text-muted);opacity:.75;letter-spacing:.02em;text-transform:uppercase;margin-top:3px;">toque para mais detalhes</span>
       </div>
       <!-- Lista colapsável -->
       <div id="listaDiversos" style="max-height:0;overflow:hidden;transition:max-height .35s cubic-bezier(.4,0,.2,1);">
         <div style="padding:4px 12px 10px;">
-          <div class="resumo-produto" id="resumoDiversos"></div>
+          <input type="text" id="buscaDiversos" placeholder="🔎 Buscar placa, produto, motorista..." oninput="filtrarDiversos()" onclick="event.stopPropagation();" style="width:100%;box-sizing:border-box;padding:7px 10px;font-size:0.68rem;font-weight:600;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-main);outline:none;margin-bottom:8px;">
           <div class="detalhe-produto" id="detalheDiversos" style="font-size:0.78rem;color:var(--text-muted);"></div>
         </div>
       </div>
@@ -3710,6 +3799,11 @@
     // e não dispare carregarEstado() que destruiria o texto clicável.
     tr.dataset.status = 'AGUARDANDO NFE';
 
+    // "Segura" esse status por 15s contra o refresh periódico da planilha —
+    // evita o bug de "volta a marcar como carregando" enquanto o Apps Script
+    // ainda não terminou de gravar a mudança do lado do servidor.
+    _statusOverrideRecente[placa] = { status: 'AGUARDANDO NFE', expiraEm: Date.now() + 15000 };
+
     // Reescreve a div da linha 2 com o texto clicável diretamente
     const statusTd = tr.querySelector('.container-status');
     if (statusTd) {
@@ -3733,15 +3827,14 @@
     mostrarToast(`${placa} - AGUARDANDO NFE`, 'success', 4000);
 
     // 3. Persiste no backend
+    const _payloadNfe = { acao: 'AGUARDANDO_NFE', placa };
+    _fbAguardarNfe(placa);
     try {
-      fetch(WEB_APP_POST_URL, {
-        method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ acao: 'AGUARDANDO_NFE', placa })
-      }).catch(() => {});
-      _fbAguardarNfe(placa);
+      await enviarPlanilha(_payloadNfe);
     } catch(e) {
-      console.warn('[Aguardar NFe] Erro no backend:', e);
+      console.warn('[Aguardar NFe] Planilha falhou, guardando na fila offline:', e);
+      try { await idbAdicionarPendente(_payloadNfe); atualizarContadorIDB(); }
+      catch(e2) { console.warn('[Aguardar NFe] Erro no backend:', e2); }
     }
   }
 
@@ -4298,22 +4391,66 @@
     } catch(e) {}
   }
 
-  async function sincronizarIDB() {
+  /* ===================== ENVIO ROBUSTO PARA A PLANILHA =====================
+   * Ponto único de envio ao Apps Script. Duas melhorias-chave contra perda de
+   * dados em conexão ruim/instável:
+   * 1) TIMEOUT — se a rede estiver ruim, o fetch pode ficar "pendurado" por
+   *    muito tempo sem nunca resolver nem rejeitar. Com o AbortController,
+   *    depois de alguns segundos desistimos e tratamos como falha (cai na fila).
+   * 2) ID ÚNICO (_uid) — todo payload ganha um identificador. Isso permite que,
+   *    se o mesmo registro for reenviado (ex.: a confirmação se perdeu mas o
+   *    dado já tinha sido gravado), o Apps Script consiga (se implementado lá)
+   *    ignorar duplicidade em vez de criar uma linha repetida na planilha.
+   */
+  function _gerarIdUnico() {
+    return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
+  }
+
+  async function enviarPlanilha(payload, timeoutMs = 8000) {
+    // Atribui o ID diretamente no objeto original (não numa cópia) para que,
+    // se esse mesmo payload for reenviado depois pela fila offline, o ID seja
+    // o MESMO em todas as tentativas — essencial para a checagem de duplicidade
+    // funcionar (mesmo que a 1ª tentativa tenha na verdade chegado ao servidor).
+    if (!payload._uid) payload._uid = _gerarIdUnico();
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      await fetch(WEB_APP_POST_URL, {
+        method: "POST", mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify(payload),
+        signal: ctrl.signal
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+    return payload;
+  }
+
+  // Acima desse tempo parado na fila, um item deixa de ser reenviado sozinho —
+  // fica esperando revisão humana no painel (⚙ círculo), pra evitar regravar
+  // dado desatualizado por cima de algo que já pode ter mudado nesse meio tempo.
+  const LIMITE_AUTO_RETRY_MS = 3 * 60 * 60 * 1000; // 3 horas
+
+  async function sincronizarIDB(apenasRecentes = false) {
     const pendentes = await idbListarPendentes();
     if (pendentes.length === 0) return;
+    const agora = Date.now();
+    const aTentar = apenasRecentes
+      ? pendentes.filter(it => (agora - (it.ts || 0)) <= LIMITE_AUTO_RETRY_MS)
+      : pendentes;
+    if (aTentar.length === 0) return;
     const badge = document.getElementById('syncBadge');
-    badge.classList.add('ativo');
-    badge.innerText = `⏳ Sync: ${pendentes.length} pendente(s)...`;
+    badge.classList.add('ativo', 'sincronizando');
     let sincronizados = 0;
-    for (const item of pendentes) {
+    for (const item of aTentar) {
       try {
-        await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(item.payload) });
+        await enviarPlanilha(item.payload);
         await idbRemoverPendente(item.id);
         sincronizados++;
-      } catch(e) { /* mantém na fila */ }
+      } catch(e) { /* mantém na fila, tenta de novo depois */ }
     }
-    badge.classList.remove('ativo');
-    badge.innerText = '⏳ Sincronizando...';
+    badge.classList.remove('sincronizando');
     if (sincronizados > 0) {
       mostrarToast(`✅ ${sincronizados} registro(s) sincronizado(s)!`, 'success', 3000);
       carregarEstado();
@@ -4322,11 +4459,13 @@
   }
 
   async function atualizarContadorIDB() {
-    const pendentes = await idbListarPendentes();
+    const total = await _contarPendentesTotal();
     const badge = document.getElementById('syncBadge');
-    if (pendentes.length > 0) {
+    const countEl = document.getElementById('syncBadgeCount');
+    if (!badge) return;
+    if (total > 0) {
       badge.classList.add('ativo');
-      badge.innerText = `📴 ${pendentes.length} dado(s) pendente(s)`;
+      if (countEl) countEl.innerText = total > 99 ? '99+' : String(total);
     } else {
       badge.classList.remove('ativo');
     }
@@ -4667,6 +4806,28 @@
   let veiculosAguardandoNfeBusca = [];
   let veiculosDiversos = []; // A DESCARREGAR, DESCARREGANDO, CONCLUIDO
   let historicoChamadas = [];
+
+  // Guarda, por placa, um status "confirmado localmente" por alguns segundos —
+  // usado pra evitar que o refresh periódico da planilha desfaça uma mudança
+  // otimista de tela antes do Apps Script terminar de gravar (ver AGUARDANDO NFE).
+  let _statusOverrideRecente = {};
+
+  // Procura, nos dados JÁ CARREGADOS DA PLANILHA (fonte de verdade, atualizada
+  // a cada poucos segundos), se essa placa tem algum registro sem saída
+  // registrada ainda. Cobre pátio/carregando, a descarregar/descarregando e
+  // aguardando NFe (inclusive de dias anteriores que ainda não foram
+  // encerrados) — mas NUNCA olha o Firestore, que pode ter registros
+  // "fantasma" que já foram corretamente fechados na planilha.
+  function _buscarRegistroAbertoNaPlanilha(placa) {
+    const noPatio = veiculosPatio.find(v => v.placa === placa); // PÁTIO / CARREGANDO
+    if (noPatio) return noPatio;
+    const emDescarga = veiculosDiversos.find(v => v.placa === placa && v.status !== 'CONCLUIDO'); // A DESCARREGAR / DESCARREGANDO
+    if (emDescarga) return emDescarga;
+    const aguardandoNfe = veiculosAguardandoNfeBusca.find(v => v.placa === placa); // AGUARDANDO NFE, mesmo de dias anteriores
+    if (aguardandoNfe) return aguardandoNfe;
+    return null;
+  }
+
   let turnoAtual = { porteiro: '', inicio: null, trocas: [] };
   // observacoesMap removido: obs vai apenas para a planilha, não é armazenado localmente
   let modoNoiteForced = null;
@@ -4899,23 +5060,51 @@
     atualizarContadorIDB();
   }
 
-  async function sincronizarPendentes() {
+  // Conta pendentes somando as duas filas (IndexedDB + fallback localStorage)
+  async function _contarPendentesTotal() {
+    const idb = await idbListarPendentes();
+    let ls = [];
+    try { ls = JSON.parse(localStorage.getItem(LS_PENDING_KEY) || '[]'); } catch(e) {}
+    return idb.length + ls.length;
+  }
+
+  // Lista unificada (para exibir no painel de sincronização), ordenada por horário
+  async function _listarTodosPendentes() {
+    const idb = (await idbListarPendentes()).map(it => ({ id: it.id, payload: it.payload, ts: it.ts, origem: 'idb' }));
+    let ls = [];
+    try {
+      ls = JSON.parse(localStorage.getItem(LS_PENDING_KEY) || '[]')
+        .map((it, i) => ({ id: 'ls-' + i, payload: it.payload, ts: it.ts, origem: 'ls' }));
+    } catch(e) {}
+    return [...idb, ...ls].sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  }
+
+  async function sincronizarPendentes(apenasRecentes = false) {
     // Prioridade: IndexedDB
-    await sincronizarIDB();
+    await sincronizarIDB(apenasRecentes);
     // Também tenta o localStorage (fallback legado)
     const fila = JSON.parse(localStorage.getItem(LS_PENDING_KEY) || '[]');
     if (fila.length === 0) return;
+    const agora = Date.now();
     const badge = document.getElementById('syncBadge');
-    badge.classList.add('ativo');
+    badge.classList.add('ativo', 'sincronizando');
     const restante = [];
+    let sincronizados = 0;
     for (const item of fila) {
+      const idade = agora - (item.ts || 0);
+      if (apenasRecentes && idade > LIMITE_AUTO_RETRY_MS) { restante.push(item); continue; }
       try {
-        await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(item.payload) });
+        await enviarPlanilha(item.payload);
+        sincronizados++;
       } catch(e) { restante.push(item); }
     }
     localStorage.setItem(LS_PENDING_KEY, JSON.stringify(restante));
-    badge.classList.remove('ativo');
-    if (restante.length === 0) carregarEstado();
+    badge.classList.remove('sincronizando');
+    if (sincronizados > 0) {
+      mostrarToast(`✅ ${sincronizados} registro(s) sincronizado(s)!`, 'success', 3000);
+      if (restante.length === 0) carregarEstado();
+    }
+    atualizarContadorIDB();
   }
 
   /* ===================== ONLINE / OFFLINE ===================== */
@@ -4926,12 +5115,113 @@
       atualizarContadorIDB();
     } else {
       bar.classList.remove('ativo');
-      sincronizarPendentes();
+      sincronizarPendentes(true); // automático: só itens recentes
     }
   }
 
   window.addEventListener('online', atualizarStatusRede);
   window.addEventListener('offline', atualizarStatusRede);
+
+  // RETRY PERIÓDICO — o pulo do gato contra "internet ruim/instável":
+  // o evento 'online' do navegador só dispara numa transição real de
+  // desconectado→conectado. Com Wi-Fi/4G fraco e oscilante, o aparelho
+  // segue "tecnicamente online" o tempo todo e esse evento nunca dispara,
+  // então a fila ficaria parada esperando um sinal que não vem. Por isso,
+  // tentamos reenviar sozinhos de tempos em tempos sempre que há pendências
+  // — mas só as recentes (ver LIMITE_AUTO_RETRY_MS); pendências antigas
+  // esperam revisão humana no painel, pra nunca regravar dado desatualizado
+  // sem ninguém perceber.
+  setInterval(async () => {
+    const total = await _contarPendentesTotal();
+    if (total > 0) sincronizarPendentes(true);
+  }, 20000);
+
+  /* ===================== PAINEL DE SINCRONIZAÇÃO (círculo no canto) ===================== */
+  function _descreverPendente(payload) {
+    const acaoMap = {
+      ENTRADA: '🚛 Entrada', EDITAR: '✏️ Edição de entrada', SAIDA: '⇥ Saída',
+      SAIDA_DESCARGA: '⬇ Saída (descarga)', EDITAR_ORDEM: '↕ Alteração de ordem',
+      AGUARDANDO_NFE: '📄 Aguardando NFe', CHAMAR: '🔔 Chamada', OK_CHAMADA: '✓ Dispensar chamada'
+    };
+    const label = acaoMap[payload.acao] || payload.acao || 'Registro';
+    const detalhe = [payload.placa, payload.motorista, payload.produto].filter(Boolean).join(' — ');
+    return { label, detalhe };
+  }
+
+  function _renderListaSync(items) {
+    const cont = document.getElementById('listaSyncPendentes');
+    if (!cont) return;
+    if (items.length === 0) {
+      cont.innerHTML = `<div style="text-align:center;padding:24px 10px;color:var(--text-muted);font-size:0.74rem;">✅ Nada pendente — tudo sincronizado!</div>`;
+      return;
+    }
+    const agora = Date.now();
+    cont.innerHTML = items.map(it => {
+      const { label, detalhe } = _descreverPendente(it.payload || {});
+      const hora = it.ts ? new Date(it.ts).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+      const antigo = (agora - (it.ts || 0)) > LIMITE_AUTO_RETRY_MS;
+      return `<div style="padding:9px 4px;border-bottom:1px solid var(--border);${antigo ? 'background:rgba(217,119,6,0.06);' : ''}">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <span style="font-size:0.72rem;font-weight:800;color:var(--text-main);">${label}</span>
+          <span style="font-size:0.6rem;color:var(--text-muted);font-weight:600;flex-shrink:0;">${hora}</span>
+        </div>
+        ${detalhe ? `<div style="font-size:0.66rem;color:var(--text-muted);margin-top:2px;">${detalhe}</div>` : ''}
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;gap:8px;">
+          ${antigo
+            ? `<span style="font-size:0.58rem;font-weight:700;color:var(--warn);">⚠️ Pendente há muito tempo — confira antes de reenviar</span>`
+            : `<span></span>`}
+          <button onclick="descartarPendente('${it.origem}','${it.id}')" style="background:none;border:none;color:var(--danger);font-size:0.6rem;font-weight:700;cursor:pointer;padding:2px 4px;flex-shrink:0;">🗑 Descartar</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  async function abrirPainelSync() {
+    const items = await _listarTodosPendentes();
+    _renderListaSync(items);
+    document.getElementById('modalSyncPendentes').classList.add('ativo');
+  }
+
+  function fecharPainelSync() {
+    fecharModal('modalSyncPendentes');
+  }
+
+  async function tentarSincronizarAgora() {
+    const btn = document.getElementById('btnTentarSyncAgora');
+    if (btn) { btn.disabled = true; btn.innerText = '⏳ Sincronizando...'; }
+    // false = tenta TUDO, inclusive itens antigos — aqui é uma ação explícita
+    // da pessoa depois de revisar a lista, então não aplicamos o filtro de idade.
+    await sincronizarPendentes(false);
+    const items = await _listarTodosPendentes();
+    _renderListaSync(items);
+    if (btn) { btn.disabled = false; btn.innerText = '🔄 Tentar sincronizar agora'; }
+  }
+
+  // Remove definitivamente uma pendência da fila, sem enviar — usado quando a
+  // pessoa revisa um item antigo e conclui que ele não faz mais sentido
+  // (ex: a situação já foi resolvida de outra forma nesse meio tempo).
+  async function descartarPendente(origem, id) {
+    const ok = await mostrarDialog({
+      icone: '🗑️',
+      titulo: 'Descartar pendência?',
+      msg: 'Esse registro será removido da fila e NÃO será mais enviado para a planilha. Só descarte se tiver certeza de que ele não é mais necessário.',
+      botoes: [{ texto: 'Cancelar', tipo: 'cancelar' }, { texto: 'Descartar', tipo: 'ok' }]
+    });
+    if (!ok) return;
+    if (origem === 'idb') {
+      await idbRemoverPendente(isNaN(Number(id)) ? id : Number(id));
+    } else if (origem === 'ls' && String(id).startsWith('ls-')) {
+      const idx = parseInt(String(id).slice(3), 10);
+      const fila = JSON.parse(localStorage.getItem(LS_PENDING_KEY) || '[]');
+      if (!isNaN(idx) && fila[idx]) {
+        fila.splice(idx, 1);
+        localStorage.setItem(LS_PENDING_KEY, JSON.stringify(fila));
+      }
+    }
+    const items = await _listarTodosPendentes();
+    _renderListaSync(items);
+    atualizarContadorIDB();
+  }
 
   /* ===================== HAPTIC ===================== */
   function vibrar(ms) {
@@ -5340,6 +5630,77 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   }
   /* ===================== FIM AUTOCOMPLETE SAÍDA ===================== */
 
+  /* ===================== AUTOCOMPLETE TRANSPORTADORA =====================
+   * Aprende os nomes de transportadora digitados e sugere nas próximas
+   * entradas. Guardado localmente no aparelho (localStorage) — cada nome
+   * novo salvo automaticamente ao registrar uma entrada, e pode ser
+   * removido da lista de sugestões a qualquer momento pelo × do item.
+   */
+  const LS_TRANSPORTADORAS_KEY = 'portaria_transportadoras';
+
+  function _carregarTransportadoras() {
+    try { return JSON.parse(localStorage.getItem(LS_TRANSPORTADORAS_KEY) || '[]'); }
+    catch(e) { return []; }
+  }
+
+  function _salvarTransportadora(nome) {
+    nome = (nome || '').toUpperCase().trim();
+    if (!nome) return;
+    let lista = _carregarTransportadoras();
+    if (!lista.includes(nome)) {
+      lista.push(nome);
+      lista.sort();
+      if (lista.length > 200) lista = lista.slice(0, 200); // limite de segurança
+      localStorage.setItem(LS_TRANSPORTADORAS_KEY, JSON.stringify(lista));
+    }
+  }
+
+  function _removerTransportadora(nome) {
+    const lista = _carregarTransportadoras().filter(t => t !== nome);
+    localStorage.setItem(LS_TRANSPORTADORAS_KEY, JSON.stringify(lista));
+  }
+
+  function _renderAcTransportadora(itens) {
+    const cont = document.getElementById('acTransportadoraLista');
+    if (!cont) return;
+    if (itens.length === 0) { cont.classList.remove('visivel'); cont.innerHTML = ''; return; }
+    cont.innerHTML = itens.slice(0, 8).map(nome => {
+      const nomeEsc = nome.replace(/'/g, "\\'");
+      return `<div class="autocomplete-item" style="justify-content:space-between;" onmousedown="acTransportadoraSelecionar('${nomeEsc}')">
+        <span style="font-size:0.78rem;font-weight:600;color:var(--text-main);">${nome}</span>
+        <button onmousedown="event.stopPropagation();acTransportadoraExcluir('${nomeEsc}')" title="Remover das sugestões" style="background:none;border:none;color:var(--text-muted);font-size:1rem;font-weight:700;cursor:pointer;padding:2px 6px;line-height:1;flex-shrink:0;">×</button>
+      </div>`;
+    }).join('');
+    cont.classList.add('visivel');
+  }
+
+  function acTransportadoraInput(valor) {
+    const q = (valor || '').toUpperCase().trim();
+    const lista = _carregarTransportadoras();
+    const filtradas = q ? lista.filter(t => t.includes(q)) : lista;
+    _renderAcTransportadora(filtradas);
+  }
+
+  function acTransportadoraSelecionar(nome) {
+    document.getElementById('t_ent').value = nome;
+    const cont = document.getElementById('acTransportadoraLista');
+    if (cont) cont.classList.remove('visivel');
+  }
+
+  function acTransportadoraExcluir(nome) {
+    _removerTransportadora(nome);
+    acTransportadoraInput(document.getElementById('t_ent').value);
+  }
+
+  function acTransportadoraFechar() {
+    // Pequeno delay para o onmousedown do item (seleção ou ×) disparar antes de sumir
+    setTimeout(() => {
+      const cont = document.getElementById('acTransportadoraLista');
+      if (cont) cont.classList.remove('visivel');
+    }, 200);
+  }
+  /* ===================== FIM AUTOCOMPLETE TRANSPORTADORA ===================== */
+
   /* ===================== PS4 CARD PULSE ===================== */
   function pulsarCard(tipo) {
     const card = document.querySelector(`.mini-card[data-tipo="${tipo}"]`);
@@ -5359,20 +5720,84 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   function toggleDiversos() {
     _diversosAberto = !_diversosAberto;
     const lista = document.getElementById('listaDiversos');
-    const arrow = document.getElementById('arrowUp');
     if (_diversosAberto) {
       lista.style.maxHeight = lista.scrollHeight + 400 + 'px';
-      arrow.textContent = '\u2193'; // ↓
-      arrow.classList.add('arrow-pulse');
     } else {
       lista.style.maxHeight = '0';
-      arrow.textContent = '\u2191'; // ↑
-      if (veiculosDiversos.length > 0) arrow.classList.add('arrow-pulse');
-      else arrow.classList.remove('arrow-pulse');
     }
   }
 
   /* ===================== CONTAGENS ===================== */
+  // Extrai só o horário (HH:MM) de uma string tipo "dd/mm/aaaa hh:mm" ou já "hh:mm"
+  function _horaCurta(str) {
+    if (!str) return '';
+    const s = String(str).trim();
+    if (!s) return '';
+    if (s.includes(' ')) {
+      const t = s.split(' ')[1];
+      return t ? t.slice(0,5) : '';
+    }
+    if (s.includes(':')) return s.slice(0,5);
+    return '';
+  }
+
+  /* ===================== PERSONALIZAÇÃO DE CORES — CARD DIVERSOS ===================== */
+  const LS_COR_DIVERSOS = 'portaria_cor_diversos';
+  function _hexToRgba(hex, alpha) {
+    let h = (hex || '#d97706').replace('#','');
+    if (h.length === 3) h = h.split('').map(c => c+c).join('');
+    const r = parseInt(h.substring(0,2), 16) || 0;
+    const g = parseInt(h.substring(2,4), 16) || 0;
+    const b = parseInt(h.substring(4,6), 16) || 0;
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+  function toggleCorDiversosPainel() {
+    const p = document.getElementById('painelCorDiversos');
+    if (!p) return;
+    p.style.display = (p.style.display === 'none' || !p.style.display) ? 'block' : 'none';
+  }
+  function filtrarDiversos() {
+    const termo = (document.getElementById('buscaDiversos')?.value || '').trim().toUpperCase();
+    document.querySelectorAll('#detalheDiversos [data-placa]').forEach(row => {
+      const busca = row.dataset.busca || '';
+      row.style.display = (!termo || busca.includes(termo)) ? '' : 'none';
+    });
+  }
+  function aplicarCorDiversos(salvar = true) {
+    const texto = document.getElementById('corDiversosTexto').value;
+    const faixa = document.getElementById('corDiversosFaixa').value;
+    const card = document.getElementById('cardDiversos');
+    if (!card) return;
+    card.style.setProperty('--diversos-cor-texto', texto);
+    card.style.setProperty('--diversos-cor-faixa', faixa);
+    card.style.borderBottomColor = faixa;
+    if (salvar) localStorage.setItem(LS_COR_DIVERSOS, JSON.stringify({ texto, faixa }));
+    // Repinta os balões de produto com a nova cor
+    if (typeof veiculosDiversos !== 'undefined') atualizarDetalhesProdutos();
+  }
+  function resetCorDiversos() {
+    document.getElementById('corDiversosTexto').value = '#d97706';
+    document.getElementById('corDiversosFaixa').value = '#d97706';
+    aplicarCorDiversos();
+  }
+  function carregarCorDiversos() {
+    try {
+      const salvo = JSON.parse(localStorage.getItem(LS_COR_DIVERSOS) || 'null');
+      if (salvo) {
+        document.getElementById('corDiversosTexto').value = salvo.texto || '#d97706';
+        document.getElementById('corDiversosFaixa').value = salvo.faixa || '#d97706';
+      }
+      aplicarCorDiversos(false);
+    } catch(e) {}
+  }
+  document.addEventListener('click', (e) => {
+    const p = document.getElementById('painelCorDiversos');
+    const btn = document.getElementById('btnCorDiversos');
+    if (p && p.style.display === 'block' && !p.contains(e.target) && e.target !== btn) {
+      p.style.display = 'none';
+    }
+  });
+
   function atualizarDetalhesProdutos(tipoPulsado) {
     const anteriorPatio = parseInt(document.getElementById('contPatio').innerText) || 0;
     const anteriorCarga = parseInt(document.getElementById('contCarga').innerText) || 0;
@@ -5380,6 +5805,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
     document.getElementById('contPatio').innerText = veiculosPatio.length;
     document.getElementById('contCarga').innerText = veiculosCarregados.length;
+    const contDivEl = document.getElementById('contDiversos');
+    if (contDivEl) contDivEl.innerText = veiculosDiversos.length;
 
     // Pátio — pills de produto
     const patioPorProd = {};
@@ -5417,38 +5844,53 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
     // ── Diversos (descarregados) ──────────────────────────────
     const cardDiv = document.getElementById('cardDiversos');
-    const arrowUp = document.getElementById('arrowUp');
     if (veiculosDiversos.length > 0) {
       // Só mostra o card se estivermos na aba Histórico
       if (cardDiv && cardDiv.dataset.histMode === '1') {
         cardDiv.style.display = '';
       }
-      // Pills: só o nome do produto, estilo padrão laranja
-      const todosProds = [...new Set(veiculosDiversos.map(v => v.produto||'---'))].sort();
-      const pillsDiv = todosProds
-        .map(p => `<span class="prod-pill" style="background:rgba(217,119,6,0.15);color:#d97706;border:1px solid rgba(217,119,6,0.4);font-weight:800;">${p}</span>`).join('');
+      // Pills: quantidade por produto — mesmo padrão dos cards "No Pátio" e "Carregados"
+      const diversosPorProd = {};
+      veiculosDiversos.forEach(v => { diversosPorProd[v.produto||'---'] = (diversosPorProd[v.produto||'---']||0)+1; });
+      const _corDivAtual = (getComputedStyle(document.getElementById('cardDiversos')).getPropertyValue('--diversos-cor-texto') || '#d97706').trim();
+      const pillsDiv = Object.entries(diversosPorProd).sort((a,b)=>b[1]-a[1])
+        .map(([p,q]) => `<span class="prod-pill" style="background:${_hexToRgba(_corDivAtual,0.15)};color:${_corDivAtual};border:1px solid ${_hexToRgba(_corDivAtual,0.4)};font-weight:800;">${q} ${p}</span>`).join('');
       document.getElementById('resumoDiversos').innerHTML = pillsDiv || '';
-      // Detalhe: "1 ureia - cibra" + status à direita
+      // Detalhe: placa, motorista, hora de entrada/saída e NFe/observação, com status à direita
       const sorted = [...veiculosDiversos].sort((a,b) => (a.produto||'').localeCompare(b.produto||''));
       let htmlDiv = '';
       sorted.forEach(v => {
         const isConcluido = v.status === 'CONCLUIDO';
         const statusHtml = isConcluido
           ? `<span style="color:var(--success);font-weight:800;font-size:0.58rem;">✓ Concluído</span>`
-          : `<span class="status-flip-wrap" style="color:#b45309;font-weight:800;font-size:0.58rem;">
-               <span class="status-flip-sizer">A descarregar</span>
-               <span class="status-flip-item">A descarregar</span>
-               <span class="status-flip-item flip-b">Descarregado</span>
-             </span>`;
-        htmlDiv += `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);">
-          <span style="font-size:0.68rem;color:var(--text-main);font-weight:600;">1 ${v.produto||'---'} — ${v.transportadora||'---'}</span>
-          <span style="margin-left:8px;flex-shrink:0;">${statusHtml}</span>
+          : `<span style="color:#b45309;font-weight:800;font-size:0.58rem;">A descarregar</span>`;
+        const horaEntrada = _horaCurta(v.dataEntrada);
+        const horaSaida = _horaCurta(v.dataSaida || v.horaSaida || v.saida || v.dataSaída || v['DATA SAÍDA'] || v['SAIDA']);
+        const obsVal = v.observacao || v.obs || v.observação || v['OBSERVAÇÃO'] || v['OBSERVACAO'] || '';
+        let nfeObsLinha = '';
+        if (v.nfe) nfeObsLinha = `NFe: ${v.nfe}`;
+        else if (obsVal) nfeObsLinha = `Obs/NFe: ${obsVal}`;
+        const btnChamar = (!isConcluido && perfilAtual !== 'portaria')
+          ? `<button class="btn-chamar" onclick="chamarVeiculoEl(this)" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.36 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg>Chamar</button>`
+          : '';
+        const btnSaidaDescarga = !isConcluido
+          ? `<button class="btn-registrar-saida" onclick="registrarSaidaDescarga(this,'${v.placa||''}')" style="margin-top:4px;margin-left:6px;">⬇ Registrar Saída</button>`
+          : '';
+        htmlDiv += `<div data-placa="${v.placa||''}" data-motorista="${v.motorista||''}" data-busca="${`${v.placa||''} ${v.motorista||''} ${v.produto||''} ${v.transportadora||''} ${v.nfe||''} ${obsVal}`.toUpperCase()}" style="padding:5px 0;border-bottom:1px solid var(--border);">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.7rem;font-weight:800;color:var(--text-main);font-family:'JetBrains Mono',monospace;letter-spacing:0.3px;">${v.placa||'---'}</span>
+            <span style="margin-left:8px;flex-shrink:0;">${statusHtml}</span>
+          </div>
+          <div style="font-size:0.66rem;color:var(--text-main);font-weight:600;margin-top:1px;">${v.produto||'---'} — ${v.transportadora||'---'}</div>
+          <div style="font-size:0.6rem;color:var(--text-muted);font-weight:500;margin-top:1px;">
+            Mot: ${v.motorista||'---'}${horaEntrada ? ` · Entrada: ${horaEntrada}` : ''}${horaSaida ? ` · Saída: ${horaSaida}` : ''}
+          </div>
+          ${nfeObsLinha ? `<div style="font-size:0.6rem;color:var(--text-muted);font-weight:500;margin-top:1px;">${nfeObsLinha}</div>` : ''}
+          ${btnChamar}${btnSaidaDescarga}
         </div>`;
       });
       document.getElementById('detalheDiversos').innerHTML = htmlDiv || '';
-      // Seta pulsa se houver dados e lista estiver fechada
-      if (!_diversosAberto) arrowUp.classList.add('arrow-pulse');
-      else arrowUp.classList.remove('arrow-pulse');
+      filtrarDiversos(); // reaplica o termo de busca atual (se houver) após atualizar a lista
       // Reajusta altura se aberto
       if (_diversosAberto) {
         const lista = document.getElementById('listaDiversos');
@@ -5456,7 +5898,6 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       }
     } else {
       cardDiv.style.display = 'none';
-      arrowUp.classList.remove('arrow-pulse');
     }
 
     // Dispara sweep somente quando o número realmente mudou
@@ -5535,6 +5976,28 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // Normaliza status de todos os registros (inclui A DESCARREGAR)
     dados.forEach(r => { r.status = normalizarStatus(r.status); });
 
+    // ===== CORREÇÃO DO "VOLTA A CARREGANDO" NO AGUARDANDO NFE =====
+    // Quando a balança clica "Aguard. NFe", a tela muda na hora (otimista),
+    // mas a planilha (Apps Script) demora um pouco pra realmente gravar essa
+    // mudança. Enquanto isso, o app continua puxando a planilha a cada poucos
+    // segundos — e se esse "puxar" acontecer ANTES da planilha terminar de
+    // gravar, ele vê o status antigo (CARREGANDO) e desfaz a mudança na tela.
+    // Aqui a gente "seleciona" esse status por alguns segundos: mesmo que a
+    // planilha ainda não tenha alcançado, mantemos AGUARDANDO NFE na tela até
+    // ela realmente confirmar (ou até o prazo de segurança expirar).
+    dados.forEach(r => {
+      const placaNorm = (r.placa || '').toUpperCase().trim();
+      const _ov = _statusOverrideRecente[placaNorm];
+      if (!_ov) return;
+      if (Date.now() > _ov.expiraEm) {
+        delete _statusOverrideRecente[placaNorm]; // prazo esgotado, passa a confiar na planilha normalmente
+      } else if (r.status !== _ov.status) {
+        r.status = _ov.status; // planilha ainda não alcançou — mantém o valor aplicado localmente
+      } else {
+        delete _statusOverrideRecente[placaNorm]; // planilha já confirmou — override não é mais necessário
+      }
+    });
+
     // Promoção de status: se a planilha devolveu PÁTIO mas o campo descarregar=SIM,
     // o frontend trata como A DESCARREGAR (garante compatibilidade com planilhas legadas)
     dados.forEach(r => {
@@ -5609,9 +6072,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         veiculosPatio.push(r);
         addHist(r, 'ENTRADA', r.dataEntrada);
       } else if (r.status === 'A DESCARREGAR' || r.status === 'DESCARREGANDO') {
-        // Aparece no histórico E no card Descarregados
+        // Fica só no card Diversos — não aparece mais misturado na lista principal do histórico
         veiculosDiversos.push(r);
-        addHist(r, 'ENTRADA', r.dataEntrada);
       } else if (r.status === 'CONCLUIDO') {
         // Sai do histórico — fica só no card Descarregados (some após 19h)
         if (!ocultarSaidas) {
@@ -5641,24 +6103,11 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       }
     });
 
-    // ── Reordenar histórico: produto alfabético, dentro do produto por chegada cronológica ──
-    const tbodyDia = document.querySelector("#tabDia tbody");
-    const linhasPrincipais = Array.from(tbodyDia.querySelectorAll('tr:not(.obs-row-full)'));
-    // Vincula cada obs à sua tr pelo data-obsplaca (imune a reordenação do DOM)
-    const pares = linhasPrincipais.map(tr => ({
-      tr,
-      obs: tbodyDia.querySelector(`tr.obs-row-full[data-obsplaca="${tr.dataset.placa}"]`) || null
-    }));
-    pares.sort((a, b) => {
-      const pa = (a.tr.dataset.produto || '').toUpperCase();
-      const pb = (b.tr.dataset.produto || '').toUpperCase();
-      if (pa !== pb) return pa.localeCompare(pb, 'pt-BR');
-      return (parseInt(a.tr.dataset.chegadats) || 0) - (parseInt(b.tr.dataset.chegadats) || 0);
-    });
-    pares.forEach(({ tr, obs }) => {
-      tbodyDia.appendChild(tr);
-      if (obs) tbodyDia.appendChild(obs);
-    });
+    // ── Reordenar histórico: agrupado por produto (ordem escolhida pelo usuário no
+    // painel "Ordem de exibição", com fallback alfabético para produtos sem
+    // preferência salva) e, dentro de cada produto, mais antigo/recente primeiro
+    // conforme a direção escolhida no mesmo painel ──
+    _reordenarLinhasHistorico();
 
     atualizarDetalhesProdutos();
     atualizarBarraTurno();
@@ -5798,7 +6247,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   }
 
   /* ===================== BUSCA HISTÓRICO ===================== */
-  let _histOrdemDesc = true; // true = último primeiro (padrão)
+  const LS_ORDEM_DIRECAO_KEY = 'portaria_ordem_direcao';
+  const LS_ORDEM_PRODUTOS_KEY = 'portaria_ordem_produtos';
+  let _histOrdemDesc = (localStorage.getItem(LS_ORDEM_DIRECAO_KEY) ?? '1') === '1'; // true = mais recente no topo (padrão)
 
   function filtrarHistorico(val) {
     const q = val.toUpperCase().trim();
@@ -5807,20 +6258,162 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     });
   }
 
-  function toggleOrdemHistorico() {
-    _histOrdemDesc = !_histOrdemDesc;
-    const btn = document.getElementById('btnSortHist');
-    if (btn) {
-      btn.classList.toggle('desc', _histOrdemDesc);
-      btn.title = _histOrdemDesc ? 'Mais recente primeiro' : 'Mais antigo primeiro';
+  function _carregarOrdemProdutos() {
+    try { return JSON.parse(localStorage.getItem(LS_ORDEM_PRODUTOS_KEY) || '[]'); }
+    catch(e) { return []; }
+  }
+
+  // Junta os produtos que aparecem atualmente no histórico (pátio + carregados +
+  // diversos), respeitando a ordem já escolhida pelo usuário e colocando
+  // produtos novos (sem preferência salva ainda) em ordem alfabética no final.
+  function _produtosParaPainelOrdem() {
+    const nomes = new Set();
+    [...veiculosPatio, ...veiculosCarregados, ...veiculosDiversos].forEach(v => { if (v.produto) nomes.add(v.produto); });
+    const todos = [...nomes];
+    const salvos = _carregarOrdemProdutos();
+    const emOrdem = salvos.filter(n => todos.includes(n));
+    const novos = todos.filter(n => !salvos.includes(n)).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return [...emOrdem, ...novos];
+  }
+
+  /* ===================== PAINEL "ORDEM DE EXIBIÇÃO" ===================== */
+  function abrirOrdemExibicao() {
+    const nomes = _produtosParaPainelOrdem();
+    const lista = document.getElementById('listaOrdemProdutos');
+    if (nomes.length === 0) {
+      lista.innerHTML = `<div style="text-align:center;padding:20px 10px;color:var(--text-muted);font-size:0.72rem;">Nenhum produto no histórico ainda.</div>`;
+    } else {
+      lista.innerHTML = nomes.map(nome => `
+        <div class="ordem-prod-item" data-produto="${nome.replace(/"/g, '&quot;')}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;touch-action:none;">
+          <span onpointerdown="_iniciarDragOrdem(event, this.parentElement)" style="cursor:grab;color:var(--text-muted);font-size:1.05rem;line-height:1;user-select:none;">≡</span>
+          <span style="font-size:0.76rem;font-weight:700;color:var(--text-main);flex:1;">${nome}</span>
+        </div>
+      `).join('');
     }
-    // Inverte a ordem das linhas em cada tbody
-    ['tabDia', 'tabNoite'].forEach(id => {
-      const tbody = document.querySelector(`#${id} tbody`);
-      if (!tbody) return;
-      const rows = Array.from(tbody.querySelectorAll('tr'));
-      rows.reverse().forEach(tr => tbody.appendChild(tr));
+    const radioAntigo = document.getElementById('radioOrdemAntigo');
+    const radioRecente = document.getElementById('radioOrdemRecente');
+    if (radioAntigo && radioRecente) {
+      radioAntigo.checked = !_histOrdemDesc;
+      radioRecente.checked = _histOrdemDesc;
+    }
+    document.getElementById('modalOrdemExibicao').classList.add('ativo');
+  }
+
+  // Salva a ordem (só acontece ao fechar — nada é aplicado enquanto arrasta)
+  function fecharOrdemExibicao() {
+    const itens = Array.from(document.querySelectorAll('#listaOrdemProdutos .ordem-prod-item'));
+    if (itens.length > 0) {
+      const novaOrdem = itens.map(el => el.dataset.produto);
+      localStorage.setItem(LS_ORDEM_PRODUTOS_KEY, JSON.stringify(novaOrdem));
+    }
+    const radioRecente = document.getElementById('radioOrdemRecente');
+    if (radioRecente) {
+      _histOrdemDesc = radioRecente.checked;
+      localStorage.setItem(LS_ORDEM_DIRECAO_KEY, _histOrdemDesc ? '1' : '0');
+    }
+    const btn = document.getElementById('btnSortHist');
+    if (btn) btn.classList.toggle('desc', _histOrdemDesc);
+    fecharModal('modalOrdemExibicao');
+    _reordenarLinhasHistorico(); // reaplica a nova ordem na tabela na hora, sem esperar o próximo refresh
+  }
+
+  // Reordena as linhas já renderizadas no #tabDia conforme a preferência salva.
+  // Chamada tanto ao fechar o painel quanto a cada refresh de dados (processarDados).
+  function _reordenarLinhasHistorico() {
+    const tbodyDia = document.querySelector("#tabDia tbody");
+    if (!tbodyDia) return;
+    const linhasPrincipais = Array.from(tbodyDia.querySelectorAll('tr:not(.obs-row-full)'));
+    const pares = linhasPrincipais.map(tr => ({
+      tr,
+      obs: tbodyDia.querySelector(`tr.obs-row-full[data-obsplaca="${tr.dataset.placa}"]`) || null
+    }));
+    const ordemSalva = _carregarOrdemProdutos();
+    const idxOrdemProduto = (nome) => {
+      const i = ordemSalva.indexOf(nome);
+      return i === -1 ? Infinity : i;
+    };
+    pares.sort((a, b) => {
+      const pa = (a.tr.dataset.produto || '').toUpperCase();
+      const pb = (b.tr.dataset.produto || '').toUpperCase();
+      if (pa !== pb) {
+        const ia = idxOrdemProduto(pa), ib = idxOrdemProduto(pb);
+        if (ia !== ib) return ia - ib; // ordem escolhida manualmente tem prioridade
+        return pa.localeCompare(pb, 'pt-BR'); // sem preferência salva: alfabético
+      }
+      const chA = parseInt(a.tr.dataset.chegadats) || 0;
+      const chB = parseInt(b.tr.dataset.chegadats) || 0;
+      return _histOrdemDesc ? (chB - chA) : (chA - chB);
     });
+    pares.forEach(({ tr, obs }) => {
+      tbodyDia.appendChild(tr);
+      if (obs) tbodyDia.appendChild(obs);
+    });
+  }
+
+  // ── Arraste (funciona com mouse e toque, via Pointer Events) ──
+  // Estratégia sem "tremedeira": durante o arraste, SÓ o item arrastado se move
+  // (segue o dedo suavemente com transform, sem reordenar nada no meio do
+  // caminho). A troca de posição de verdade acontece uma única vez, no
+  // momento de soltar — comparando com a posição ORIGINAL dos outros itens
+  // (que não mudou durante o arraste, então não tem efeito cascata/oscilação).
+  let _dragState = null;
+
+  function _iniciarDragOrdem(e, itemEl) {
+    e.preventDefault();
+    const lista = document.getElementById('listaOrdemProdutos');
+    const itensOriginais = Array.from(lista.querySelectorAll('.ordem-prod-item')).map(el => {
+      const r = el.getBoundingClientRect();
+      return { el, top: r.top, height: r.height };
+    });
+    _dragState = { el: itemEl, startY: e.clientY, lista, itensOriginais, alvoAtual: null };
+    itemEl.style.position = 'relative';
+    itemEl.style.zIndex = '50';
+    itemEl.style.boxShadow = '0 6px 16px rgba(0,0,0,.22)';
+    itemEl.style.pointerEvents = 'none';
+    itemEl.setPointerCapture?.(e.pointerId);
+    document.addEventListener('pointermove', _moverDragOrdem);
+    document.addEventListener('pointerup', _soltarDragOrdem);
+    document.addEventListener('pointercancel', _soltarDragOrdem);
+  }
+
+  function _acharAlvoDrop(y) {
+    // Acha, entre as posições ORIGINAIS (congeladas no início do arraste),
+    // qual item está logo abaixo do ponto Y atual — é ali que o item solto vai entrar.
+    for (const it of _dragState.itensOriginais) {
+      if (it.el === _dragState.el) continue;
+      if (y < it.top + it.height / 2) return it.el;
+    }
+    return null; // soltar depois do último = vai pro final da lista
+  }
+
+  function _moverDragOrdem(e) {
+    if (!_dragState) return;
+    const delta = e.clientY - _dragState.startY;
+    _dragState.el.style.transform = `translateY(${delta}px)`;
+    // Só um destaque visual de "vai entrar aqui" — não mexe em nenhum outro item de verdade
+    const alvo = _acharAlvoDrop(e.clientY);
+    if (alvo !== _dragState.alvoAtual) {
+      if (_dragState.alvoAtual) _dragState.alvoAtual.style.borderTop = '';
+      if (alvo) alvo.style.borderTop = '2px solid var(--accent)';
+      _dragState.alvoAtual = alvo;
+    }
+  }
+
+  function _soltarDragOrdem(e) {
+    if (!_dragState) return;
+    const { el, lista, alvoAtual } = _dragState;
+    if (alvoAtual) alvoAtual.style.borderTop = '';
+    el.style.position = '';
+    el.style.zIndex = '';
+    el.style.boxShadow = '';
+    el.style.pointerEvents = '';
+    el.style.transform = '';
+    if (alvoAtual) lista.insertBefore(el, alvoAtual);
+    else lista.appendChild(el);
+    _dragState = null;
+    document.removeEventListener('pointermove', _moverDragOrdem);
+    document.removeEventListener('pointerup', _soltarDragOrdem);
+    document.removeEventListener('pointercancel', _soltarDragOrdem);
   }
 
   /* ===================== CHAMADAS ===================== */
@@ -6252,6 +6845,24 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   }
 
   /* ===================== ENTRADA ===================== */
+  // Limpa o formulário de entrada — usado tanto no sucesso quanto quando o
+  // registro é salvo na fila offline (nos dois casos o dado está seguro).
+  function _resetFormEntrada() {
+    document.getElementById('p_ent').value = "";
+    document.getElementById('m_ent').value = "";
+    document.getElementById('t_ent').value = "";
+    document.getElementById('obs_ent').value = "";
+    document.getElementById('edit_mode').value = "false";
+    document.getElementById('placa_original').value = "";
+    document.getElementById('tituloEntradaTexto').innerText = "Nova Entrada";
+    document.getElementById('headerEntrada').classList.remove('modo-edicao');
+    const chk = document.getElementById('chk_descarregar');
+    if (chk) chk.checked = false;
+    const campoChk = document.getElementById('campoDescarregar');
+    if (campoChk) campoChk.classList.remove('marcado');
+    _aplicarRegraGatilho();
+  }
+
   async function registrarEntrada() {
     const btn = document.getElementById('btnEnt');
     const isEdit = document.getElementById('edit_mode').value === "true";
@@ -6273,6 +6884,36 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       await mostrarDialog({ icone: '🚛', titulo: 'Placa obrigatória', msg: 'Informe a placa do veículo antes de salvar.', botoes: [{ texto: 'OK', tipo: 'ok' }] });
       return;
     }
+
+    // ===== ANTI-DUPLICIDADE =====
+    // Detecta se essa placa já tem um registro EM ABERTO (ainda não teve saída
+    // registrada). Isso costuma acontecer quando o caminhão descarrega, depois
+    // volta na sequência pra carregar outro produto, e a saída da operação
+    // anterior nunca foi registrada — aí a "Nova Entrada" cria um SEGUNDO
+    // registro ativo pra mesma placa (às vezes até com data antiga, se o
+    // registro anterior for de um dia que não foi encerrado).
+    //
+    // IMPORTANTE: a checagem usa os arrays já carregados da PLANILHA
+    // (veiculosPatio/veiculosDiversos/veiculosAguardandoNfeBusca — atualizados
+    // a cada poucos segundos por carregarEstado), e NÃO o Firestore. O
+    // Firestore é só um mensageiro em tempo real; quando uma saída é
+    // registrada, o app tenta apagar o documento de lá também, mas isso é
+    // "melhor esforço" — se falhar silenciosamente, fica um registro
+    // "fantasma" no Firestore mesmo que a planilha já esteja correta e com a
+    // saída registrada. Checar a planilha evita esses falsos positivos.
+    if (!isEdit) {
+      const docAntigo = _buscarRegistroAbertoNaPlanilha(d.placa);
+      if (docAntigo) {
+        const confirmar = await mostrarDialog({
+          icone: '⚠️',
+          titulo: 'Essa placa já tem registro em aberto',
+          msg: `A placa ${d.placa} já está com status "${docAntigo.status}"${docAntigo.produto ? ' — ' + docAntigo.produto : ''}${docAntigo.dataEntrada ? ', entrada em ' + docAntigo.dataEntrada : ''}. Isso costuma acontecer quando a saída anterior não foi registrada.\n\nSe o caminhão voltou pra fazer outra operação (ex: descarregou e agora vai carregar outro produto), confirme a saída do registro anterior primeiro para não duplicar. Quer criar essa nova entrada mesmo assim?`,
+          botoes: [{ texto: 'Cancelar', tipo: 'cancelar' }, { texto: 'Criar mesmo assim', tipo: 'ok' }]
+        });
+        if (!confirmar) return;
+      }
+    }
+
     // Botão vivo
     const btnOriginalText = btn.innerText;
     btn.disabled = true;
@@ -6284,29 +6925,25 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     setStatusEnt('enviando', '📡 Dados subindo...');
 
     const enviar = async () => {
-      // IMPORTANTE: Firebase + notificação disparam PRIMEIRO e de forma independente.
-      // Antes, isso só rodava DEPOIS do fetch pra planilha (Apps Script) terminar —
-      // se esse fetch falhasse/travasse dentro do WebView nativo do Android, a
-      // notificação nunca era nem tentada, mesmo com internet normal. Agora a
-      // planilha é "melhor esforço": tentamos em paralelo, mas se falhar, só loga
-      // um aviso — nunca bloqueia nem impede a entrada/notificação de irem pro ar.
+      // Guarda o nome da transportadora localmente pra sugerir nas próximas
+      // entradas — independe de a planilha confirmar ou não, o nome já foi
+      // digitado e vale a pena lembrar dele no aparelho.
+      _salvarTransportadora(d.transportadora);
+      // Firebase + notificação disparam PRIMEIRO e de forma independente — não
+      // esperam a planilha, então nunca ficam reféns de uma rede lenta/ruim.
+      // O Firestore já tem persistência offline própria (enableIndexedDbPersistence),
+      // então mesmo sem internet esse lado se resolve sozinho quando reconectar.
       if (isEdit) { _fbEditar(d); } else {
         _fbEntrada(d);
-        // Notifica admin e balanca sobre nova entrada
         _notificarNovaEntrada(d.placa, d.motorista, d.produto);
       }
-      // Planilha (Apps Script) — melhor esforço, não bloqueia o fluxo principal
-      fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(d) })
-        .catch(e => console.warn('[Planilha] Falha ao sincronizar com Apps Script (não afeta Firebase/notificação):', e));
+      // Planilha (Apps Script) — agora É REALMENTE AGUARDADA, com timeout curto.
+      // Se falhar de verdade (sem rede, rede ruim/travada, timeout), o erro sobe
+      // e cai no catch abaixo, que garante o registro na fila offline.
+      await enviarPlanilha(d);
     };
 
     try {
-      // IMPORTANTE: não usamos mais "if (!navigator.onLine)" pra decidir se tenta enviar.
-      // Essa API é conhecida por reportar "offline" errado dentro de WebViews Android
-      // (o motor do Capacitor), mesmo com internet funcionando — quando isso acontece,
-      // o app pulava direto pra fila local e a notificação de nova entrada nunca disparava.
-      // Agora sempre tentamos enviar primeiro; só cai na fila offline se o envio
-      // realmente falhar (erro de rede de verdade).
       await enviar();
       vibrar(60);
       pulsarCard('patio');
@@ -6322,32 +6959,28 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       }
       setStatusEnt('sucesso', '✅ Salvo com sucesso!');
       setTimeout(() => setStatusEnt(null), 2500);
-      document.getElementById('p_ent').value = "";
-      document.getElementById('m_ent').value = "";
-      document.getElementById('t_ent').value = "";
-      document.getElementById('obs_ent').value = "";
-      document.getElementById('edit_mode').value = "false";
-      document.getElementById('placa_original').value = "";
-      document.getElementById('tituloEntradaTexto').innerText = "Nova Entrada";
-      document.getElementById('headerEntrada').classList.remove('modo-edicao');
-      // Reseta checkbox e regra de descarga
-      const chk = document.getElementById('chk_descarregar');
-      if (chk) chk.checked = false;
-      const campoChk = document.getElementById('campoDescarregar');
-      if (campoChk) campoChk.classList.remove('marcado');
-      _aplicarRegraGatilho();
+      _resetFormEntrada();
       carregarEstado();
     } catch(e) {
-      // Qualquer falha no envio (offline de verdade ou erro transitório) → guarda local
-      console.error('[Entrada] Falha ao enviar:', e);
+      // Qualquer falha real no envio à planilha (sem rede, rede ruim, timeout) →
+      // guarda na fila offline (IndexedDB, com fallback em localStorage). O
+      // Firebase/notificação já dispararam acima independentemente do que
+      // acontecer aqui, então nada se perde.
+      console.warn('[Entrada] Planilha falhou, guardando na fila offline:', e);
+      let salvoLocal = true;
       try { await idbAdicionarPendente(d); }
-      catch(e2) { console.error('[Entrada] Falha TAMBÉM ao salvar localmente (IndexedDB):', e2); }
-      const _msgErro = _serializarErro(e);
-      // TEMPORÁRIO (diagnóstico): mostra o erro real na tela por mais tempo,
-      // pra conseguir ler/fotografar sem precisar de PC/ADB.
-      setStatusEnt('erro', `⚠️ ${_msgErro}`.slice(0, 140));
-      if (typeof mostrarToast === 'function') mostrarToast(`⚠️ Falha ao enviar entrada: ${_msgErro}`, 'error', 12000);
-      setTimeout(() => setStatusEnt(null), 12000);
+      catch(e2) { salvoLocal = false; console.error('[Entrada] Falha TAMBÉM ao salvar localmente (IndexedDB):', e2); }
+      if (salvoLocal) {
+        setStatusEnt('sucesso', '📴 Salvo localmente — envia sozinho quando a conexão melhorar');
+        if (typeof mostrarToast === 'function') mostrarToast(`📴 ${d.placa} salvo — será sincronizado automaticamente`, 'info', 6000);
+        setTimeout(() => setStatusEnt(null), 6000);
+        _resetFormEntrada();
+      } else {
+        const _msgErro = _serializarErro(e);
+        setStatusEnt('erro', `⚠️ ${_msgErro}`.slice(0, 140));
+        if (typeof mostrarToast === 'function') mostrarToast(`⚠️ Falha ao enviar entrada: ${_msgErro}`, 'error', 12000);
+        setTimeout(() => setStatusEnt(null), 12000);
+      }
       atualizarContadorIDB();
     } finally {
       btn.disabled = false;
@@ -6376,12 +7009,24 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
                  || veiculosAguardandoNfeBusca.find(v => v.placa === placa);
     const payload = { placa, nfe, acao:"SAIDA" };
     try {
-      // Mesmo ajuste do registrarEntrada: Firebase dispara primeiro e de forma
-      // independente; a planilha (Apps Script) é melhor esforço, em paralelo,
-      // e uma falha nela não trava mais o resto do fluxo.
+      // Firebase dispara primeiro, de forma independente — já tem persistência
+      // offline própria (enableIndexedDbPersistence) e se resolve sozinho.
       _fbSaida(placa, nfe); // deleta docs do veículo e limpa nfeok/ativas
-      fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(payload) })
-        .catch(e => console.warn('[Planilha] Falha ao sincronizar com Apps Script (não afeta Firebase):', e));
+
+      // Planilha: agora REALMENTE aguardada, com timeout curto. Se falhar de
+      // verdade (sem rede, rede ruim, timeout), cai na fila offline — mas isso
+      // não trava o restante do fluxo: o caminhão já saiu fisicamente, então a
+      // interface segue normalmente, só avisando que a sincronização é posterior.
+      let avisoOffline = false;
+      try {
+        await enviarPlanilha(payload);
+      } catch (ePlanilha) {
+        console.warn('[Saída] Planilha falhou, guardando na fila offline:', ePlanilha);
+        try { await idbAdicionarPendente(payload); avisoOffline = true; }
+        catch(e2) { console.error('[Saída] Falha TAMBÉM ao salvar localmente (IndexedDB):', e2); throw ePlanilha; }
+        atualizarContadorIDB();
+      }
+
       try {
         const _s1 = _ssNfeOkGet(_SS_NFE_OK_KEY);
         _s1.delete(placa);
@@ -6395,7 +7040,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       document.getElementById('preview_saida').style.display = 'none';
       const fb = document.getElementById('feedbackSaida');
       fb.style.display = 'block';
-      fb.innerHTML = `✅ Saída registrada: <b>${placa}</b>${veiculo ? ` — ${veiculo.motorista||''} — ${veiculo.produto||''}` : ''}`;
+      fb.innerHTML = avisoOffline
+        ? `📴 Saída salva localmente: <b>${placa}</b>${veiculo ? ` — ${veiculo.motorista||''} — ${veiculo.produto||''}` : ''} — envia sozinha quando a conexão melhorar`
+        : `✅ Saída registrada: <b>${placa}</b>${veiculo ? ` — ${veiculo.motorista||''} — ${veiculo.produto||''}` : ''}`;
       vibrar([50, 30, 100]);
       // AGUARDANDO NFE que sai NÃO altera o card do dia atual (regra: saída de outro dia não conta)
       // apenas remove da lista local
@@ -6416,9 +7063,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       setTimeout(() => { fb.style.display = 'none'; }, 5000);
       carregarEstado();
     } catch(e) {
+      // Só chega aqui se, além da planilha falhar, o IndexedDB TAMBÉM falhou
+      // (ou outro erro inesperado aconteceu) — aí sim é uma falha real.
       console.error('[Saída] Falha ao enviar:', e);
-      try { await idbAdicionarPendente(payload); }
-      catch(e2) { console.error('[Saída] Falha TAMBÉM ao salvar localmente (IndexedDB):', e2); }
       mostrarToast(`⚠️ Falha ao registrar saída: ${_serializarErro(e)}`.slice(0,160), 'error', 12000);
       atualizarContadorIDB();
     } finally {
@@ -6432,6 +7079,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   async function registrarSaidaDescarga(btn, placa) {
     btn.disabled = true;
     btn.innerText = '⏳';
+    const payload = { placa, acao: "SAIDA_DESCARGA" };
     try {
       // Busca por A DESCARREGAR — sem orderBy para não exigir índice composto no Firebase
       let docRef = null;
@@ -6446,19 +7094,27 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         // Deleta o documento — elimina qualquer vício para próxima entrada da placa
         await deleteDoc(docRef);
       }
-      fetch(WEB_APP_POST_URL, {
-        method: "POST", mode: "no-cors",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ placa, acao: "SAIDA_DESCARGA" })
-      }).catch(() => {});
-      const tr = btn.closest('tr');
-      if (tr) {
-        tr.style.opacity = '0';
-        tr.style.transition = 'opacity 0.4s ease';
-        setTimeout(() => tr.remove(), 450);
+      // Planilha: agora aguardada de verdade, com timeout. Se falhar, cai na fila
+      // offline — mas a interface já reflete a saída (o caminhão já foi liberado).
+      let avisoOffline = false;
+      try {
+        await enviarPlanilha(payload);
+      } catch (ePlanilha) {
+        console.warn('[Saída Descarga] Planilha falhou, guardando na fila offline:', ePlanilha);
+        await idbAdicionarPendente(payload);
+        avisoOffline = true;
+        atualizarContadorIDB();
+      }
+      const linha = btn.closest('[data-placa]');
+      if (linha) {
+        linha.style.opacity = '0';
+        linha.style.transition = 'opacity 0.4s ease';
+        setTimeout(() => linha.remove(), 450);
       }
       vibrar([50, 30, 100]);
-      mostrarToast(`✅ Saída de descarga registrada: ${placa}`, 'success', 3500);
+      mostrarToast(avisoOffline
+        ? `📴 ${placa} salvo localmente — será sincronizado automaticamente`
+        : `✅ Saída de descarga registrada: ${placa}`, avisoOffline ? 'info' : 'success', 3500);
       setTimeout(() => carregarEstado(), 600);
     } catch(e) {
       btn.disabled = false;
@@ -6474,11 +7130,18 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     btn.style.background = novo === 'SIM' ? 'var(--success)' : 'var(--danger)';
     btn.innerText = novo === 'SIM' ? 'C/OC' : 'S/OC';
     vibrar(40);
-    // Envia para o servidor em background (fire-and-forget)
+    const payload = { placa, ordem: novo, acao:"EDITAR_ORDEM" };
+    _fbOrdem(placa, novo);
+    // Planilha: aguardada com timeout; se falhar de verdade, cai na fila offline
+    // em vez de simplesmente perder a alteração.
     try {
-      fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ placa, ordem: novo, acao:"EDITAR_ORDEM" }) });
-      _fbOrdem(placa, novo);
-    } catch(e) { mostrarToast('⚠️ Erro ao alterar ordem', 'error'); }
+      await enviarPlanilha(payload);
+    } catch(e) {
+      console.warn('[Ordem] Planilha falhou, guardando na fila offline:', e);
+      try { await idbAdicionarPendente(payload); }
+      catch(e2) { mostrarToast('⚠️ Erro ao alterar ordem', 'error'); }
+      atualizarContadorIDB();
+    }
   }
 
   // Lê os dados do dataset do <tr> com segurança (sem quebrar por aspas/caracteres especiais)
@@ -6527,8 +7190,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   }
 
   function chamarVeiculoEl(btn) {
-    const tr = btn.closest('tr');
-    chamarVeiculo(tr.dataset.placa, tr.dataset.motorista, btn);
+    const el = btn.closest('[data-placa]');
+    chamarVeiculo(el.dataset.placa, el.dataset.motorista, btn);
   }
 
   function prepararEdicao(p, m, t, pr, ord, descarg) {
@@ -6714,6 +7377,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
   window.addEventListener('DOMContentLoaded', () => {
     renderProdutosSelect(); // popula o select de produtos
+    carregarCorDiversos(); // aplica cores personalizadas salvas do card Diversos
+    document.getElementById('btnSortHist')?.classList.toggle('desc', _histOrdemDesc); // sincroniza botão com preferência salva
     _sincronizarPermissoesGear(); // detecta botões novos sem permissão cadastrada
     verificarLoginSalvo();
     carregarTurno(); // async — já chama atualizarBarraTurno() internamente
@@ -8135,7 +8800,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     chamarVeiculo, chamarVeiculoEl, dispensarChamada, dispensarChamadaPlaca,
     prepararEdicao, prepararEdicaoEl, previewSaida, voltarDoEditor,
     acSaidaInput, acSaidaSelecionar, acSaidaFechar, voltarDaSaida,
-    filtrarHistorico, toggleOrdemHistorico, limparTabela,
+    filtrarHistorico, abrirOrdemExibicao, fecharOrdemExibicao, _iniciarDragOrdem, limparTabela,
     ocrConfirmar, ocrFechar, ocrReler,
     mostrarDialog, mostrarToast,
     perfilEditar, perfilApagar, perfilEditarNovo, perfilVoltarLista, perfilSalvar,
@@ -8144,6 +8809,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     produtoEditar, produtoApagar, produtoEditarNovo, produtoVoltarLista, produtoSalvar,
     onProdutoChange, renderProdutosSelect, onProdutoManualInput,
     toggleDescarregar, toggleProdutoDescarregar, registrarSaidaDescarga, toggleDiversos, toggleChkDiversos,
+    toggleCorDiversosPainel, aplicarCorDiversos, resetCorDiversos, filtrarDiversos,
+    abrirPainelSync, fecharPainelSync, tentarSincronizarAgora, descartarPendente,
+    acTransportadoraInput, acTransportadoraSelecionar, acTransportadoraExcluir, acTransportadoraFechar,
     registrarAguardarNfeEl,
     registrarNfeOkEl,
     // Janela flutuante mini
