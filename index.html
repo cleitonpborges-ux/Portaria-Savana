@@ -19,7 +19,7 @@
   <title>PORTARIA SAVANA</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&family=Roboto+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --primary: #0f2040;
@@ -716,6 +716,16 @@
       line-height: 1.1;
       font-family: 'JetBrains Mono', monospace;
       margin: 2px 0;
+    }
+
+    .sub-contagem {
+      font-family: 'Roboto Condensed', 'Bahnschrift', 'DM Sans', 'Segoe UI', sans-serif;
+      font-size: 0.66rem;
+      font-weight: 400;
+      color: var(--text-muted);
+      margin: 0 0 3px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     .resumo-produto {
@@ -1556,6 +1566,32 @@
     .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 4px; margin: 0 auto 16px; }
     .modal-box h3 { margin: 0 0 6px; font-size: 1.1rem; color: var(--text-main); font-weight: 800; }
     .modal-box p { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 16px; }
+
+    /* Modal centralizado (em vez do padrão "gaveta" que sobe de baixo) — usado
+       no detalhe de status por produto, pra ficar mais rápido de ler/fechar */
+    #modalDetalheStatusProduto { align-items: center; }
+    #modalDetalheStatusProduto .modal-box {
+      border-radius: var(--radius-lg);
+      max-width: 420px;
+      animation: fadeInScale 0.18s ease;
+    }
+    #modalDetalheStatusProduto .modal-handle { display: none; }
+    @keyframes fadeInScale { from{transform:scale(0.94);opacity:0;} to{transform:scale(1);opacity:1;} }
+
+    /* Tooltip de detalhes por produto (aparece ao passar o mouse, só em telas com mouse de verdade) */
+    .tooltip-detalhe-status {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      background: var(--card-bg);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow-lg);
+      padding: 10px 12px;
+      max-width: 300px;
+      pointer-events: none;
+    }
+    .tooltip-detalhe-status.ativo { display: block; animation: fadeIn 0.12s ease; }
 
     .modal-btn-row { display: flex; gap: 8px; margin-top: 16px; }
 
@@ -2568,6 +2604,21 @@
   </div>
 </div>
 
+<!-- MODAL: DETALHE DE STATUS POR PRODUTO (No Pátio / Carregados) -->
+<div class="modal-overlay" id="modalDetalheStatusProduto">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <span id="tituloDetalheStatusProduto" style="font-size:0.85rem;font-weight:800;color:var(--text-main);"></span>
+      <button onclick="fecharDetalheStatusProduto()" style="background:none;border:none;font-size:1.1rem;color:var(--text-muted);cursor:pointer;padding:2px 6px;">✕</button>
+    </div>
+    <div id="listaDetalheStatusProduto" style="max-height:55vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- TOOLTIP: mesmo detalhe, aparece ao passar o mouse (telas com mouse de verdade) -->
+<div class="tooltip-detalhe-status" id="tooltipDetalheStatus"></div>
+
 <!-- STICKY HEADER -->
 <div class="sticky-header-outer">
 <div class="sticky-header" id="stickyHeader">
@@ -2880,12 +2931,14 @@
     <div class="mini-card" data-tipo="patio" style="border-bottom-color: var(--accent)">
       <span>No Pátio</span>
       <b id="contPatio">0</b>
+      <div class="sub-contagem" id="subPatio" onclick="abrirDetalheStatusProduto('patio')" onmouseenter="mostrarTooltipDetalheStatus(event,'patio')" onmouseleave="esconderTooltipDetalheStatus()" style="cursor:pointer;"></div>
       <div class="resumo-produto" id="resumoPatio"></div>
       <div class="detalhe-produto" id="detalhePatio"></div>
     </div>
     <div class="mini-card" data-tipo="carga" style="border-bottom-color: var(--success)">
       <span>Carregados</span>
       <b id="contCarga">0</b>
+      <div class="sub-contagem" id="subCarga" onclick="abrirDetalheStatusProduto('carga')" onmouseenter="mostrarTooltipDetalheStatus(event,'carga')" onmouseleave="esconderTooltipDetalheStatus()" style="cursor:pointer;"></div>
       <div class="resumo-produto" id="resumoCarga"></div>
       <div class="detalhe-produto" id="detalheCarga"></div>
     </div>
@@ -5808,6 +5861,17 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const contDivEl = document.getElementById('contDiversos');
     if (contDivEl) contDivEl.innerText = veiculosDiversos.length;
 
+    // Sub-contagem por status dentro de cada card
+    const qtdAguardandoPatio = veiculosPatio.filter(v => v.status === 'PÁTIO').length;
+    const qtdCarregando = veiculosPatio.filter(v => v.status === 'CARREGANDO').length;
+    document.getElementById('subPatio').innerText = veiculosPatio.length > 0
+      ? `${qtdAguardandoPatio} aguardando | ${qtdCarregando} carregando` : '';
+
+    const qtdLiberados = veiculosCarregados.filter(v => v.status !== 'AGUARDANDO NFE').length;
+    const qtdAguardandoNfe = veiculosCarregados.filter(v => v.status === 'AGUARDANDO NFE').length;
+    document.getElementById('subCarga').innerText = veiculosCarregados.length > 0
+      ? `${qtdLiberados} liberados | ${qtdAguardandoNfe} aguardando NFe` : '';
+
     // Pátio — pills de produto
     const patioPorProd = {};
     veiculosPatio.forEach(v => { patioPorProd[v.produto] = (patioPorProd[v.produto]||0)+1; });
@@ -6315,6 +6379,86 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     if (btn) btn.classList.toggle('desc', _histOrdemDesc);
     fecharModal('modalOrdemExibicao');
     _reordenarLinhasHistorico(); // reaplica a nova ordem na tabela na hora, sem esperar o próximo refresh
+  }
+
+  /* ===================== DETALHE DE STATUS POR PRODUTO (No Pátio / Carregados) ===================== */
+  // Monta { titulo, html } com o detalhamento por produto — usado tanto pelo
+  // modal (clique) quanto pelo tooltip (passar o mouse), pra não duplicar lógica.
+  function _montarDetalheStatusProduto(tipo) {
+    const grupos = {};
+    let titulo, labelA, labelB;
+    if (tipo === 'patio') {
+      titulo = 'No Pátio — detalhes por produto';
+      labelA = 'aguardando'; labelB = 'carregando';
+      veiculosPatio.forEach(v => {
+        const p = v.produto || '---';
+        if (!grupos[p]) grupos[p] = { a: 0, b: 0 };
+        if (v.status === 'PÁTIO') grupos[p].a++; else grupos[p].b++;
+      });
+    } else {
+      titulo = 'Carregados — detalhes por produto';
+      labelA = 'liberados'; labelB = 'aguardando NFe';
+      veiculosCarregados.forEach(v => {
+        const p = v.produto || '---';
+        if (!grupos[p]) grupos[p] = { a: 0, b: 0 };
+        if (v.status === 'AGUARDANDO NFE') grupos[p].b++; else grupos[p].a++;
+      });
+    }
+    const nomes = Object.keys(grupos).sort((x, y) => x.localeCompare(y, 'pt-BR'));
+    let html;
+    if (nomes.length === 0) {
+      html = `<div style="text-align:center;padding:20px 10px;color:var(--text-muted);font-size:0.72rem;">Nenhum veículo no momento.</div>`;
+    } else {
+      html = nomes.map(nome => {
+        const g = grupos[nome];
+        return `<div style="padding:10px 4px;border-bottom:1px solid var(--border);">
+          <span style="font-size:0.7rem;font-weight:800;color:var(--text-main);">${g.a + g.b} ${nome.toUpperCase()}</span>
+          <span style="font-size:0.7rem;font-weight:500;color:var(--text-main);"> - ${g.a} ${labelA.toUpperCase()} | ${g.b} ${labelB.toUpperCase()}</span>
+        </div>`;
+      }).join('');
+    }
+    return { titulo, html };
+  }
+
+  function abrirDetalheStatusProduto(tipo) {
+    const { titulo, html } = _montarDetalheStatusProduto(tipo);
+    document.getElementById('tituloDetalheStatusProduto').innerText = titulo;
+    document.getElementById('listaDetalheStatusProduto').innerHTML = html;
+    document.getElementById('modalDetalheStatusProduto').classList.add('ativo');
+  }
+
+  function fecharDetalheStatusProduto() {
+    fecharModal('modalDetalheStatusProduto');
+  }
+
+  // Tooltip ao passar o mouse — só em dispositivos com mouse de verdade
+  // (não interfere no toque do celular/tablet, que continua abrindo o modal).
+  const _temMouseDeVerdade = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+  function mostrarTooltipDetalheStatus(e, tipo) {
+    if (!_temMouseDeVerdade) return;
+    const { titulo, html } = _montarDetalheStatusProduto(tipo);
+    const tip = document.getElementById('tooltipDetalheStatus');
+    tip.innerHTML = `<div style="font-size:0.68rem;font-weight:800;color:var(--text-main);margin-bottom:6px;text-transform:none;letter-spacing:0;">${titulo}</div>${html}`;
+    tip.classList.add('ativo');
+    // Posiciona logo abaixo do elemento, centralizado, ajustando se sair da tela
+    const rect = e.currentTarget.getBoundingClientRect();
+    tip.style.visibility = 'hidden';
+    tip.style.left = '0px'; tip.style.top = '0px';
+    requestAnimationFrame(() => {
+      const tw = tip.offsetWidth, th = tip.offsetHeight;
+      let left = rect.left + rect.width / 2 - tw / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - tw - 8));
+      let top = rect.bottom + 8;
+      if (top + th > window.innerHeight - 8) top = rect.top - th - 8; // sem espaço embaixo: mostra em cima
+      tip.style.left = `${left}px`;
+      tip.style.top = `${top}px`;
+      tip.style.visibility = 'visible';
+    });
+  }
+
+  function esconderTooltipDetalheStatus() {
+    document.getElementById('tooltipDetalheStatus').classList.remove('ativo');
   }
 
   // Reordena as linhas já renderizadas no #tabDia conforme a preferência salva.
@@ -8801,6 +8945,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     prepararEdicao, prepararEdicaoEl, previewSaida, voltarDoEditor,
     acSaidaInput, acSaidaSelecionar, acSaidaFechar, voltarDaSaida,
     filtrarHistorico, abrirOrdemExibicao, fecharOrdemExibicao, _iniciarDragOrdem, limparTabela,
+    abrirDetalheStatusProduto, fecharDetalheStatusProduto,
+    mostrarTooltipDetalheStatus, esconderTooltipDetalheStatus,
     ocrConfirmar, ocrFechar, ocrReler,
     mostrarDialog, mostrarToast,
     perfilEditar, perfilApagar, perfilEditarNovo, perfilVoltarLista, perfilSalvar,
