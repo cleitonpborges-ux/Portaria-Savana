@@ -26,9 +26,11 @@ jobs:
         with:
           node-version: '20'
 
-      # ── 4. Android SDK ───────────────────────────────────────
+     # ── 4. Android SDK ───────────────────────────────────────
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: "11076708"
 
       # ── 5. Deploy Firebase Hosting PRIMEIRO ──────────────────
       - name: Deploy Firebase Hosting
