@@ -27,10 +27,11 @@ jobs:
           node-version: '20'
 
      # ── 4. Android SDK ───────────────────────────────────────
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          cmdline-tools-version: "11076708"
+      - name: Configurar ambiente Android
+        run: |
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
       # ── 5. Deploy Firebase Hosting PRIMEIRO ──────────────────
       - name: Deploy Firebase Hosting
