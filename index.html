@@ -829,6 +829,25 @@
 
     .card.active { display: block; }
 
+    /* Perfil balança: aba Histórico sem linhas (depois que o card Diversos
+       foi movido pra cima) — remove a "caixa" vazia (borda/fundo/sombra) */
+    #abaHist.hist-vazio-balanca {
+      background: transparent;
+      box-shadow: none;
+      border-top: none;
+      padding: 0;
+    }
+
+    /* Perfil balança: cadastro (Nova Entrada) desativado — remove a "caixa"
+       vazia do card #abaEntrada quando não há nenhum campo pra mostrar */
+    #abaEntrada.entrada-vazia-balanca {
+      background: transparent;
+      box-shadow: none;
+      border-top: none;
+      padding: 0;
+      min-height: 0;
+    }
+
     /* ===================== CARD BG PERSONALIZADO ===================== */
     .mini-card.card-bg-ativo {
       position: relative;
@@ -1566,6 +1585,38 @@
     .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 4px; margin: 0 auto 16px; }
     .modal-box h3 { margin: 0 0 6px; font-size: 1.1rem; color: var(--text-main); font-weight: 800; }
     .modal-box p { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 16px; }
+
+    /* Seletor tipo "pílula" (segmented control) — usado pra escolher a direção
+       de ordenação. Feito do zero em vez de <input type="radio"> porque a regra
+       global "input,select,textarea{width:100%;-webkit-appearance:none}" deforma
+       qualquer radio nativo da página. */
+    .segmented-toggle {
+      display: flex;
+      gap: 4px;
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 14px;
+    }
+    .segmented-toggle .segmento {
+      flex: 1;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.68rem;
+      font-weight: 700;
+      font-family: inherit;
+      padding: 9px 6px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .segmented-toggle .segmento.ativo {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: var(--shadow-sm);
+    }
 
     /* Modal centralizado (em vez do padrão "gaveta" que sobe de baixo) — usado
        no detalhe de status por produto, pra ficar mais rápido de ler/fechar */
@@ -2586,18 +2637,15 @@
     </div>
 
     <div style="font-size:0.62rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;">Dentro de cada produto</div>
-    <div style="display:flex;gap:8px;margin-bottom:14px;">
-      <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.68rem;font-weight:600;color:var(--text-main);cursor:pointer;">
-        <input type="radio" name="direcaoOrdemHist" id="radioOrdemAntigo" style="margin:0;">
-        Mais antigo no topo
-      </label>
-      <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.68rem;font-weight:600;color:var(--text-main);cursor:pointer;">
-        <input type="radio" name="direcaoOrdemHist" id="radioOrdemRecente" style="margin:0;">
-        Mais recente no topo
-      </label>
+    <div class="segmented-toggle" id="segDirecaoOrdem">
+      <button type="button" class="segmento" data-valor="antigo">↑ Mais antigo no topo</button>
+      <button type="button" class="segmento" data-valor="recente">↓ Mais recente no topo</button>
     </div>
 
-    <div style="font-size:0.62rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;">Posição dos produtos — arraste para reordenar</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <span style="font-size:0.62rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;">Posição dos produtos — arraste para reordenar</span>
+      <button onclick="limparTodasPosicoesManuais()" style="background:none;border:none;color:var(--danger);font-size:0.58rem;font-weight:700;cursor:pointer;padding:2px 4px;white-space:nowrap;">🗑 Limpar manuais</button>
+    </div>
     <div id="listaOrdemProdutos" style="max-height:45vh;overflow-y:auto;"></div>
 
     <button onclick="fecharOrdemExibicao()" style="width:100%;margin-top:14px;padding:10px;font-size:0.72rem;font-weight:800;color:white;background:var(--accent);border:none;border-radius:10px;cursor:pointer;">✓ Salvar e fechar</button>
@@ -3823,6 +3871,8 @@
     _nfeOkPlacas.add(placa);
     _fbMarcarNfeOk(placa);
     _notificarNfeOk(placa);
+    // Log de ciclo de vida — NFe liberada (falta só o "Registrar Saída" pra concluir)
+    _logEventoVeiculo(placa, 'NFE_OK', {});
 
     vibrar([60, 40, 60]);
     mostrarToast(`✅ ${placa} — NFE OK! Portaria será alertada.`, 'success', 4000);
@@ -3882,6 +3932,8 @@
     // 3. Persiste no backend
     const _payloadNfe = { acao: 'AGUARDANDO_NFE', placa };
     _fbAguardarNfe(placa);
+    // Log de ciclo de vida — transição pra aguardando NFe
+    _logEventoVeiculo(placa, 'AGUARDANDO_NFE', {});
     try {
       await enviarPlanilha(_payloadNfe);
     } catch(e) {
@@ -3934,7 +3986,7 @@
       onSnapshot(doc(_db, 'nfeok', 'ativas'), (snap) => {
         const lista = snap.exists() ? (snap.data().lista || []) : [];
         _ultimaListaNfeOk = lista;
-        renderizarPainelNfeOk(lista);
+        renderizarPainelNfeOk(lista, 'firestore-snapshot');
         if (_primeiroSnapNfe) { _primeiroSnapNfe = false; return; }
         _alertarPortariaNfeOk(lista);
       });
@@ -3948,37 +4000,68 @@
   // mostrar resíduo de turnos antigos). Só some quando a placa sai da lista
   // 'nfeok/ativas' no Firestore — o que só acontece quando a portaria
   // registra a saída de verdade (_fbSaida limpa a lista automaticamente).
-  function renderizarPainelNfeOk(placasOk) {
+  // Guarda, por placa, a última vez em que ela foi vista como AGUARDANDO NFE
+  // nos dados da planilha — dá uma pequena folga ao painel verde, pra ele não
+  // "piscar como sumido" só porque a foto exata daquele instante da planilha
+  // ainda não tinha alcançado o que o Firestore já sabe (mesmo tipo de corrida
+  // que corrigimos no botão "Aguard. NFe", só que agora do lado da portaria).
+  let _vistoAguardandoNfeEm = {};
+  const JANELA_GRACA_NFE_MS = 12000; // 12s de folga
+
+  function renderizarPainelNfeOk(placasOk, origem = 'desconhecida') {
     const painel = document.getElementById('painelNfeOk');
     if (!painel) return;
 
     const _isBA = (perfilAtual === 'balanca' || perfilAtual === 'admin' ||
       (() => { try { const p = _carregarPerfisCustom()[perfilAtual]; return p && p.permissoes && p.permissoes.gerenciar_perfis; } catch(e){return false;} })()
     );
-    if (_isBA) { painel.classList.remove('ativo'); painel.innerHTML = ''; return; }
 
-    const visiveis = (placasOk || []).filter(placa =>
-      (typeof veiculosCarregados !== 'undefined') &&
-      veiculosCarregados.some(v => v.placa === placa && v.status === 'AGUARDANDO NFE')
-    );
+    const agora = Date.now();
+    // Motivo detalhado por placa — usado tanto pra decidir quem aparece quanto
+    // pro log de diagnóstico (só de leitura, o admin acompanha pelo Firestore).
+    const detalhePorPlaca = (placasOk || []).map(placa => {
+      const emCarregados = (typeof veiculosCarregados !== 'undefined') &&
+        veiculosCarregados.some(v => v.placa === placa && v.status === 'AGUARDANDO NFE');
+      const vistoEm = _vistoAguardandoNfeEm[placa] || null;
+      const dentroDaJanela = !!vistoEm && (agora - vistoEm) <= JANELA_GRACA_NFE_MS;
+      const visivel = emCarregados || dentroDaJanela;
+      let motivo;
+      if (emCarregados) motivo = 'status atual bate (AGUARDANDO NFE na planilha agora)';
+      else if (dentroDaJanela) motivo = `dentro da folga (visto há ${Math.round((agora - vistoEm) / 1000)}s)`;
+      else if (vistoEm) motivo = `folga expirada (visto há ${Math.round((agora - vistoEm) / 1000)}s, limite ${JANELA_GRACA_NFE_MS / 1000}s)`;
+      else motivo = 'nunca visto como AGUARDANDO NFE nesta sessão';
+      return { placa, emCarregados, vistoEmMsAtras: vistoEm ? (agora - vistoEm) : null, visivel, motivo };
+    });
+    const visiveis = detalhePorPlaca.filter(d => d.visivel).map(d => d.placa);
 
-    // DIAGNÓSTICO TEMPORÁRIO — remover depois de identificar o problema
+    // LOG DE DIAGNÓSTICO (só leitura, coleção 'debug_nfeok_log' no Firestore —
+    // não aparece na interface, é pra investigação do admin quando precisar).
     try {
-      setDoc(doc(_db, 'debug_nfeok_log', `${Date.now()}`), {
+      setDoc(doc(_db, 'debug_nfeok_log', `${agora}_${perfilAtual || 'sem-perfil'}`), {
+        ts: serverTimestamp(),
+        tsClienteMs: agora,
+        tsClienteLegivel: new Date(agora).toLocaleString('pt-BR'),
+        origem, // 'firestore-snapshot' ou 'atualizacao-planilha'
         perfil: perfilAtual,
-        isBA: _isBA,
-        placasOk: placasOk || [],
-        veiculosCarregadosTotal: (typeof veiculosCarregados !== 'undefined') ? veiculosCarregados.length : -1,
-        veiculosCarregadosPlacasStatus: (typeof veiculosCarregados !== 'undefined')
-          ? veiculosCarregados.map(v => `${v.placa}:${v.status}`)
-          : ['veiculosCarregados indefinido'],
-        visiveis,
-        painelExiste: !!painel,
-        ts: serverTimestamp()
+        isBalancaOuAdmin: _isBA,
+        janelaGracaMs: JANELA_GRACA_NFE_MS,
+        placasOkRecebidasDoFirestore: placasOk || [],
+        detalhePorPlaca,
+        visiveisResultado: visiveis,
+        painelSeraExibido: !_isBA && visiveis.length > 0,
+        veiculosCarregadosAgora: (typeof veiculosCarregados !== 'undefined')
+          ? veiculosCarregados.map(v => `${v.placa}:${v.status}`) : ['indefinido'],
+        veiculosAguardandoNfeBuscaAgora: (typeof veiculosAguardandoNfeBusca !== 'undefined')
+          ? veiculosAguardandoNfeBusca.map(v => `${v.placa}:${v.status}`) : ['indefinido'],
+        vistoAguardandoNfeEmSnapshot: Object.fromEntries(
+          Object.entries(_vistoAguardandoNfeEm).map(([p, t]) => [p, `há ${Math.round((agora - t) / 1000)}s`])
+        )
       }).catch(eIgnorar => console.warn('[DEBUG NFeOK] Falha ao gravar log:', eIgnorar));
     } catch (eDebug) {
       console.warn('[DEBUG NFeOK] Exceção ao montar log:', eDebug);
     }
+
+    if (_isBA) { painel.classList.remove('ativo'); painel.innerHTML = ''; return; }
 
     if (visiveis.length === 0) {
       painel.classList.remove('ativo');
@@ -5377,10 +5460,15 @@
     // chegada > 0 → tem posição; chegada vazio/zero → script já limpou, sem número.
     // SAÍDA também mantém o número enquanto chegada > 0 (o Google Sheets remove da lista na limpeza)
     const elegiveisRel = filaAtiva.filter(v => (v.chegada||0) > 0);
+    // Mesma correção do processarDados: usa o rank cronológico estável (com
+    // reserva no n° de chegada) em vez da data direto, pra a numeração do
+    // relatório nunca variar junto com a ordem de exibição da tela.
     elegiveisRel.sort((a, b) => {
       const pa = (a.produto||'---'), pb = (b.produto||'---');
       if (pa !== pb) return pa.localeCompare(pb);
-      return (a.chegadaTimestamp||0) - (b.chegadaTimestamp||0);
+      const ra = (a._ordRank !== undefined) ? a._ordRank : (a.chegada || 0);
+      const rb = (b._ordRank !== undefined) ? b._ordRank : (b.chegada || 0);
+      return ra - rb;
     });
     const seqPorProdutoRel = {};
     let seqGeralRel = 0;
@@ -5683,6 +5771,58 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   }
   /* ===================== FIM AUTOCOMPLETE SAÍDA ===================== */
 
+  /* ===================== LOG DE CICLO DE VIDA DA PLACA =====================
+   * Grava, no Firestore (coleção 'logs_veiculos'), todo evento importante de
+   * cada placa — desde a entrada até a saída — pra dar pra reconstruir a
+   * história completa dela quando precisar (ex: "essa placa sumiu, o que
+   * aconteceu?"). Só leitura/consulta pelo admin no console do Firebase, não
+   * aparece na interface do app.
+   */
+  async function _logEventoVeiculo(placa, evento, detalhes = {}) {
+    if (!placa) return;
+    try {
+      await setDoc(doc(_db, 'logs_veiculos', `${Date.now()}_${placa}_${evento}`), {
+        ts: serverTimestamp(),
+        tsClienteMs: Date.now(),
+        tsClienteLegivel: new Date().toLocaleString('pt-BR'),
+        placa,
+        evento, // ENTRADA, EDITAR, AGUARDANDO_NFE, NFE_OK, SAIDA, SAIDA_DESCARGA, EDITAR_ORDEM, ALERTA_SUMIU_DA_PLANILHA...
+        perfil: perfilAtual || 'desconhecido',
+        ...detalhes
+      });
+    } catch(e) { console.warn('[LogVeiculo] Falha ao gravar log:', e); }
+  }
+
+  // Compara, a cada atualização da planilha, quais placas estavam ativas antes
+  // e não aparecem mais em NENHUM registro agora — isso é um forte indício de
+  // que a linha sumiu da planilha sem passar por um "Registrar Saída" normal
+  // (ex: alguém apagou direto na planilha, ou algum script bugou). Quando
+  // detecta, grava um log destacado (ALERTA_SUMIU_DA_PLANILHA) com tudo que
+  // sabíamos da placa até o último instante em que ela existiu.
+  const STATUS_ATIVOS_PARA_SUMICO = ['PÁTIO', 'CARREGANDO', 'A DESCARREGAR', 'DESCARREGANDO', 'AGUARDANDO NFE'];
+  let _snapshotPlacasAnterior = null; // null = ainda sem leitura anterior pra comparar
+  function _detectarPlacasSumidas(dadosAtuais) {
+    const presentesAgora = new Set(dadosAtuais.map(r => r.placa).filter(Boolean));
+    if (_snapshotPlacasAnterior) {
+      _snapshotPlacasAnterior.forEach((infoAntiga, placa) => {
+        const eraAtivo = STATUS_ATIVOS_PARA_SUMICO.includes(infoAntiga.status);
+        if (eraAtivo && !presentesAgora.has(placa)) {
+          console.warn(`[ALERTA] Placa ${placa} sumiu da planilha sem passar por saída (estava: ${infoAntiga.status})`);
+          _logEventoVeiculo(placa, 'ALERTA_SUMIU_DA_PLANILHA', {
+            statusAnterior: infoAntiga.status,
+            produto: infoAntiga.produto || '',
+            motorista: infoAntiga.motorista || '',
+            transportadora: infoAntiga.transportadora || '',
+            dataEntrada: infoAntiga.dataEntrada || ''
+          });
+        }
+      });
+    }
+    const novoSnapshot = new Map();
+    dadosAtuais.forEach(r => { if (r.placa) novoSnapshot.set(r.placa, r); });
+    _snapshotPlacasAnterior = novoSnapshot;
+  }
+
   /* ===================== AUTOCOMPLETE TRANSPORTADORA =====================
    * Aprende os nomes de transportadora digitados e sugere nas próximas
    * entradas. Guardado localmente no aparelho (localStorage) — cada nome
@@ -5974,6 +6114,24 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
     // Re-aplica imagens de fundo dos cards (caso o DOM tenha sido recriado)
     _reaplicarCardImages();
+
+    // No perfil balança, o card DIVERSOS foi retirado de dentro da aba
+    // Histórico (ver _posicionarCardDiversosBalanca). Isso deixa a "caixa"
+    // da aba Histórico (#abaHist) sobrando vazia — só a borda azul, sem
+    // conteúdo — sempre que a tabela do dia/noite não tiver nenhuma linha.
+    // Aqui escondemos essa caixa vazia (só pro perfil balança).
+    _ajustarCaixaHistoricoVaziaBalanca();
+  }
+
+  function _ajustarCaixaHistoricoVaziaBalanca() {
+    const abaHist = document.getElementById('abaHist');
+    if (!abaHist) return;
+    if (perfilAtual !== 'balanca') {
+      abaHist.classList.remove('hist-vazio-balanca');
+      return;
+    }
+    const temLinhas = !!document.querySelector('#tabDia tbody tr, #tabNoite tbody tr');
+    abaHist.classList.toggle('hist-vazio-balanca', !temLinhas);
   }
 
   /* ===================== CARREGAR ESTADO ===================== */
@@ -6035,10 +6193,12 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     document.querySelector("#tabNoite tbody").innerHTML = "";
     veiculosPatio = []; veiculosCarregados = []; veiculosDiversos = []; veiculosAguardandoNfeBusca = [];
 
-    dados.sort((a, b) => a.chegada - b.chegada);
-
     // Normaliza status de todos os registros (inclui A DESCARREGAR)
     dados.forEach(r => { r.status = normalizarStatus(r.status); });
+
+    // Detecta placas que estavam ativas e sumiram da planilha sem passar por
+    // uma saída normal — grava um log destacado pra investigação posterior.
+    _detectarPlacasSumidas(dados);
 
     // ===== CORREÇÃO DO "VOLTA A CARREGANDO" NO AGUARDANDO NFE =====
     // Quando a balança clica "Aguard. NFe", a tela muda na hora (otimista),
@@ -6095,6 +6255,23 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
                 || (r.status === 'SAÍDA' && !ocultarSaidas);
     });
 
+    // Calcula um "rank cronológico" (0,1,2,3...) para cada registro, do mais
+    // antigo pro mais novo. É isso que a ordenação do histórico usa, em vez de
+    // ler a data direto — porque a data (chegadaTimestamp) pode vir vazia
+    // quando o campo dataEntrada da planilha está em branco ou num formato
+    // diferente do esperado. Quando isso acontecia, TODOS os registros ficavam
+    // com data "zero", a comparação dava sempre empate e a ordenação não
+    // mudava nada na tela — exatamente o sintoma relatado. O rank usa a data
+    // quando existe, cai pro n° de chegada da planilha quando não, e por
+    // último a posição original — então nunca fica tudo empatado.
+    _calcularRankCronologico(dados);
+
+    // Ordena os dados ANTES de montar as linhas — evita depender de reordenar
+    // o DOM depois (havia mais de um lugar que reconstruía a tabela, e nem
+    // todos chamavam o reordenador; ordenando aqui na fonte, a tabela já
+    // nasce certa não importa por qual caminho ela seja (re)montada).
+    _ordenarDadosParaHistorico(dados);
+
     // Numeração: o script do Google Planilhas controla o campo `chegada` (N° chegada).
     // Regra: se `chegada` existe e é > 0, o veículo ainda está na fila do dia → recebe número.
     //        se `chegada` foi apagado pelo script (vazio/zero) → perdeu a posição, sem número.
@@ -6111,11 +6288,19 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       && r.chegada > 0
     );
 
-    // Ordena: por produto (alfabético) e dentro do produto por dataEntrada (cronológico)
+    // Ordena: por produto (alfabético) e, dentro do produto, pelo rank
+    // cronológico fixo (sempre do mais antigo pro mais novo).
+    // IMPORTANTE: aqui NUNCA se usa a direção de exibição (_histOrdemDesc). A
+    // numeração é a ordem real de carregamento e tem que ser sempre a mesma,
+    // não importa como a lista está sendo exibida na tela. Antes isso usava a
+    // data (chegadaTimestamp) direto; quando ela vem vazia na planilha, todos
+    // empatavam e a numeração acabava seguindo a ordem em que as linhas
+    // estavam na tela — por isso o número mudava ao inverter a visualização.
+    // O rank já tem reserva (data → n° de chegada → posição), então é estável.
     elegiveisParaNumero.sort((a, b) => {
       const pa = (a.produto || '---'), pb = (b.produto || '---');
       if (pa !== pb) return pa.localeCompare(pb);
-      return (a.chegadaTimestamp || 0) - (b.chegadaTimestamp || 0);
+      return (a._ordRank || 0) - (b._ordRank || 0);
     });
 
     const seqPorProduto = {};
@@ -6175,6 +6360,13 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
     atualizarDetalhesProdutos();
     atualizarBarraTurno();
+    // Atualiza o "visto por último como AGUARDANDO NFE" (folga do painel verde NFE OK)
+    // e reavalia o painel com os dados mais recentes da planilha
+    const _agoraNfe = Date.now();
+    [...veiculosCarregados, ...veiculosAguardandoNfeBusca].forEach(v => {
+      if (v.status === 'AGUARDANDO NFE') _vistoAguardandoNfeEm[v.placa] = _agoraNfe;
+    });
+    renderizarPainelNfeOk(_ultimaListaNfeOk, 'atualizacao-planilha');
     // Re-aplica badges NFE OK nas linhas recém-renderizadas (resolve race condition
     // onde o listener do Firestore disparou antes do DOM estar pronto)
     _reaplicarAlertasNfeOkAposRender();
@@ -6209,6 +6401,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     tr.dataset.seqgeral       = d.seqGeral        || '';
     tr.dataset.seqproduto     = d.seqProduto      || '';
     tr.dataset.chegadats      = d.chegadaTimestamp || '';
+    // Rank cronológico (0 = mais antigo). Guardado na própria linha pra que a
+    // reordenação imediata (ao salvar o painel "Ordem de exibição") funcione
+    // sem precisar recarregar os dados da planilha.
+    tr.dataset.ordrank        = (d._ordRank !== undefined) ? d._ordRank : '';
 
     const chamadaInfo = historicoChamadas.find(c => c.placa === d.placa);
     const chamadaBadge = chamadaInfo
@@ -6341,44 +6537,83 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   }
 
   /* ===================== PAINEL "ORDEM DE EXIBIÇÃO" ===================== */
+  let _direcaoOrdemSelecionada = true; // true = recente no topo
+
+  // A direção agora é aplicada NA HORA que a pessoa toca (com efeito imediato
+  // na tabela), em vez de esperar o "Salvar e fechar". Isso dá retorno visual
+  // instantâneo e elimina qualquer chance de a escolha se perder no caminho
+  // entre o toque e o fechamento do painel. O arraste dos produtos continua
+  // sendo salvo só ao fechar, como você pediu.
+  function selecionarDirecaoOrdem(valor) {
+    _direcaoOrdemSelecionada = (valor === 'recente');
+    document.querySelectorAll('#segDirecaoOrdem .segmento').forEach(btn => {
+      btn.classList.toggle('ativo', btn.dataset.valor === valor);
+    });
+    _histOrdemDesc = _direcaoOrdemSelecionada;
+    localStorage.setItem(LS_ORDEM_DIRECAO_KEY, _histOrdemDesc ? '1' : '0');
+    const btnSort = document.getElementById('btnSortHist');
+    if (btnSort) btnSort.classList.toggle('desc', _histOrdemDesc);
+    _reordenarLinhasHistorico();
+    vibrar(30);
+  }
+
   function abrirOrdemExibicao() {
     const nomes = _produtosParaPainelOrdem();
+    const salvos = _carregarOrdemProdutos();
     const lista = document.getElementById('listaOrdemProdutos');
     if (nomes.length === 0) {
       lista.innerHTML = `<div style="text-align:center;padding:20px 10px;color:var(--text-muted);font-size:0.72rem;">Nenhum produto no histórico ainda.</div>`;
     } else {
       lista.innerHTML = nomes.map(nome => `
-        <div class="ordem-prod-item" data-produto="${nome.replace(/"/g, '&quot;')}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;touch-action:none;">
+        <div class="ordem-prod-item" data-produto="${nome.replace(/"/g, '&quot;')}" ${salvos.includes(nome) ? 'data-tocado="1"' : ''} style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;touch-action:none;">
           <span onpointerdown="_iniciarDragOrdem(event, this.parentElement)" style="cursor:grab;color:var(--text-muted);font-size:1.05rem;line-height:1;user-select:none;">≡</span>
           <span style="font-size:0.76rem;font-weight:700;color:var(--text-main);flex:1;">${nome}</span>
+          ${salvos.includes(nome) ? `<span onclick="_removerPosicaoManual(this, '${nome.replace(/'/g, "\\'")}')" title="Remover posição manual (voltar a ordenar por data)" style="cursor:pointer;color:var(--text-muted);font-size:0.9rem;padding:2px 4px;">✕</span>` : ''}
         </div>
       `).join('');
     }
-    const radioAntigo = document.getElementById('radioOrdemAntigo');
-    const radioRecente = document.getElementById('radioOrdemRecente');
-    if (radioAntigo && radioRecente) {
-      radioAntigo.checked = !_histOrdemDesc;
-      radioRecente.checked = _histOrdemDesc;
-    }
+    selecionarDirecaoOrdem(_histOrdemDesc ? 'recente' : 'antigo');
     document.getElementById('modalOrdemExibicao').classList.add('ativo');
   }
 
-  // Salva a ordem (só acontece ao fechar — nada é aplicado enquanto arrasta)
+  // Tira a posição manual (pino) de um produto específico — ele volta a seguir
+  // a ordenação automática por data junto com os demais.
+  function _removerPosicaoManual(btnEl, nome) {
+    const item = btnEl.closest('.ordem-prod-item');
+    if (item) { delete item.dataset.tocado; btnEl.remove(); }
+  }
+
+  // Limpa TODAS as posições manuais de uma vez — útil pra "destravar" caso
+  // tenha ficado alguma ordem manual salva sem querer (ex: de um teste
+  // anterior), voltando tudo a ordenar automaticamente por data.
+  function limparTodasPosicoesManuais() {
+    document.querySelectorAll('#listaOrdemProdutos .ordem-prod-item').forEach(item => {
+      delete item.dataset.tocado;
+      const xBtn = item.querySelector('span[onclick^="_removerPosicaoManual"]');
+      if (xBtn) xBtn.remove();
+    });
+    localStorage.removeItem(LS_ORDEM_PRODUTOS_KEY);
+    mostrarToast('✅ Posições manuais removidas — tudo volta a ordenar por data', 'success', 3000);
+  }
+
+  // Salva a ordem dos produtos arrastados (só ao fechar). A direção
+  // (antigo/recente) já foi aplicada no momento do toque.
   function fecharOrdemExibicao() {
-    const itens = Array.from(document.querySelectorAll('#listaOrdemProdutos .ordem-prod-item'));
-    if (itens.length > 0) {
-      const novaOrdem = itens.map(el => el.dataset.produto);
-      localStorage.setItem(LS_ORDEM_PRODUTOS_KEY, JSON.stringify(novaOrdem));
-    }
-    const radioRecente = document.getElementById('radioOrdemRecente');
-    if (radioRecente) {
-      _histOrdemDesc = radioRecente.checked;
-      localStorage.setItem(LS_ORDEM_DIRECAO_KEY, _histOrdemDesc ? '1' : '0');
-    }
-    const btn = document.getElementById('btnSortHist');
-    if (btn) btn.classList.toggle('desc', _histOrdemDesc);
+    const tocados = Array.from(document.querySelectorAll('#listaOrdemProdutos .ordem-prod-item[data-tocado="1"]'));
+    const novaOrdem = tocados.map(el => el.dataset.produto);
+    localStorage.setItem(LS_ORDEM_PRODUTOS_KEY, JSON.stringify(novaOrdem));
     fecharModal('modalOrdemExibicao');
-    _reordenarLinhasHistorico(); // reaplica a nova ordem na tabela na hora, sem esperar o próximo refresh
+    _reordenarLinhasHistorico();
+    // Aviso de diagnóstico: mostra a direção aplicada e as 2 primeiras linhas
+    // que ficaram no topo, pra confirmar o efeito sem precisar rolar a lista.
+    const topo = Array.from(document.querySelectorAll('#tabDia tbody tr:not(.obs-row-full)'))
+      .slice(0, 2).map(tr => `${tr.dataset.produto || '?'}/${tr.dataset.placa || '?'}`).join(', ');
+    mostrarToast(
+      `📋 ${_histOrdemDesc ? 'Recente' : 'Antigo'} no topo` +
+      (novaOrdem.length ? ` | fixados: ${novaOrdem.join(', ')}` : ' | sem fixados') +
+      (topo ? ` | topo: ${topo}` : ''),
+      'info', 6000
+    );
   }
 
   /* ===================== DETALHE DE STATUS POR PRODUTO (No Pátio / Carregados) ===================== */
@@ -6463,6 +6698,64 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
   // Reordena as linhas já renderizadas no #tabDia conforme a preferência salva.
   // Chamada tanto ao fechar o painel quanto a cada refresh de dados (processarDados).
+  // Ordena o array de dados vindo da planilha (na FONTE, antes de qualquer
+  // linha ser criada) por grupo de produto — respeitando posição manual
+  // arrastada, com fallback pra data automática (mais antigo/recente conforme
+  // a direção escolhida) — e, dentro do grupo, pela mesma direção. Usada por
+  // TODOS os lugares que (re)constroem a tabela do histórico, então a tabela
+  // sempre nasce na ordem certa, não importa qual caminho a reconstrua.
+  // Compara dois registros do mais antigo pro mais novo, usando a primeira
+  // informação confiável disponível: data de entrada → n° de chegada da
+  // planilha → posição original na lista. Ter essa cadeia de reservas é o que
+  // impede o empate geral que travava a ordenação.
+  function _cmpCronologico(a, b) {
+    const ta = a.chegadaTimestamp || 0, tb = b.chegadaTimestamp || 0;
+    if (ta && tb && ta !== tb) return ta - tb;
+    const ca = a.chegada || 0, cb = b.chegada || 0;
+    if (ca && cb && ca !== cb) return ca - cb;
+    return (a._idxOriginal || 0) - (b._idxOriginal || 0);
+  }
+
+  // Atribui a cada registro um _ordRank inteiro (0 = mais antigo de todos).
+  function _calcularRankCronologico(lista) {
+    lista.forEach((r, i) => { r._idxOriginal = i; });
+    [...lista].sort(_cmpCronologico).forEach((r, i) => { r._ordRank = i; });
+  }
+
+  function _ordenarDadosParaHistorico(lista) {
+    // Garante rank mesmo se a lista vier de outro caminho que não passou por
+    // _calcularRankCronologico (ex: rebuild da limpeza noturna).
+    if (lista.some(r => r._ordRank === undefined)) _calcularRankCronologico(lista);
+
+    // Posição do GRUPO de cada produto: usa o rank do registro mais antigo do
+    // grupo (quando "antigo no topo") ou do mais recente (quando "recente no
+    // topo"), pra o grupo inteiro acompanhar a direção escolhida.
+    const chaveGrupo = {};
+    lista.forEach(r => {
+      const p = (r.produto || '').toUpperCase();
+      const k = r._ordRank || 0;
+      if (!(p in chaveGrupo)) chaveGrupo[p] = k;
+      else chaveGrupo[p] = _histOrdemDesc ? Math.max(chaveGrupo[p], k) : Math.min(chaveGrupo[p], k);
+    });
+    const ordemSalva = _carregarOrdemProdutos();
+    const idxOrdemProduto = (nome) => {
+      const i = ordemSalva.indexOf(nome);
+      return i === -1 ? Infinity : i;
+    };
+    lista.sort((a, b) => {
+      const pa = (a.produto || '').toUpperCase();
+      const pb = (b.produto || '').toUpperCase();
+      if (pa !== pb) {
+        const ia = idxOrdemProduto(pa), ib = idxOrdemProduto(pb);
+        if (ia !== Infinity || ib !== Infinity) return ia - ib;
+        const ga = chaveGrupo[pa] || 0, gb = chaveGrupo[pb] || 0;
+        return _histOrdemDesc ? (gb - ga) : (ga - gb);
+      }
+      const ra = a._ordRank || 0, rb = b._ordRank || 0;
+      return _histOrdemDesc ? (rb - ra) : (ra - rb);
+    });
+  }
+
   function _reordenarLinhasHistorico() {
     const tbodyDia = document.querySelector("#tabDia tbody");
     if (!tbodyDia) return;
@@ -6471,6 +6764,27 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       tr,
       obs: tbodyDia.querySelector(`tr.obs-row-full[data-obsplaca="${tr.dataset.placa}"]`) || null
     }));
+
+    // Rank cronológico de cada linha. Se por algum motivo a linha não tiver o
+    // rank gravado, cai pra posição atual dela na tabela — que já vem em ordem
+    // cronológica crescente. Assim nunca acontece o empate geral que antes
+    // fazia a reordenação não surtir efeito nenhum.
+    const rankDaLinha = (tr, posicaoAtual) => {
+      const r = parseInt(tr.dataset.ordrank);
+      return Number.isFinite(r) ? r : posicaoAtual;
+    };
+    pares.forEach((par, i) => { par.rank = rankDaLinha(par.tr, i); });
+
+    // Posição do GRUPO de cada produto (quando não há posição manual): rank do
+    // registro mais antigo do grupo com "antigo no topo", ou do mais recente
+    // com "recente no topo".
+    const chaveGrupo = {};
+    pares.forEach(({ tr, rank }) => {
+      const p = (tr.dataset.produto || '').toUpperCase();
+      if (!(p in chaveGrupo)) chaveGrupo[p] = rank;
+      else chaveGrupo[p] = _histOrdemDesc ? Math.max(chaveGrupo[p], rank) : Math.min(chaveGrupo[p], rank);
+    });
+
     const ordemSalva = _carregarOrdemProdutos();
     const idxOrdemProduto = (nome) => {
       const i = ordemSalva.indexOf(nome);
@@ -6481,12 +6795,15 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       const pb = (b.tr.dataset.produto || '').toUpperCase();
       if (pa !== pb) {
         const ia = idxOrdemProduto(pa), ib = idxOrdemProduto(pb);
-        if (ia !== ib) return ia - ib; // ordem escolhida manualmente tem prioridade
-        return pa.localeCompare(pb, 'pt-BR'); // sem preferência salva: alfabético
+        // Se pelo menos um dos dois produtos tem posição manual (arrastada),
+        // essa posição manda — é a prioridade máxima.
+        if (ia !== Infinity || ib !== Infinity) return ia - ib;
+        // Nenhum dos dois tem posição manual: o grupo com o registro mais
+        // antigo/recente (conforme a direção escolhida) vem primeiro.
+        const ga = chaveGrupo[pa] || 0, gb = chaveGrupo[pb] || 0;
+        return _histOrdemDesc ? (gb - ga) : (ga - gb);
       }
-      const chA = parseInt(a.tr.dataset.chegadats) || 0;
-      const chB = parseInt(b.tr.dataset.chegadats) || 0;
-      return _histOrdemDesc ? (chB - chA) : (chA - chB);
+      return _histOrdemDesc ? (b.rank - a.rank) : (a.rank - b.rank);
     });
     pares.forEach(({ tr, obs }) => {
       tbodyDia.appendChild(tr);
@@ -6554,6 +6871,11 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     el.style.transform = '';
     if (alvoAtual) lista.insertBefore(el, alvoAtual);
     else lista.appendChild(el);
+    // Marca esse item como "arrastado de propósito" nesta sessão — só itens
+    // marcados assim ganham posição manual fixa; o resto continua seguindo a
+    // ordem automática por data, mesmo que o painel seja aberto e fechado
+    // sem ninguém arrastar nada.
+    el.dataset.tocado = '1';
     _dragState = null;
     document.removeEventListener('pointermove', _moverDragOrdem);
     document.removeEventListener('pointerup', _soltarDragOrdem);
@@ -7073,6 +7395,11 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       // entradas — independe de a planilha confirmar ou não, o nome já foi
       // digitado e vale a pena lembrar dele no aparelho.
       _salvarTransportadora(d.transportadora);
+      // Log de ciclo de vida — início (ou edição) do registro dessa placa
+      _logEventoVeiculo(d.placa, isEdit ? 'EDITAR' : 'ENTRADA', {
+        motorista: d.motorista, transportadora: d.transportadora, produto: d.produto,
+        observacao: d.observacao || '', descarregar: d.descarregar, ordem: d.ordem
+      });
       // Firebase + notificação disparam PRIMEIRO e de forma independente — não
       // esperam a planilha, então nunca ficam reféns de uma rede lenta/ruim.
       // O Firestore já tem persistência offline própria (enableIndexedDbPersistence),
@@ -7156,6 +7483,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       // Firebase dispara primeiro, de forma independente — já tem persistência
       // offline própria (enableIndexedDbPersistence) e se resolve sozinho.
       _fbSaida(placa, nfe); // deleta docs do veículo e limpa nfeok/ativas
+      // Log de ciclo de vida — fim do registro dessa placa (saída normal)
+      _logEventoVeiculo(placa, 'SAIDA', {
+        nfe: nfe || '', motorista: veiculo?.motorista || '', produto: veiculo?.produto || ''
+      });
 
       // Planilha: agora REALMENTE aguardada, com timeout curto. Se falhar de
       // verdade (sem rede, rede ruim, timeout), cai na fila offline — mas isso
@@ -7238,6 +7569,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         // Deleta o documento — elimina qualquer vício para próxima entrada da placa
         await deleteDoc(docRef);
       }
+      // Log de ciclo de vida — fim do registro dessa placa (saída de descarga)
+      _logEventoVeiculo(placa, 'SAIDA_DESCARGA', {});
       // Planilha: agora aguardada de verdade, com timeout. Se falhar, cai na fila
       // offline — mas a interface já reflete a saída (o caminhão já foi liberado).
       let avisoOffline = false;
@@ -7276,6 +7609,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     vibrar(40);
     const payload = { placa, ordem: novo, acao:"EDITAR_ORDEM" };
     _fbOrdem(placa, novo);
+    _logEventoVeiculo(placa, 'EDITAR_ORDEM', { ordem: novo });
     // Planilha: aguardada com timeout; se falhar de verdade, cai na fila offline
     // em vez de simplesmente perder a alteração.
     try {
@@ -7393,9 +7727,16 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     }
 
     // Card Descarregados só aparece na aba Histórico
+    // (no perfil balança, ele foi movido pra cima, logo abaixo dos mini-
+    // cards, e deve aparecer só na aba Entrada — senão duplica, aparecendo
+    // também dentro do Histórico. Se a aba Entrada nem existir pra esse
+    // perfil, volta a aparecer no Histórico, como sempre foi.)
     const cardDiv = document.getElementById('cardDiversos');
     if (cardDiv) {
-      if (id === 'abaHist') {
+      const mostrarDiversos = perfilAtual === 'balanca'
+        ? (_balancaTemEntrada() ? id === 'abaEntrada' : id === 'abaHist')
+        : (id === 'abaHist');
+      if (mostrarDiversos) {
         cardDiv.dataset.histMode = '1';
         // Mostra se já houver dados
         if (veiculosDiversos && veiculosDiversos.length > 0) cardDiv.style.display = '';
@@ -7475,6 +7816,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // + AGUARDANDO NFE (que "dormiu" esperando a nota — controle físico real)
     document.querySelector('#tabDia tbody').innerHTML = '';
     document.querySelector('#tabNoite tbody').innerHTML = '';
+    _ordenarDadosParaHistorico(veiculosPatio);
     veiculosPatio.forEach(r => addHist(r, 'ENTRADA', r.dataEntrada));
     // Veículos aguardando NFe permanecem visíveis na lista (fundo branco) mas NÃO no card
     // Eles serão re-renderizados pelo próximo carregarEstado() com status AGUARDANDO NFE
@@ -7522,6 +7864,15 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   window.addEventListener('DOMContentLoaded', () => {
     renderProdutosSelect(); // popula o select de produtos
     carregarCorDiversos(); // aplica cores personalizadas salvas do card Diversos
+    // Liga os botões de direção por JS (além do onclick do HTML). Garantia extra:
+    // se por qualquer motivo o onclick inline não disparar, este listener pega.
+    document.querySelectorAll('#segDirecaoOrdem .segmento').forEach(btn => {
+      btn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        selecionarDirecaoOrdem(btn.dataset.valor);
+      });
+    });
     document.getElementById('btnSortHist')?.classList.toggle('desc', _histOrdemDesc); // sincroniza botão com preferência salva
     _sincronizarPermissoesGear(); // detecta botões novos sem permissão cadastrada
     verificarLoginSalvo();
@@ -7855,6 +8206,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       const conteudoForm = formEnt.querySelectorAll('.campo, .campo-descarregar, .btn-acao, .status-local, #painelChamadas');
       conteudoForm.forEach(el => { el.style.display = temNova ? '' : 'none'; });
       if (cabecalho) cabecalho.style.display = temNova ? '' : 'none';
+      // No perfil balança, com o cadastro desativado (temNova false), o card
+      // #abaEntrada sobra vazio (só a caixa/borda, sem conteúdo) — mesma
+      // "casca vazia" do Histórico. Remove a caixa nesse caso.
+      formEnt.classList.toggle('entrada-vazia-balanca', perfilAtual === 'balanca' && !temNova);
     }
 
     // Se a aba entrada não está disponível, vai para Histórico
@@ -7936,6 +8291,48 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         el.style.display = perm[id] ? '' : 'none';
       }
     });
+
+    // TESTE: no perfil balança, reposiciona o card DIVERSOS para logo abaixo
+    // dos mini-cards "No Pátio" / "Carregados" (em vez de ficar dentro da aba
+    // Histórico). Isso evita a área onde vinha aparecendo um resquício do
+    // formulário de cadastro. Não afeta portaria/admin.
+    _posicionarCardDiversosBalanca();
+  }
+
+  function _balancaTemEntrada() {
+    const tabEnt = document.getElementById('tabBtnEnt');
+    return !!tabEnt && tabEnt.style.display !== 'none';
+  }
+
+  function _posicionarCardDiversosBalanca() {
+    const card = document.getElementById('cardDiversos');
+    const wrapper = document.querySelector('.paineis-contagem-wrapper');
+    const abaHist = document.getElementById('abaHist');
+    const tabelaDia = document.getElementById('tabDia');
+    if (!card || !wrapper || !abaHist) return;
+
+    if (perfilAtual === 'balanca') {
+      // Move para logo após o wrapper dos mini-cards (No Pátio / Carregados)
+      if (card.previousElementSibling !== wrapper) {
+        wrapper.insertAdjacentElement('afterend', card);
+      }
+      // Só aparece na aba Entrada (evita duplicar aparecendo também no
+      // Histórico); se a aba Entrada não existir pra esse perfil, mostra
+      // no Histórico mesmo (comportamento de sempre).
+      const abaAtiva = document.querySelector('#abaEntrada.active, #abaSaida.active, #abaHist.active');
+      const abaAlvo = _balancaTemEntrada() ? 'abaEntrada' : 'abaHist';
+      const mostrar = !abaAtiva || abaAtiva.id === abaAlvo;
+      card.dataset.histMode = mostrar ? '1' : '0';
+      if (mostrar && typeof veiculosDiversos !== 'undefined' && veiculosDiversos.length > 0) {
+        card.style.display = '';
+      } else if (!mostrar) {
+        card.style.display = 'none';
+      }
+    } else if (tabelaDia && card.parentElement !== abaHist) {
+      // Restaura a posição original (dentro da aba Histórico, antes da tabela)
+      abaHist.insertBefore(card, tabelaDia);
+    }
+    _ajustarCaixaHistoricoVaziaBalanca();
   }
 
   // Estado do editor
@@ -8356,13 +8753,20 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const campoObs   = document.getElementById('campo-obs-wrap');
     const campoOrdem = document.getElementById('campo-ordem-wrap');
     const campoChk   = document.getElementById('campoDescarregar');
+    // Respeita a permissão do perfil: se o formulário de cadastro (Nova
+    // Entrada) estiver desativado pra esse perfil (ex.: balança), o
+    // cabeçalho "headerEntrada" fica com display:none — nesse caso Obs/
+    // Ordem não podem ser reexibidos por essa regra, senão vazam por cima
+    // do resto do formulário escondido (bug antigo).
+    const headerEnt = document.getElementById('headerEntrada');
+    const formHabilitado = !headerEnt || headerEnt.style.display !== 'none';
 
-    if (isGatilho) {
+    if (isGatilho || !formHabilitado) {
       // Oculta Obs e Ordem
       if (campoObs)   campoObs.style.display   = 'none';
       if (campoOrdem) campoOrdem.style.display  = 'none';
-      // Exibe checkbox
-      if (campoChk)   campoChk.classList.add('ativo');
+      // Exibe checkbox (só se o formulário estiver habilitado)
+      if (campoChk)   campoChk.classList.toggle('ativo', isGatilho && formHabilitado);
     } else {
       // Restaura Obs e Ordem
       if (campoObs)   campoObs.style.display   = '';
@@ -8944,7 +9348,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     chamarVeiculo, chamarVeiculoEl, dispensarChamada, dispensarChamadaPlaca,
     prepararEdicao, prepararEdicaoEl, previewSaida, voltarDoEditor,
     acSaidaInput, acSaidaSelecionar, acSaidaFechar, voltarDaSaida,
-    filtrarHistorico, abrirOrdemExibicao, fecharOrdemExibicao, _iniciarDragOrdem, limparTabela,
+    filtrarHistorico, abrirOrdemExibicao, fecharOrdemExibicao, selecionarDirecaoOrdem, _iniciarDragOrdem, limparTabela,
+    _removerPosicaoManual, limparTodasPosicoesManuais,
     abrirDetalheStatusProduto, fecharDetalheStatusProduto,
     mostrarTooltipDetalheStatus, esconderTooltipDetalheStatus,
     ocrConfirmar, ocrFechar, ocrReler,
