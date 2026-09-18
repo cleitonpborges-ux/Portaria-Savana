@@ -28,10 +28,7 @@ jobs:
 
      # ── 4. Android SDK ───────────────────────────────────────
       - name: Configurar ambiente Android
-        run: |
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-          yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+        uses: android-actions/setup-android@v3
 
       # ── 5. Deploy Firebase Hosting PRIMEIRO ──────────────────
       - name: Deploy Firebase Hosting
