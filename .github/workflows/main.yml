@@ -318,7 +318,7 @@ jobs:
       #  versionCode = número interno, sobe sozinho a cada build
       - name: Definir versão do APK
         env:
-          VERSION_NAME: "1.1"
+          VERSION_NAME: "1.2"
         run: |
           GRADLE="android/app/build.gradle"
           sed -i "s/versionCode [0-9]*/versionCode ${{ github.run_number }}/" "$GRADLE"
