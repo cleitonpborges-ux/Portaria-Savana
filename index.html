@@ -654,6 +654,39 @@
     .hist-barra .input-busca { width: 100%; box-sizing: border-box; }
     .hist-barra-row { display: flex; gap: 6px; align-items: center; }
     .hist-barra-row .input-busca { flex: 1; }
+    /* Faixa "Produto: SOJA — Ver todos" (atalho vindo das bolhas do Total do dia) */
+    .hist-filtro-chip {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 5px 6px 5px 12px;
+      border: 1px solid var(--accent);
+      background: rgba(37,99,235,0.10);
+      color: var(--text-main);
+      border-radius: 10px;
+      font-size: 0.7rem; font-weight: 700;
+    }
+    .hist-filtro-chip b { text-transform: uppercase; letter-spacing: 0.3px; }
+    .hist-filtro-chip button {
+      border: none; border-radius: 8px; cursor: pointer;
+      padding: 5px 10px; font-size: 0.65rem; font-weight: 800;
+      background: var(--accent); color: #fff;
+    }
+    .tr-filtro-chip { display: none !important; }
+    /* Título de cada grupo de produto na lista do Histórico */
+    tr.prod-titulo-row td { padding: 16px 12px 6px; border: none !important; background: transparent !important; }
+    .prod-titulo-conteudo { display: flex; align-items: center; gap: 8px; }
+    .prod-titulo-nome {
+      font-size: 0.82rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.6px; color: var(--text-main); white-space: nowrap;
+    }
+    .prod-titulo-qtd {
+      font-size: 0.62rem; font-weight: 800; padding: 1px 8px; border-radius: 20px;
+      background: rgba(100,116,139,0.20); color: var(--text-main);
+    }
+    .prod-titulo-linha { flex: 1; height: 2px; border-radius: 2px; background: #000; }
+    body.modo-noite .prod-titulo-linha { background: #e5e7eb; } /* no modo noite, preto sumiria no fundo escuro */
+    body.filtro-chip-ativo #cardDiversos { display: none !important; }
+    /* número e bolhas do Total do dia são clicáveis */
+    .total-dia-num { cursor: pointer; -webkit-tap-highlight-color: transparent; }
     .btn-sort-hist {
       flex-shrink: 0;
       height: 40px; width: 40px;
@@ -733,7 +766,7 @@
       text-align: center;
       overflow: hidden;
       text-overflow: ellipsis;
-      cursor: grab;
+      cursor: pointer;
       user-select: none;
       -webkit-user-select: none;
       -webkit-touch-callout: none;
@@ -3083,6 +3116,10 @@
       <div class="hist-barra-row">
         <input type="text" class="input-busca" id="campoBusca" placeholder="🔍 Buscar placa ou motorista..." oninput="filtrarHistorico(this.value)">
         <button class="btn-sort-hist desc" id="btnSortHist" onclick="abrirOrdemExibicao()" title="Ordem de exibição">⇅</button>
+      </div>
+      <div class="hist-filtro-chip" id="histFiltroChip" style="display:none">
+        <span>Produto: <b id="histFiltroChipNome"></b></span>
+        <button type="button" onclick="limparFiltroChipHist()">✕ Ver todos</button>
       </div>
     </div>
   </div>
@@ -6734,11 +6771,62 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   const LS_ORDEM_PRODUTOS_KEY = 'portaria_ordem_produtos';
   let _histOrdemDesc = (localStorage.getItem(LS_ORDEM_DIRECAO_KEY) ?? '1') === '1'; // true = mais recente no topo (padrão)
 
+  /* ===================== ATALHOS DO "TOTAL DO DIA" → HISTÓRICO =====================
+   * Toque na bolha de um produto → abre o Histórico mostrando só esse produto
+   * (a mesma conta do Total do dia: Pátio + Carregados).
+   * Toque no número do total → abre o Histórico completo.
+   * O filtro some ao trocar de aba ou no botão "Ver todos".
+   * ================================================================================= */
+  window._filtroProdutoHist = null;
+
+  function _aplicarFiltroChipHist() {
+    const f = window._filtroProdutoHist;
+    document.body.classList.toggle('filtro-chip-ativo', !!f);
+    const chip = document.getElementById('histFiltroChip');
+    if (chip) {
+      chip.style.display = f ? '' : 'none';
+      const nm = document.getElementById('histFiltroChipNome');
+      if (nm) nm.textContent = f || '';
+    }
+    const placasOk = f
+      ? new Set([...veiculosPatio, ...veiculosCarregados]
+          .filter(v => (v.produto || '---') === f).map(v => v.placa))
+      : null;
+    document.querySelectorAll('#tabDia tbody tr:not(.prod-titulo-row), #tabNoite tbody tr:not(.prod-titulo-row)').forEach(tr => {
+      // linhas de observação seguem a linha principal da mesma placa
+      const placa = tr.classList.contains('obs-row-full') ? tr.dataset.obsplaca : tr.dataset.placa;
+      tr.classList.toggle('tr-filtro-chip', !!f && !placasOk.has(placa));
+    });
+    _atualizarTitulosProdutoHist();
+    requestAnimationFrame(ajustarContainerTop);
+  }
+
+  function limparFiltroChipHist() {
+    window._filtroProdutoHist = null;
+    _aplicarFiltroChipHist();
+  }
+
+  // produto = nome da bolha; null/vazio = histórico completo
+  function abrirHistoricoFiltrado(produto) {
+    const btn = document.querySelector('.tab-btn[onclick*="abaHist"]');
+    if (!btn || getComputedStyle(btn).display === 'none') return; // perfil sem acesso ao Histórico
+    window._filtroProdutoHist = produto || null;
+    const campo = document.getElementById('campoBusca');
+    if (campo && campo.value) {            // limpa busca digitada para não esconder linhas
+      campo.value = '';
+      filtrarHistorico('');
+      _aplicarFiltroProdutoHistorico();
+    }
+    switchTab('abaHist', btn);
+    _aplicarFiltroChipHist();
+  }
+
   function filtrarHistorico(val) {
     const q = val.toUpperCase().trim();
-    document.querySelectorAll('#tabDia tbody tr, #tabNoite tbody tr').forEach(tr => {
+    document.querySelectorAll('#tabDia tbody tr:not(.prod-titulo-row), #tabNoite tbody tr:not(.prod-titulo-row)').forEach(tr => {
       tr.classList.toggle('tr-hidden', q.length > 0 && !tr.dataset.busca?.includes(q));
     });
+    _atualizarTitulosProdutoHist();
   }
 
   function _carregarOrdemProdutos() {
@@ -6829,7 +6917,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     _reordenarLinhasHistorico();
     // Aviso de diagnóstico: mostra a direção aplicada e as 2 primeiras linhas
     // que ficaram no topo, pra confirmar o efeito sem precisar rolar a lista.
-    const topo = Array.from(document.querySelectorAll('#tabDia tbody tr:not(.obs-row-full)'))
+    const topo = Array.from(document.querySelectorAll('#tabDia tbody tr:not(.obs-row-full):not(.prod-titulo-row)'))
       .slice(0, 2).map(tr => `${tr.dataset.produto || '?'}/${tr.dataset.placa || '?'}`).join(', ');
     mostrarToast(
       `📋 ${_histOrdemDesc ? 'Recente' : 'Antigo'} no topo` +
@@ -6982,6 +7070,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   function _reordenarLinhasHistorico() {
     const tbodyDia = document.querySelector("#tabDia tbody");
     if (!tbodyDia) return;
+    tbodyDia.querySelectorAll('tr.prod-titulo-row').forEach(t => t.remove());
     const linhasPrincipais = Array.from(tbodyDia.querySelectorAll('tr:not(.obs-row-full)'));
     const pares = linhasPrincipais.map(tr => ({
       tr,
@@ -7032,7 +7121,55 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       tbodyDia.appendChild(tr);
       if (obs) tbodyDia.appendChild(obs);
     });
+    _atualizarTitulosProdutoHist();
   }
+
+  /* ===================== TÍTULOS DE PRODUTO NO HISTÓRICO =====================
+   * Insere uma linha-título ("SOJA · 5") antes de cada grupo de produto na lista.
+   * A contagem mostra só as linhas visíveis (respeita busca e filtros).
+   * ========================================================================== */
+  function _atualizarTitulosProdutoHist() {
+    const tbody = document.querySelector('#tabDia tbody');
+    if (!tbody) return;
+    tbody.querySelectorAll('tr.prod-titulo-row').forEach(t => t.remove());
+    const visivel = tr => !tr.classList.contains('tr-hidden') && !tr.classList.contains('tr-filtro-chip');
+    let ultimo = null, titulo = null, qtd = 0;
+    const fechar = () => {
+      if (!titulo) return;
+      titulo.querySelector('.prod-titulo-qtd').textContent = qtd;
+      titulo.style.display = qtd ? '' : 'none';
+    };
+    Array.from(tbody.querySelectorAll('tr[data-placa]')).forEach(tr => {
+      const p = (tr.dataset.produto || '').toUpperCase();
+      if (titulo === null || p !== ultimo) {
+        fechar();
+        ultimo = p; qtd = 0;
+        titulo = document.createElement('tr');
+        titulo.className = 'prod-titulo-row';
+        const td = document.createElement('td');
+        td.colSpan = 3;
+        td.innerHTML = '<div class="prod-titulo-conteudo"><span class="prod-titulo-nome"></span><span class="prod-titulo-qtd"></span><span class="prod-titulo-linha"></span></div>';
+        td.querySelector('.prod-titulo-nome').textContent = tr.dataset.produto || 'SEM PRODUTO';
+        titulo.appendChild(td);
+        tbody.insertBefore(titulo, tr);
+      }
+      if (visivel(tr)) qtd++;
+    });
+    fechar();
+  }
+  // Mantém os títulos certos quando linhas entram, saem ou mudam de lugar
+  (function () {
+    const tb = document.querySelector('#tabDia tbody');
+    if (!tb) return;
+    let timer = null;
+    new MutationObserver(muts => {
+      const relevante = muts.some(m => [...m.addedNodes, ...m.removedNodes]
+        .some(n => !(n.classList && n.classList.contains('prod-titulo-row'))));
+      if (!relevante) return;
+      clearTimeout(timer);
+      timer = setTimeout(_atualizarTitulosProdutoHist, 60);
+    }).observe(tb, { childList: true });
+  })();
 
   // ── Arraste (funciona com mouse e toque, via Pointer Events) ──
   // Estratégia sem "tremedeira": durante o arraste, SÓ o item arrastado se move
@@ -8110,6 +8247,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   }
 
   function switchTab(id, btn) {
+    // Saiu do Histórico → o filtro vindo das bolhas do Total do dia some
+    if (id !== 'abaHist' && window._filtroProdutoHist) limparFiltroChipHist();
     document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(id).classList.add('active');
@@ -8869,12 +9008,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
   // Aplica filtro de produto no histórico (oculta linhas que não batem)
   function _aplicarFiltroProdutoHistorico() {
+    _aplicarFiltroChipHist(); // reaplica o atalho do Total do dia quando a lista é redesenhada
     const prod = _getProdutoFiltro();
     if (!prod) return; // sem filtro — mostra tudo
-    document.querySelectorAll('#tabDia tbody tr, #tabNoite tbody tr').forEach(tr => {
+    document.querySelectorAll('#tabDia tbody tr:not(.prod-titulo-row), #tabNoite tbody tr:not(.prod-titulo-row)').forEach(tr => {
       const trProd = (tr.dataset.produto || '').toUpperCase();
       tr.classList.toggle('tr-hidden', !trProd.includes(prod.toUpperCase()));
     });
+    _atualizarTitulosProdutoHist();
   }
 
   function perfilVoltarLista() {
@@ -9769,6 +9910,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   /* ───────────────────────────────────────────────────────────────────────
    * Expõe funções ao escopo global (type=module isola o escopo) ── */
   Object.assign(window, {
+    abrirHistoricoFiltrado, limparFiltroChipHist,
     fazerLogin, trocarPerfil, aplicarPerfil, switchTab,
     registrarEntrada, registrarSaida, toggleOrdem,
     toggleModoNoite, toggleGear, fecharGear,
@@ -10249,6 +10391,20 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   const cont = document.getElementById('resumoTotalDia');
   if (!cont) return;
   let st = null;
+  let ultimoArraste = 0; // evita que soltar uma bolha depois de arrastar conte como "toque"
+
+  // Toque na bolha → Histórico só com aquele produto
+  cont.addEventListener('click', e => {
+    if (Date.now() - ultimoArraste < 500) return;
+    const pill = e.target.closest('.prod-pill');
+    if (!pill || !pill.dataset.prod) return;
+    if (window.abrirHistoricoFiltrado) window.abrirHistoricoFiltrado(decodeURIComponent(pill.dataset.prod));
+  });
+  // Toque no número do total → Histórico completo
+  const numTotal = document.querySelector('#totalDia .total-dia-num');
+  if (numTotal) numTotal.addEventListener('click', () => {
+    if (window.abrirHistoricoFiltrado) window.abrirHistoricoFiltrado(null);
+  });
 
   cont.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -10345,6 +10501,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     if (!st || (e && e.pointerId !== st.id)) return;
     clearTimeout(st.timer);
     if (st.ativo) {
+      ultimoArraste = Date.now();
       st.clone.remove();
       st.slot.remove();
       cont.style.minHeight = '';
