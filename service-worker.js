@@ -1,4 +1,4 @@
-const CACHE_NAME = 'portaria-savana-v1.2';
+const CACHE_NAME = 'portaria-savana-v1.3';
 
 // Assets do app que devem funcionar offline
 const ASSETS = [
