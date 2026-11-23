@@ -748,14 +748,30 @@
       color: var(--text-main);
       font-family: 'JetBrains Mono', monospace;
     }
+    /* o contador "Veículos" original só aparece quando os cards estão minimizados;
+       com os cards abertos ele é um item da grade (.total-item), movível como os balões */
+    #totalDia > .total-dia-num { display: none; }
+    .paineis-compacto #totalDia > .total-dia-num { display: flex; }
+    .total-dia-pills .total-item {
+      box-sizing: border-box;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      min-width: 0;
+    }
+    .prod-pill-fantasma.total-item {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1px; padding: 0;
+    }
     .total-dia-pills {
       display: grid;
-      grid-template-columns: repeat(12, minmax(0, 1fr));
+      grid-template-columns: repeat(40, minmax(0, 1fr));
       gap: 4px;
       width: 100%;
       min-width: 0;
     }
-    /* posição livre numa grade de 12 colunas: curto = 4 colunas (1/3), longo = 6 colunas (1/2) */
+    /* posição livre numa grade de 40 colunas: curto = 12 colunas (30%), longo = 16 colunas (40%) → curto + longo + curto = linha cheia */
     .prod-slot {
       border: 2px dashed rgba(100,116,139,0.7);
       border-radius: 20px;
@@ -3206,7 +3222,7 @@
   <div class="paineis-contagem-wrapper">
   <div class="paineis-contagem">
     <div class="total-dia" id="totalDia" style="display:none">
-      <div class="total-dia-num"><b id="contTotalDia">0</b><small>Total do dia</small></div>
+      <div class="total-dia-num"><b id="contTotalDia">0</b><small>Veículos</small></div>
       <div class="total-dia-pills" id="resumoTotalDia"></div>
     </div>
     <div class="mini-card" data-tipo="patio" style="border-bottom-color: var(--accent)">
@@ -6283,8 +6299,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     Object.values(cargaPT).sort((a,b)=>a.p.localeCompare(b.p)).forEach(i => { htmlC += `<div>${i.q} ${i.p} — ${i.t}</div>`; });
     document.getElementById('detalheCarga').innerHTML = htmlC || '<div style="color:var(--text-muted)">—</div>';
 
-    // ── Total do dia por produto (Pátio + Carregados) ─────────
-    // O caminhão só troca de lista ao carregar, então a soma não cai.
+    // ── Total do dia por produto — MESMA FONTE DOS CARDS (planilha) ─────────
+    // Pátio + Carregados, exatamente o que os cards mostram. Quem já saiu continua em "Carregados"
+    // até a limpeza da noite (chegada zerada / 19h), então o total não cai durante o dia e todos os
+    // aparelhos veem o mesmo número, porque leem a mesma planilha.
     const totalPorProd = {};
     [...veiculosPatio, ...veiculosCarregados].forEach(v => {
       const k = v.produto || '---';
@@ -10290,61 +10308,114 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
 
 <script>
-/* Total do dia — balões em posição livre (grade 12 colunas) + arrastar; posição salva no aparelho */
+/* Total do dia — balões E contador "Veículos" em posição livre (grade 40 colunas) + arrastar; posição salva no aparelho */
 (function () {
-  const KEY = 'totalDiaPosicoes_v2';
+  const KEY = 'totalDiaPosicoes_v4';
+  const KEY_V3 = 'totalDiaPosicoes_v3';   // versão anterior (grade 12 col., todos com 4) — migrada automaticamente
+  const KEY_V2 = 'totalDiaPosicoes_v2';   // versão anterior (longos ocupavam 6 colunas) — migrada automaticamente
   const KEY_V1 = 'totalDiaPosicoes_v1';   // versão antiga (6 colunas) — migrada automaticamente
-  const NCOL = 12;
+  const NCOL = 40;
   window._totalDiaArrastando = false;
 
-  const span = nome => (nome.length <= 6 ? 4 : 6);               // curto 1/3, longo 1/2
-  const colide = (a, b) => a.r === b.r && a.c < b.c + b.n && b.c < a.c + a.n;
+  // Tamanho FIXO por tipo: curto = 12 colunas (30%), longo = 16 colunas (40%).
+  // 12 + 16 + 12 = 40 → pequeno num canto, grande no meio e pequeno no outro canto, linha cheia.
+  const span = nome => (nome.length <= 6 ? 12 : 16);
+  const curto = nome => nome.length <= 6;                        // só para a ordem padrão (curtos primeiro)
+  // O contador "Veículos" também é um item da grade: 12 colunas de largura e 2 linhas de altura.
+  const TOT = '__veiculos__';
+  const dim = nome => (nome === TOT ? { n: 12, h: 2 } : { n: span(nome), h: 1 });
+  const colide = (a, b) => a.c < b.c + b.n && b.c < a.c + a.n && a.r < b.r + b.h && b.r < a.r + a.h;
 
+  // converte posição da grade antiga (12 col.) para a nova (40 col.), pelo centro do balão, com ímã nos pontos de encaixe
+  function converter(sv, nome, n12) {
+    const n = span(nome);
+    let c = Math.round(((sv.c + n12 / 2) / 12) * NCOL - n / 2);
+    c = Math.max(0, Math.min(NCOL - n, c));
+    [0, (NCOL - n) / 2, NCOL - n].forEach(a => { if (Math.abs(c - a) <= 2) c = a; });
+    return { r: sv.r, c };
+  }
   function lerPos() {
     try {
-      const v2 = localStorage.getItem(KEY);
-      if (v2) return JSON.parse(v2) || {};
-      const v1 = JSON.parse(localStorage.getItem(KEY_V1)) || {};
-      Object.keys(v1).forEach(k => { v1[k] = { r: v1[k].r, c: v1[k].c * 2 }; });
-      return v1;
+      const v4 = localStorage.getItem(KEY);
+      if (v4) return JSON.parse(v4) || {};
+      let ant = null, n12 = k => 4;
+      const v3 = localStorage.getItem(KEY_V3);
+      const v2 = localStorage.getItem(KEY_V2);
+      if (v3) ant = JSON.parse(v3) || {};
+      else if (v2) { ant = JSON.parse(v2) || {}; n12 = k => (curto(k) ? 4 : 6); }
+      else {
+        ant = JSON.parse(localStorage.getItem(KEY_V1)) || {};
+        Object.keys(ant).forEach(k => { ant[k] = { r: ant[k].r, c: ant[k].c * 2 }; });
+        n12 = k => (curto(k) ? 4 : 6);
+      }
+      const out = {};
+      Object.keys(ant).forEach(k => { out[k] = converter(ant[k], k, n12(k)); });
+      return out;
     } catch (e) { return {}; }
   }
   function salvarPos(o) { try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {} }
 
   // Compacta linhas vazias (mantém as colunas como o usuário deixou)
   function compactar(pos) {
-    const rows = [...new Set(Object.values(pos).map(p => p.r))].sort((a, b) => a - b);
+    const usadas = new Set();
+    Object.values(pos).forEach(p => { for (let k = 0; k < p.h; k++) usadas.add(p.r + k); });
+    const rows = [...usadas].sort((a, b) => a - b);
     const out = {};
-    Object.keys(pos).forEach(k => { out[k] = { r: rows.indexOf(pos[k].r), c: pos[k].c, n: pos[k].n }; });
+    Object.keys(pos).forEach(k => { out[k] = { r: rows.indexOf(pos[k].r), c: pos[k].c, n: pos[k].n, h: pos[k].h }; });
     return out;
   }
 
   function calcularPos(dados) {
     const saved = lerPos();
+    // quem já tinha layout salvo sem o contador "Veículos": ele entra no topo e os balões descem 2 linhas (mesma aparência de antes)
+    const desloc = (!saved[TOT] && Object.keys(saved).length) ? 2 : 0;
     // padrão: curtos primeiro, depois longos (cada grupo do maior para o menor)
-    const nomes = Object.keys(dados).sort((a, b) =>
-      (span(a) - span(b)) || (dados[b] - dados[a]) || a.localeCompare(b));
+    const prods = Object.keys(dados).sort((a, b) =>
+      (curto(b) - curto(a)) || (dados[b] - dados[a]) || a.localeCompare(b));
+    const nomes = [TOT].concat(prods);
     const pos = {}, lista = [];
     const livre = it => !lista.some(o => colide(it, o));
     // 1) posições salvas
     nomes.forEach(nm => {
       const sv = saved[nm]; if (!sv) return;
-      const it = { r: sv.r | 0, c: sv.c | 0, n: span(nm) };
+      const d = dim(nm);
+      const it = { r: (sv.r | 0) + (nm === TOT ? 0 : desloc), c: sv.c | 0, n: d.n, h: d.h };
       if (it.r >= 0 && it.c >= 0 && it.c + it.n <= NCOL && livre(it)) { pos[nm] = it; lista.push(it); }
     });
-    // 2) o resto entra no primeiro espaço livre
+    // 2) o resto entra no primeiro espaço livre (o contador no topo, no centro; balões novos abaixo dele se ele ainda está no padrão)
     nomes.forEach(nm => {
       if (pos[nm]) return;
-      const n = span(nm), starts = n === 4 ? [0, 4, 8] : [0, 6];
-      for (let r = 0; ; r++) {
-        const c = starts.find(c0 => livre({ r, c: c0, n }));
-        if (c !== undefined) { const it = { r, c, n }; pos[nm] = it; lista.push(it); break; }
+      const d = dim(nm);
+      const starts = nm === TOT ? [14] : (d.n === 12 ? [0, 14, 28] : [0, 24]);
+      const minRow = (nm !== TOT && pos[TOT] && !saved[TOT]) ? pos[TOT].r + pos[TOT].h : 0;
+      for (let r = minRow; ; r++) {
+        const c = starts.find(c0 => livre({ r, c: c0, n: d.n, h: d.h }));
+        if (c !== undefined) { const it = { r, c, n: d.n, h: d.h }; pos[nm] = it; lista.push(it); break; }
       }
     });
     return compactar(pos);
   }
 
-  function estilo(it) { return `grid-column:${it.c + 1} / span ${it.n};grid-row:${it.r + 1};`; }
+  function estilo(it) { return `grid-column:${it.c + 1} / span ${it.n};grid-row:${it.r + 1} / span ${it.h};`; }
+
+
+  // Tamanho do balão é sempre o mesmo (12 ou 16 colunas). Só se o texto não couber (ex.: "ALGODÃO EM PLUMA"
+  // com total de 3 dígitos) a letra diminui um pouco — o balão em si não muda. Balões que já cabem não são tocados.
+  function ajustarTextos() {
+    const el = document.getElementById('resumoTotalDia');
+    if (!el) return;
+    el.querySelectorAll('.prod-pill').forEach(pe => {
+      pe.style.fontSize = ''; pe.style.paddingLeft = ''; pe.style.paddingRight = '';
+      if (!pe.clientWidth || pe.scrollWidth <= pe.clientWidth) return;
+      pe.style.paddingLeft = pe.style.paddingRight = '4px';
+      let fs = 0.62;
+      while (pe.scrollWidth > pe.clientWidth && fs > 0.5) {
+        fs = Math.round((fs - 0.01) * 100) / 100;
+        pe.style.fontSize = fs + 'rem';
+      }
+      pe.dataset.fs = fs + 'rem';
+    });
+  }
 
   // Só anima depois dos primeiros 6s com dados (evita "pipocar" tudo ao abrir/carregar)
   function podeAnimar() { return !!window._tdT0 && (Date.now() - window._tdT0) > 6000; }
@@ -10356,8 +10427,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const ant = b.dataset.val === undefined ? null : Number(b.dataset.val);
     b.textContent = n;
     b.dataset.val = n;
+    window._totalDiaN = n;
+    const bg = document.querySelector('#resumoTotalDia .total-item b');   // o da grade (se já estiver desenhado)
+    if (bg) bg.textContent = n;
     if (ant === null || ant === n || !podeAnimar()) return;
     const cls = n > ant ? 'num-sobe' : 'num-desce';
+    window._totalDiaAnim = cls;                                            // a grade é redesenhada em seguida: ela aplica o pulo
+    clearTimeout(window._tdAnimT);
+    window._tdAnimT = setTimeout(() => { window._totalDiaAnim = null; }, 900);
     b.classList.remove('num-sobe', 'num-desce');
     void b.offsetWidth;
     b.classList.add(cls);
@@ -10370,7 +10447,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const dados = window._totalDiaDados || {};
     const pos = calcularPos(dados);
     window._totalDiaPos = pos;
-    el.innerHTML = Object.keys(dados).map(nm =>
+    el.innerHTML = `<div class="total-dia-num total-item" data-prod="${encodeURIComponent(TOT)}" style="${estilo(pos[TOT])}"><b>${window._totalDiaN || 0}</b><small>Veículos</small></div>` + Object.keys(dados).map(nm =>
       `<span class="prod-pill" data-prod="${encodeURIComponent(nm)}" style="${estilo(pos[nm])}">${dados[nm]} ${nm}</span>`
     ).join('');
     // balão cujo número mudou (ou que acabou de aparecer) dá o "pulo"
@@ -10385,17 +10462,34 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         pe.addEventListener('animationend', () => pe.classList.remove(cls), { once: true });
       });
     }
+    const bt = el.querySelector('.total-item b'), ca = window._totalDiaAnim;
+    if (bt && ca && podeAnimar()) {
+      bt.classList.add(ca);
+      bt.addEventListener('animationend', () => bt.classList.remove(ca), { once: true });
+    }
+    window._totalDiaAnim = null;
     window._totalDiaPrev = Object.assign({}, dados);
+    ajustarTextos();
   };
 
   const cont = document.getElementById('resumoTotalDia');
   if (!cont) return;
+  if (window.ResizeObserver) {
+    let larg = cont.clientWidth;
+    new ResizeObserver(() => {
+      if (cont.clientWidth !== larg && !window._totalDiaArrastando) { larg = cont.clientWidth; ajustarTextos(); }
+    }).observe(cont);
+  }
   let st = null;
   let ultimoArraste = 0; // evita que soltar uma bolha depois de arrastar conte como "toque"
 
   // Toque na bolha → Histórico só com aquele produto
   cont.addEventListener('click', e => {
     if (Date.now() - ultimoArraste < 500) return;
+    if (e.target.closest('.total-item')) {           // toque no "Veículos" → Histórico completo
+      if (window.abrirHistoricoFiltrado) window.abrirHistoricoFiltrado(null);
+      return;
+    }
     const pill = e.target.closest('.prod-pill');
     if (!pill || !pill.dataset.prod) return;
     if (window.abrirHistoricoFiltrado) window.abrirHistoricoFiltrado(decodeURIComponent(pill.dataset.prod));
@@ -10409,7 +10503,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   cont.addEventListener('contextmenu', e => e.preventDefault());
 
   cont.addEventListener('pointerdown', e => {
-    const pill = e.target.closest('.prod-pill');
+    const pill = e.target.closest('.prod-pill, .total-item');
     if (!pill || st) return;
     st = { pill, id: e.pointerId, x0: e.clientX, y0: e.clientY, ativo: false, timer: null, tipo: e.pointerType };
     if (e.pointerType !== 'mouse') st.timer = setTimeout(() => iniciar(st.x0, st.y0), 300);
@@ -10429,13 +10523,16 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   document.addEventListener('touchmove', e => { if (st && st.ativo) e.preventDefault(); }, { passive: false });
 
   function aplicar() {
-    cont.querySelectorAll('.prod-pill').forEach(el => {
+    cont.querySelectorAll('.prod-pill, .total-item').forEach(el => {
       const it = st.pos[decodeURIComponent(el.dataset.prod)];
-      if (it) el.style.cssText = estilo(it) + (el === st.pill ? 'display:none;' : '');
+      if (it) {
+        el.style.cssText = estilo(it) + (el === st.pill ? 'display:none;' : '');
+        if (el.dataset.fs) { el.style.fontSize = el.dataset.fs; el.style.paddingLeft = el.style.paddingRight = '4px'; }
+      }
     });
     st.slot.style.cssText = estilo(st.pos[st.nome]);
-    const maxR = Math.max(...Object.values(st.pos).map(p => p.r));
-    cont.style.minHeight = ((maxR + 2) * st.h + (maxR + 1) * st.gap) + 'px';
+    const linhas = Math.max(...Object.values(st.pos).map(p => p.r + p.h)) + 1;   // +1 linha livre para soltar abaixo de tudo
+    cont.style.minHeight = (linhas * st.h + (linhas - 1) * st.gap) + 'px';
   }
 
   function iniciar(x, y) {
@@ -10444,7 +10541,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     window._totalDiaArrastando = true;
     const r = st.pill.getBoundingClientRect();
     st.nome = decodeURIComponent(st.pill.dataset.prod);
-    st.h = r.height;
+    const ref = cont.querySelector('.prod-pill');            // altura de UMA linha da grade = altura de um balão
+    st.h = ref ? ref.getBoundingClientRect().height : 22;
     st.gap = parseFloat(getComputedStyle(cont).rowGap) || 4;
     st.ox = x - r.left; st.oy = y - r.top;
     st.pos = JSON.parse(JSON.stringify(window._totalDiaPos || {}));
@@ -10453,8 +10551,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     st.slot.className = 'prod-slot';
     cont.appendChild(st.slot);
     const c = st.pill.cloneNode(true);
-    c.className = 'prod-pill-fantasma';
-    c.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;z-index:99999;pointer-events:none;`;
+    c.className = 'prod-pill-fantasma' + (st.nome === TOT ? ' total-item' : '');
+    c.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;z-index:99999;pointer-events:none;${st.nome === TOT ? 'height:' + r.height + 'px;' : ''}`;
+    if (st.pill.dataset.fs) { c.style.fontSize = st.pill.dataset.fs; c.style.paddingLeft = c.style.paddingRight = '4px'; }
     document.body.appendChild(c);
     st.clone = c;
     aplicar();
@@ -10464,19 +10563,37 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   // tenta colocar o arrastado em (r,c); se pegar em outro balão, troca de lugar com ele
   function tentar(pos, nome, r, c) {
     const A = pos[nome];
-    const novoA = { r, c, n: A.n };
+    const novoA = { r, c, n: A.n, h: A.h };
     const outros = Object.keys(pos).filter(k => k !== nome);
     const batem = outros.filter(k => colide(novoA, pos[k]));
     const copia = JSON.parse(JSON.stringify(pos));
     copia[nome] = novoA;
     if (batem.length === 0) return copia;
-    if (batem.length > 1) return null;
-    const bk = batem[0], B = pos[bk];
-    const novoB = { r: A.r, c: Math.min(A.c, NCOL - B.n), n: B.n };
-    copia[bk] = novoB;
-    const ok = Object.keys(copia).every((k1, i, arr) =>
-      arr.slice(i + 1).every(k2 => !colide(copia[k1], copia[k2])));
-    return ok ? copia : null;
+    const semColisao = o => Object.keys(o).every((k1, i, arr) =>
+      arr.slice(i + 1).every(k2 => !colide(o[k1], o[k2])));
+    if (batem.length === 1) {                                   // troca simples de lugar
+      const bk = batem[0], B = pos[bk];
+      const troca = JSON.parse(JSON.stringify(copia));
+      troca[bk] = { r: A.r, c: Math.min(A.c, NCOL - B.n), n: B.n, h: B.h };
+      if (semColisao(troca)) return troca;
+    }
+    // vários balões no caminho (ou a troca não coube): eles vão para o espaço livre mais perto de onde o arrastado estava
+    batem.forEach(k => { delete copia[k]; });
+    const ord = batem.slice().sort((x, y) => (pos[x].r - pos[y].r) || (pos[x].c - pos[y].c));
+    ord.forEach(k => {
+      const B = pos[k];
+      const base = Math.max(...Object.values(copia).map(p => p.r + p.h), 0);
+      const cols = [...new Set([0, (NCOL - B.n) / 2, NCOL - B.n, Math.min(B.c, NCOL - B.n), Math.min(A.c, NCOL - B.n)])];
+      let melhor = null;
+      for (let rr = 0; rr <= base; rr++) cols.forEach(cc => {
+        const it = { r: rr, c: cc, n: B.n, h: B.h };
+        if (Object.values(copia).some(o => colide(it, o))) return;
+        const custo = Math.abs(rr - A.r) * 3 + Math.abs(cc - A.c);
+        if (!melhor || custo < melhor.custo) melhor = { it, custo };
+      });
+      copia[k] = melhor.it;
+    });
+    return semColisao(copia) ? copia : null;
   }
 
   function mover(x, y) {
@@ -10488,10 +10605,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     let c = Math.round((x - st.ox - cr.left) / (colW + st.gap));
     c = Math.max(0, Math.min(NCOL - A.n, c));
     // ímã: esquerda, centro e direita (o balão fica centralizado de verdade)
-    [0, (NCOL - A.n) / 2, NCOL - A.n].forEach(a => { if (Math.abs(c - a) <= 1) c = a; });
-    const maxR = Math.max(...Object.values(st.pos).map(p => p.r));
-    let r = Math.floor((y - cr.top) / (st.h + st.gap));
-    r = Math.max(0, Math.min(maxR + 1, r));
+    [0, (NCOL - A.n) / 2, NCOL - A.n].forEach(a => { if (Math.abs(c - a) <= 2) c = a; });
+    const fundo = Math.max(...Object.values(st.pos).map(p => p.r + p.h));
+    let r = Math.round((y - st.oy - cr.top) / (st.h + st.gap));     // linha do TOPO do balão arrastado
+    r = Math.max(0, Math.min(fundo, r));
     if (r === A.r && c === A.c) return;
     const cand = tentar(st.pos, st.nome, r, c);
     if (cand) { st.pos = cand; aplicar(); }
