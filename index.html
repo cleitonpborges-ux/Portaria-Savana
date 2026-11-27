@@ -1022,6 +1022,27 @@
       padding: 0;
     }
 
+    /* Conta admin: "Nova Entrada" vira botão + janelinha (mesmo estilo da edição). Nas outras contas nada muda. */
+    #entradaWrap, #entradaWrap > .entrada-box { display: contents; }
+    .btn-nova-entrada-modal { display: none; }
+    body.entrada-em-modal .btn-nova-entrada-modal {
+      display: block; width: 100%; padding: 14px; border: none; border-radius: var(--radius-sm);
+      color: white; font-weight: 800; cursor: pointer; font-size: 0.95rem; text-transform: uppercase;
+      font-family: inherit; letter-spacing: 0.5px; transition: all 0.15s; margin: 4px 0 0;
+    }
+    body.entrada-em-modal .btn-nova-entrada-modal:active { transform: scale(0.97); }
+    body.entrada-em-modal #abaEntrada { background: transparent; box-shadow: none; border-top: none; padding: 0; min-height: 0; }
+    body.entrada-em-modal #entradaWrap {
+      display: none; position: fixed; inset: 0; z-index: 999; background: rgba(0,0,0,0.6);
+      align-items: flex-end; justify-content: center; backdrop-filter: blur(4px);
+    }
+    body.entrada-em-modal #entradaWrap.aberto { display: flex; animation: fadeIn 0.2s ease; }
+    body.entrada-em-modal #entradaWrap > .entrada-box {
+      display: block; background: var(--card-bg); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      padding: 18px 20px 28px; width: 100%; max-width: 480px; max-height: 92vh; overflow-y: auto;
+      box-shadow: var(--shadow-lg); animation: slideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
     /* Perfil balança: cadastro (Nova Entrada) desativado — remove a "caixa"
        vazia do card #abaEntrada quando não há nenhum campo pra mostrar */
     #abaEntrada.entrada-vazia-balanca {
@@ -1453,7 +1474,7 @@
       display: flex;
       align-items: center;
       gap: 4px;
-      flex-wrap: nowrap;
+      flex-wrap: wrap;   /* se não couber na coluna, o botão desce para a linha de baixo em vez de ser cortado */
     }
 
     /* Base comum para st-badge, btn-edit, btn-chamar, btn-obs */
@@ -1500,15 +1521,19 @@
       font-size: 0.75rem;
       font-weight: 800;
       line-height: 1;
-      color: #dc2626;
+      color: rgba(220,38,38,0.6);
       background: var(--bg);
-      border: 1.5px solid rgba(220,38,38,0.5);
+      border: 1.5px solid rgba(220,38,38,0.2);
+      opacity: 0.75;
       cursor: pointer;
       flex-shrink: 0;
       transition: all 0.15s;
     }
     .btn-excluir-veiculo:active { transform: scale(0.92); background: rgba(220,38,38,0.15); }
     .btn-excluir-veiculo:disabled { opacity: 0.5; }
+    /* saída já registrada: o X de exclusão some */
+    tr[data-status="SAÍDA"] .btn-excluir-veiculo,
+    tr[data-status="CONCLUIDO"] .btn-excluir-veiculo { display: none !important; }
 
     .btn-edit {
       background: var(--bg);
@@ -2579,6 +2604,93 @@
     .idb-sync-dot.pendente { background: var(--warn); animation: piscar-critico 1.5s infinite; }
 
   
+    /* ===================== INFORMAR LOTES ===================== */
+    .btn-lotes { display: none; align-items: center; justify-content: center; gap: 4px; height: 26px; padding: 0 9px;
+      border-radius: 13px; border: 1.5px solid var(--accent); background: var(--accent-light); color: var(--accent);
+      font-family: inherit; font-size: 0.57rem; font-weight: 700; text-transform: uppercase; white-space: nowrap;
+      cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .btn-lotes:active { transform: scale(0.95); }
+    /* Só aparece quando o veículo está CARREGANDO. Depois (AGUARDANDO NFE / SAÍDA) fica apagado e não deixa clicar. Antes (PÁTIO) não aparece.
+       Funciona sozinho quando o status muda, pois lê o data-status da linha. */
+    body.perm-lotes tr[data-status="CARREGANDO"] .btn-lotes { display: inline-flex; }
+    /* Depois de AGUARD. NFE / SAÍDA o botão some de vez (os lotes continuam salvos e aparecem na observação). */
+    body.perm-lotes tr[data-status="AGUARDANDO NFE"] .btn-lotes,
+    body.perm-lotes tr[data-status="SAÍDA"] .btn-lotes { display: none !important; }
+    .btn-lotes.negado { opacity: 1 !important; filter: none !important; border-color: var(--danger); background: var(--danger-light); color: var(--danger);
+      animation: lotesNegado 0.35s ease; }
+    @keyframes lotesNegado { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+    /* contas com "Informar lotes": a coluna da esquerda fica mais larga para CHAMAR + ordem + LOTES caberem na MESMA linha
+       (a coluna da direita só tem o lápis de editar, então cede espaço) */
+    /* Colunas continuam em 1/3 cada (transportadora/produto ficam onde sempre estiveram). A linha CHAMAR + ordem + LOTES
+       é mais larga que a coluna da esquerda, então ela pode "invadir" o espaço vazio da coluna do meio, logo abaixo do texto. */
+    #tabDia col.c1, #tabNoite col.c1 { width: 33.333%; }
+    #tabDia col.c2, #tabNoite col.c2 { width: 33.333%; }
+    #tabDia col.c3, #tabNoite col.c3 { width: 33.334%; }
+    body.perm-lotes td.container-info { overflow: visible; }
+    body.perm-lotes .row-btns { position: relative; z-index: 3; width: max-content; }
+    body.perm-lotes .row-btns-top { gap: 3px; flex-wrap: nowrap; }
+    .obs-validado { display: none; margin: 0 -15px 0 8px; font-size: 0.5rem; line-height: 0.72rem; font-weight: 800; letter-spacing: 0.3px;
+      color: var(--success); align-items: flex-start; justify-content: flex-end; gap: 6px;
+      flex-shrink: 0; align-self: flex-start; white-space: nowrap; }
+    body.ve-validado .obs-validado { display: flex; }
+    body.ve-sem-edicao .btn-edit { display: none !important; }
+    /* lixeira discreta (só admin): sem fundo, sem borda, sem ocupar espaço */
+    .obs-remover { display: none; border: none; background: none; padding: 0; margin: 0; line-height: 1;
+      color: var(--danger); opacity: 0.9; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .obs-remover svg { display: block; }
+    .obs-remover:active { opacity: 0.6; }
+    body.ve-admin .obs-remover { display: inline-flex; align-items: center; }
+    body.modo-noite .obs-remover { color: #f87171; opacity: 1; }
+    .modal-lotes-overlay { position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(4px); display: flex; align-items: flex-end; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
+    .modal-lotes-overlay.open { opacity: 1; pointer-events: all; }
+    .modal-lotes-box { background: var(--card-bg); color: var(--text-main); width: 100%; max-width: 420px; max-height: 86vh;
+      border-radius: 22px 22px 0 0; display: flex; flex-direction: column; overflow: hidden;
+      transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.34,1.2,0.64,1); }
+    .modal-lotes-overlay.open .modal-lotes-box { transform: translateY(0); }
+    @media (min-width: 560px) { .modal-lotes-overlay { align-items: center; } .modal-lotes-box { border-radius: 22px; } }
+    .ml-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); margin: 10px auto 0; flex-shrink: 0; }
+    .ml-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px 8px; }
+    .ml-titulo { font-size: 0.95rem; font-weight: 800; }
+    .ml-sub { font-size: 0.62rem; color: var(--text-muted); font-weight: 700; margin-top: 1px; }
+    .ml-x { border: none; background: var(--bg); color: var(--text-muted); width: 28px; height: 28px; border-radius: 50%; font-size: 0.8rem; cursor: pointer; }
+    .ml-corpo { padding: 4px 16px 16px; overflow-y: auto; }
+    .ml-label { display: block; font-size: 0.66rem; font-weight: 800; color: var(--text-muted); margin: 6px 0 5px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .ml-label small { text-transform: none; font-weight: 600; letter-spacing: 0; }
+    .ml-input { width: 100%; box-sizing: border-box; padding: 11px 12px; border-radius: 10px; border: 1.5px solid var(--border);
+      background: var(--bg); color: var(--text-main); font-family: inherit; font-size: 0.95rem; font-weight: 700; }
+    .ml-input:focus { outline: none; border-color: var(--accent); }
+    .ml-input.erro { border-color: var(--danger); background: var(--danger-light); }
+    .ml-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; max-height: 128px; overflow-y: auto; }
+    .ml-chip { display: inline-flex; align-items: center; border: 1.5px solid var(--border); background: var(--bg); border-radius: 14px; overflow: hidden; }
+    .ml-chip.sel { border-color: var(--accent); background: var(--accent-light); }
+    .ml-chip-t { border: none; background: none; color: var(--text-main); font-family: inherit; font-size: 0.7rem; font-weight: 700;
+      padding: 6px 4px 6px 10px; cursor: pointer; max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ml-chip-x { border: none; background: none; color: var(--text-muted); font-size: 0.65rem; padding: 6px 9px 6px 4px; cursor: pointer; opacity: 0.7; }
+    .ml-chips-tit { font-size: 0.58rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 12px; }
+    .ml-link { border: none; background: none; color: var(--accent); font-family: inherit; font-size: 0.7rem; font-weight: 800; padding: 6px 0 0; cursor: pointer; }
+    .ml-linha { display: flex; gap: 8px; align-items: center; margin-bottom: 7px; }
+    .ml-linha .ml-lt { flex: 1.1; min-width: 0; } .ml-linha .ml-f { flex: 1; min-width: 0; }
+    .ml-rm { border: none; background: var(--danger-light); color: var(--danger); width: 34px; height: 38px; border-radius: 10px; font-size: 0.85rem; font-weight: 800; cursor: pointer; flex-shrink: 0; }
+    .ml-cab { display: flex; gap: 8px; font-size: 0.58rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin: 2px 42px 4px 2px; }
+    .ml-cab span:first-child { flex: 1.1; } .ml-cab span:last-child { flex: 1; }
+    .ml-add { width: 100%; padding: 9px; border-radius: 10px; border: 1.5px dashed var(--accent); background: transparent; color: var(--accent);
+      font-family: inherit; font-weight: 800; font-size: 0.78rem; cursor: pointer; margin: 2px 0 10px; }
+    .ml-prefixo { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 0.8rem; font-weight: 800; color: var(--accent); pointer-events: none; }
+    .ml-input-pref { padding-left: 50px; }
+    .ml-ac { position: static; margin-top: 6px; max-height: 200px; overflow-y: auto; }
+    .ml-preview { margin-top: 12px; padding: 8px 10px; border-radius: 8px; background: var(--accent-light); color: var(--text-main); font-size: 0.68rem; font-weight: 800; line-height: 1.35; word-break: break-word; }
+    .ml-total { font-size: 0.8rem; font-weight: 800; text-align: right; margin-bottom: 6px; }
+    .ml-erro { min-height: 16px; font-size: 0.68rem; font-weight: 700; color: var(--danger); margin-bottom: 8px; }
+    .ml-acoes { display: flex; gap: 8px; }
+    .ml-btn { flex: 1; padding: 12px; border-radius: 12px; border: none; font-family: inherit; font-size: 0.85rem; font-weight: 800; cursor: pointer; }
+    .ml-btn:active { transform: scale(0.97); }
+    .ml-btn.sec { background: var(--bg); color: var(--text-muted); flex: 0.55; }
+    .ml-btn.prim { background: var(--accent); color: #fff; }
+    .ml-btn.ok { background: var(--success); color: #fff; }
+    .ml-btn:disabled { opacity: 0.6; }
+
     /* ===================== MODAL GERENCIAR PERFIS ===================== */
     .modal-perfis-overlay {
       position: fixed; inset: 0; z-index: 9999;
@@ -2868,6 +2980,43 @@
   </div>
 </div>
 
+<!-- MODAL: EDITAR VEÍCULO (perfil balança — mesma ficha do registro da portaria, em janela menor) -->
+<div class="modal-overlay" id="modalEditarVeiculo">
+  <div class="modal-box" style="max-height:92vh;overflow-y:auto;">
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <span id="ebTitulo" style="font-size:0.85rem;font-weight:800;color:var(--accent);">✏️ Editando</span>
+      <button onclick="fecharModal('modalEditarVeiculo')" style="background:none;border:none;font-size:1.1rem;color:var(--text-muted);cursor:pointer;padding:2px 6px;">✕</button>
+    </div>
+    <div class="campo"><label>Placa</label>
+      <input type="text" id="eb_placa" autocomplete="off" autocorrect="off" spellcheck="false"></div>
+    <div class="campo"><label>Motorista</label>
+      <input type="text" id="eb_mot" autocomplete="off" autocorrect="off"></div>
+    <div class="campo"><label>Empresa</label>
+      <input type="text" id="eb_transp" autocomplete="off" autocorrect="off"></div>
+    <div style="display:flex; gap:10px;">
+      <div class="campo" style="flex:2; margin-bottom:10px;">
+        <label>Produto</label>
+        <select id="eb_prod" onchange="_ebAplicarRegra()"></select>
+        <input type="text" id="eb_prod_manual" placeholder="DIGITAR PRODUTO..." autocomplete="off" autocorrect="off"
+          style="display:none;margin-top:6px;" oninput="this.value=this.value.toUpperCase();_ebAplicarRegra()">
+      </div>
+      <div class="campo" id="eb_campo_ordem" style="flex:1; margin-bottom:10px;">
+        <label>Ordem</label>
+        <select id="eb_ordem"><option value="NÃO">NÃO</option><option value="SIM">SIM</option></select>
+      </div>
+    </div>
+    <div class="campo-descarregar" id="eb_campo_desc" onclick="_ebToggleDesc()">
+      <input type="checkbox" id="eb_chk_desc">
+      <div class="check-custom"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <span class="check-label">⬇ DESCARREGAR</span>
+    </div>
+    <div class="campo" id="eb_campo_obs"><label>Observação (opcional)</label>
+      <textarea id="eb_obs" placeholder="EX: AGUARDANDO DOCUMENTO..."></textarea></div>
+    <button class="btn-acao btn-entrar" id="btnSalvarEdicaoVeiculo" onclick="salvarEdicaoVeiculo()">✓ Salvar Edição</button>
+  </div>
+</div>
+
 <!-- MODAL: ORDEM DE EXIBIÇÃO DO HISTÓRICO -->
 <div class="modal-overlay" id="modalOrdemExibicao">
   <div class="modal-box">
@@ -3130,7 +3279,7 @@
   <div class="hist-barra" id="histBarra">
     <div class="hist-barra-inner">
       <div class="hist-barra-row">
-        <input type="text" class="input-busca" id="campoBusca" placeholder="🔍 Buscar placa ou motorista..." oninput="filtrarHistorico(this.value)">
+        <input type="text" class="input-busca" id="campoBusca" placeholder="🔍 Digite algo..." oninput="filtrarHistorico(this.value)">
         <button class="btn-sort-hist desc" id="btnSortHist" onclick="abrirOrdemExibicao()" title="Ordem de exibição">⇅</button>
       </div>
       <div class="hist-filtro-chip" id="histFiltroChip" style="display:none">
@@ -3250,6 +3399,9 @@
     <!-- PAINEL NFE OK (verde) — separado do painel de chamadas de propósito,
          pra nunca competir/confundir com o alerta amarelo de chamada -->
     <div id="painelNfeOk"></div>
+    <!-- Conta admin: o formulário vira janelinha; este botão a abre -->
+    <button type="button" class="btn-entrar btn-nova-entrada-modal" id="btnNovaEntradaModal" onclick="abrirEntradaModal()">＋ Nova Entrada</button>
+    <div id="entradaWrap" onclick="if(event.target===this) voltarDoEditor()"><div class="entrada-box">
     <div class="card-header" id="headerEntrada">
       <button id="btnVoltarHistorico" class="btn-voltar-hist" onclick="voltarDoEditor()" title="Voltar ao histórico">
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
@@ -3318,6 +3470,7 @@
       <span id="statusLocalEntMsg">Validando...</span>
     </div>
     <button class="btn-acao btn-entrar" id="btnEnt" onclick="registrarEntrada()">✓ Salvar Entrada</button>
+    </div></div><!-- /entradaWrap -->
   </div>
 
   <!-- ABA SAÍDA -->
@@ -3383,18 +3536,62 @@
       <!-- Lista colapsável -->
       <div id="listaDiversos" style="max-height:0;overflow:hidden;transition:max-height .35s cubic-bezier(.4,0,.2,1);">
         <div style="padding:4px 12px 10px;">
-          <input type="text" id="buscaDiversos" placeholder="🔎 Buscar placa, produto, motorista..." oninput="filtrarDiversos()" onclick="event.stopPropagation();" style="width:100%;box-sizing:border-box;padding:7px 10px;font-size:0.68rem;font-weight:600;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-main);outline:none;margin-bottom:8px;">
+          <input type="text" id="buscaDiversos" placeholder="🔎 Digite algo..." oninput="filtrarDiversos()" onclick="event.stopPropagation();" style="width:100%;box-sizing:border-box;padding:7px 10px;font-size:0.68rem;font-weight:600;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-main);outline:none;margin-bottom:8px;">
           <div class="detalhe-produto" id="detalheDiversos" style="font-size:0.78rem;color:var(--text-muted);"></div>
         </div>
       </div>
     </div>
 
-    <table id="tabDia"><tbody></tbody></table>
-    <table id="tabNoite" style="display:none"><tbody></tbody></table>
+    <table id="tabDia"><colgroup><col class="c1"><col class="c2"><col class="c3"></colgroup><tbody></tbody></table>
+    <table id="tabNoite" style="display:none"><colgroup><col class="c1"><col class="c2"><col class="c3"></colgroup><tbody></tbody></table>
   </div>
 
 </div>
 
+
+<!-- ===================== MODAL INFORMAR LOTES ===================== -->
+<div class="modal-lotes-overlay" id="modalLotes" onclick="if(event.target===this) fecharLotes()">
+  <div class="modal-lotes-box">
+    <div class="ml-handle"></div>
+    <div class="ml-head">
+      <div><div class="ml-titulo">📦 Informar lotes</div><div class="ml-sub" id="mlSub"></div></div>
+      <button class="ml-x" onclick="fecharLotes()" aria-label="Fechar">✕</button>
+    </div>
+    <div class="ml-corpo">
+      <!-- Passo 1: instrução -->
+      <div id="mlPasso1">
+        <label class="ml-label" for="mlInstrucao">Instrução <small>(opcional)</small></label>
+        <div class="autocomplete-wrap">
+          <span class="ml-prefixo">Inst.</span>
+          <input class="ml-input ml-input-pref" id="mlInstrucao" type="text" maxlength="140" autocomplete="off" autocorrect="off" autocapitalize="characters"
+                 enterkeyhint="next" placeholder="Ex.: CARREGAR NO BOX 2" style="text-transform:uppercase;"
+                 oninput="lotesInstrucaoDigitou(event)" onfocus="lotesInstrucaoAbrir()" onblur="lotesInstrucaoFechar()"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();lotesProximo();}">
+        </div>
+        <div class="autocomplete-lista ml-ac" id="mlAcLista" onmousedown="event.preventDefault()"></div>
+        <button class="ml-link" id="mlAtualizarInstr" style="display:none;" onclick="lotesAtualizarInstrucao()">💾 Atualizar a instrução memorizada</button>
+        <div style="height:12px"></div>
+        <div class="ml-acoes">
+          <button class="ml-btn sec" onclick="fecharLotes()">Cancelar</button>
+          <button class="ml-btn prim" onclick="lotesProximo()">Continuar →</button>
+        </div>
+      </div>
+      <!-- Passo 2: lotes -->
+      <div id="mlPasso2" style="display:none;">
+        <div class="ml-cab"><span>Lote</span><span>Fardos (1–110)</span></div>
+        <div id="mlLista"></div>
+        <button class="ml-add" onclick="lotesAddLinha(true)">+ Adicionar lote</button>
+        <div class="ml-total" id="mlTotal"></div>
+        <div class="ml-preview" id="mlPreview2" style="display:none;"></div>
+        <div class="ml-erro" id="mlErro"></div>
+        <div class="ml-acoes">
+          <button class="ml-btn sec" onclick="lotesVoltar()">← Voltar</button>
+          <button class="ml-btn ok" id="mlBtnValidar" onclick="lotesValidar()">Validar ✓</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script type="module">
   const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyjxrCNfrASZiox6VNzYY2J8_480qrcTH-sPeBEAonfSvar08z8Jr2O-Gzfd5iPALUQzw/exec?dados=true";
@@ -3502,6 +3699,10 @@
   // Persistência offline nativa
   enableIndexedDbPersistence(_db).catch(() => {});
 
+  // Data em que o documento pode ser apagado SOZINHO pelo Firestore (política TTL no campo `expiraEm`).
+  // Sem a política criada no console, o campo é inofensivo. Ver instruções de configuração.
+  const _expiraEm = (dias) => new Date(Date.now() + dias * 86400000);
+
   // ── LISTENER TEMPO REAL DE CHAMADAS (onSnapshot) ─────────────────────────
   // Dispara instantaneamente quando qualquer dispositivo salvar uma chamada
   let _chamadaListenerIniciado = false;
@@ -3518,7 +3719,9 @@
 
       // Sincroniza historicoChamadas com os dados do Firestore para todos os dispositivos
       chamadas.forEach(c => {
-        const idx = historicoChamadas.findIndex(h => h.placa === c.placa);
+        let idx = historicoChamadas.findIndex(h => h.placa === c.placa);
+        // contagem local de uma entrada anterior da mesma placa: descarta
+        if (idx >= 0 && c.entrada && historicoChamadas[idx].entrada && historicoChamadas[idx].entrada !== c.entrada) { historicoChamadas.splice(idx, 1); idx = -1; }
         if (idx >= 0) {
           // Mantém o maior count entre local e remoto
           if ((c.count || 1) > historicoChamadas[idx].count) {
@@ -3531,7 +3734,8 @@
             motorista: c.motorista || '---',
             hora: c.hora || '',
             ultimaHora: c.ultimaHora || c.hora || '',
-            count: c.count || 1
+            count: c.count || 1,
+            entrada: c.entrada || ''
           });
         }
         // Atualiza badge inline no card da lista
@@ -3591,8 +3795,7 @@
         const produto   = d.produto   || '';
 
         // Filtra por produto se o perfil tiver produto_filtro configurado
-        const prodFiltro = _getProdutoFiltro();
-        if (prodFiltro && !produto.toUpperCase().includes(prodFiltro.toUpperCase())) return;
+        if (!_produtoPassaFiltro(produto)) return;
 
         const titulo    = `🚛 NOVA ENTRADA — ${placa}`;
         const corpo     = `${motorista}${produto ? '  ·  ' + produto : ''}`;
@@ -3621,9 +3824,11 @@
     onSnapshot(doc(_db, 'config', 'perfis'), (snap) => {
       if (!snap.exists()) return;
       try {
-        const perfis = JSON.parse(snap.data().dados);
+        const perfisBrutos = JSON.parse(snap.data().dados);
         // Atualiza localStorage para que _carregarPerfisCustom() sempre leia o dado fresco
-        localStorage.setItem(LS_PERFIS_CUSTOM, JSON.stringify(perfis));
+        localStorage.setItem(LS_PERFIS_CUSTOM, JSON.stringify(perfisBrutos));
+        // Usa a versão com os padrões aplicados (ex.: "informar_lotes" do Lucas) — o dado bruto não os tem
+        const perfis = _carregarPerfisCustom();
 
         // Re-aplica permissões do perfil logado assim que chega a atualização.
         // Busca pelo campo `usuario` (resistente a mudança de chave) e também
@@ -3993,17 +4198,18 @@
         if (!snap.empty) { docRef = snap.docs[0].ref; break; }
       }
       if (docRef) {
-        const novoStatus = d.descarregar === 'SIM' ? 'A DESCARREGAR' : 'PÁTIO';
-        await updateDoc(docRef, {
+        const campos = {
           placa:          d.placa,
           motorista:      d.motorista,
           transportadora: d.transportadora,
           produto:        d.produto,
           ordem:          d.ordem,
           descarregar:    d.descarregar || 'NÃO',
-          status:         novoStatus,
           atualizadoEm:   serverTimestamp()
-        });
+        };
+        // Veículo já CARREGANDO / aguardando NFE: editar dados não pode mexer no status
+        if (!d.manterStatus) campos.status = d.descarregar === 'SIM' ? 'A DESCARREGAR' : 'PÁTIO';
+        await updateDoc(docRef, campos);
       }
     } catch(e) { console.warn('[Firebase] Editar falhou:', e); }
   }
@@ -4102,8 +4308,23 @@
     }
   });
 
+  // Só ADMIN e BALANÇA podem acionar o "NFE OK" (texto clicável AGUARD. NFE → notificação pra portaria).
+  // Outros perfis (ex.: Lucas) veem o AGUARD. NFE apenas como texto, sem clique.
+  function _podeAcionarNfeOk() {
+    if (perfilAtual !== 'admin' && perfilAtual !== 'balanca') return false;
+    // Garantia extra: conta do Lucas / carregamento de pluma NUNCA aciona o NFE OK, mesmo que a chave do perfil seja 'balanca'/'admin'
+    try {
+      const p = _carregarPerfisCustom()[perfilAtual] || {};
+      const id = [perfilAtual, p.usuario, p.label, (document.getElementById('brandName') || {}).textContent].join(' ');
+      if (/lucas|pluma/i.test(id)) return false;
+    } catch (e) {}
+    return true;
+  }
+  const _AGUARD_NFE_TEXTO_ESTATICO = `<span style="color:var(--text-muted);font-weight:700;font-size:0.62rem;">AGUARD. NFE</span>`;
+
   // PASSO 2: admin/balança clica no texto "AGUARD. NFE" — confirma NFE OK e avisa portaria
   function registrarNfeOkEl(el) {
+    if (!_podeAcionarNfeOk()) return;
     const tr = el.closest('tr');
     const placa = tr ? tr.dataset.placa : null;
     if (!placa) return;
@@ -4165,7 +4386,9 @@
     if (statusTd) {
       const linhaStatus = statusTd.querySelector('.linha-status-nfe, div[style*="text-align:right"]');
       if (linhaStatus) {
-        linhaStatus.innerHTML = `<span class="btn-aguard-nfe-texto" onclick="registrarNfeOkEl(this)" title="NFE OK? CLIQUE AQUI">AGUARD. NFE</span>`;
+        linhaStatus.innerHTML = _podeAcionarNfeOk()
+          ? `<span class="btn-aguard-nfe-texto" onclick="registrarNfeOkEl(this)" title="NFE OK? CLIQUE AQUI">AGUARD. NFE</span>`
+          : _AGUARD_NFE_TEXTO_ESTATICO;
       }
     }
 
@@ -4290,7 +4513,7 @@
     // LOG DE DIAGNÓSTICO (só leitura, coleção 'debug_nfeok_log' no Firestore —
     // não aparece na interface, é pra investigação do admin quando precisar).
     try {
-      setDoc(doc(_db, 'debug_nfeok_log', `${agora}_${perfilAtual || 'sem-perfil'}`), {
+      setDoc(doc(_db, 'debug_nfeok_log', `${agora}_${perfilAtual || 'sem-perfil'}`), { expiraEm: _expiraEm(3),
         ts: serverTimestamp(),
         tsClienteMs: agora,
         tsClienteLegivel: new Date(agora).toLocaleString('pt-BR'),
@@ -4498,6 +4721,40 @@
   let _veiculosListenerIniciado = false;
   let _recarregarTimer = null;
 
+  // Guarda o documento ativo de cada placa (para gravar a ordem direto, sem consultas)
+  const _veicDocPorPlaca = {};
+  function _atualizarCacheVeiculos(snap) {
+    const novo = {};
+    snap.docs.forEach(dc => {
+      const d = dc.data();
+      const placa = (d.placa || '').toUpperCase().trim();
+      const st = normalizarStatus(d.status || '');
+      if (!placa || !['PÁTIO', 'CARREGANDO', 'A DESCARREGAR', 'AGUARDANDO NFE'].includes(st)) return;
+      const t = d.criadoEm && d.criadoEm.toMillis ? d.criadoEm.toMillis() : Number.MAX_SAFE_INTEGER;   // ainda sem horário = o mais novo
+      if (!novo[placa] || t >= novo[placa].t) novo[placa] = { id: dc.id, t };
+    });
+    Object.keys(_veicDocPorPlaca).forEach(k => delete _veicDocPorPlaca[k]);
+    Object.assign(_veicDocPorPlaca, novo);
+  }
+
+  // Outro aparelho mudou a ordem (C/OC ↔ S/OC): atualiza a tela na hora, sem esperar a planilha
+  function _aplicarOrdemRemota(placa, ordemBruta) {
+    const ordem = String(ordemBruta || '').toUpperCase().trim() === 'SIM' ? 'SIM' : 'NÃO';
+    let mudou = false;
+    document.querySelectorAll(`#tabDia tbody tr[data-placa="${placa}"], #tabNoite tbody tr[data-placa="${placa}"]`).forEach(tr => {
+      const atual = String(tr.dataset.ordem || '').toUpperCase().trim() === 'SIM' ? 'SIM' : 'NÃO';
+      if (atual === ordem) return;
+      tr.dataset.ordem = ordem;
+      const b = tr.querySelector('.st-badge[onclick^="toggleOrdem"]');
+      if (b) { b.innerText = ordem === 'SIM' ? 'C/OC' : 'S/OC'; b.style.background = ordem === 'SIM' ? 'var(--success)' : 'var(--danger)'; }
+      mudou = true;
+    });
+    if (mudou) {
+      _ordemOverrideRecente[placa] = { ordem, expiraEm: Date.now() + 60000 };   // segura contra a planilha ainda desatualizada
+      if (typeof _reaplicarBuscaHist === 'function') _reaplicarBuscaHist();
+    }
+  }
+
   function iniciarListenerVeiculos() {
     if (_veiculosListenerIniciado || !_db) return;
     _veiculosListenerIniciado = true;
@@ -4511,6 +4768,7 @@
       let _primeiroSnap = true;
 
       onSnapshot(q, (snap) => {
+        _atualizarCacheVeiculos(snap);
         // Ignora o snapshot inicial (estado já foi carregado pelo carregarEstado())
         if (_primeiroSnap) { _primeiroSnap = false; return; }
 
@@ -4524,6 +4782,11 @@
           const status = normalizarStatus(d.status || '');
 
           if (!placa) return;
+
+          // ── Ordem mudou em outro aparelho: aparece na hora ──────────────────
+          if (change.type === 'modified' && d.ordem !== undefined && !['SAÍDA', 'CONCLUIDO'].includes(status)) {
+            _aplicarOrdemRemota(placa, d.ordem);
+          }
 
           // ── Saída / removido: tira a linha do DOM imediatamente ──────────────
           if (status === 'SAÍDA' || status === 'CONCLUIDO' || change.type === 'removed') {
@@ -4561,6 +4824,12 @@
   // Atualiza ordem no Firestore
   async function _fbOrdem(placa, ordem) {
     try {
+      // Caminho rápido: o documento da placa já é conhecido (cache do listener) → 1 gravação, sem consultas
+      const cache = _veicDocPorPlaca[String(placa).toUpperCase().trim()];
+      if (cache) {
+        await updateDoc(doc(_db, 'veiculos', cache.id), { ordem, atualizadoEm: serverTimestamp() });
+        return;
+      }
       let docRef = null;
       for (const st of ['PÁTIO', 'CARREGANDO', 'A DESCARREGAR']) {
         const q = query(
@@ -4610,7 +4879,7 @@
     aplicarPermissoes(perfil.permissoes || {});
     _atualizarTituloPerfil(usuario);
     document.getElementById('telaLogin').classList.add('oculto');
-    const filtroMsg = perfil.produto_filtro ? ` · Filtro: ${perfil.produto_filtro}` : '';
+    const filtroMsg = _filtroProdutosLista(perfil.produto_filtro).length ? ` · Filtro: ${_filtroProdutosLista(perfil.produto_filtro).join(' + ')}` : '';
     mostrarToast(`✅ Bem-vindo, ${perfil.label}!${filtroMsg}`, 'success', 3000);
     carregarEstado();
     // Pede permissão de notificação logo após o login (precisa de gesto do usuário)
@@ -4715,18 +4984,32 @@
     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
   }
 
-  /* ===================== INDEXEDDB — FILA OFFLINE ROBUSTA =====================
-   * Substitui o localStorage para a fila de pendentes.
-   * IndexedDB é mais robusto, suporta mais dados e não bloqueia a thread.
+  /* ===================== OUTBOX — FILA OFFLINE ORDENADA (IndexedDB) =====================
+   * Garantias:
+   *  1) DURABILIDADE — todo envio à planilha é gravado PRIMEIRO no IndexedDB e só sai
+   *     da fila depois de a rede confirmar a entrega. Fechar o app, cair a internet ou
+   *     trocar de Wi-Fi/4G no meio do envio não perde nada.
+   *  2) ORDEM — existe UM único "carteiro" por vez (trava na aba + Web Locks entre abas)
+   *     que envia estritamente na ordem em que os registros foram criados. Registro
+   *     novo NUNCA passa na frente de pendente: entra no fim da fila.
+   *  3) SEM PULAR — se um item falha (rede caiu), o carteiro PARA ali. Os seguintes
+   *     esperam. Nada é enviado fora de ordem.
+   *  4) SEM DUPLICAR — cada payload tem um _uid fixo (o mesmo em todas as tentativas) e
+   *     o mesmo _uid nunca entra duas vezes na fila. O Apps Script deve ignorar _uid
+   *     repetido (ver doPost) para cobrir o caso "chegou, mas a confirmação se perdeu".
+   *  5) RECUPERAÇÃO — retry com backoff exponencial + jitter, e disparo imediato ao
+   *     voltar a rede, trocar de rede (navigator.connection), voltar pro app ou foco.
    */
   const IDB_NAME    = 'portariaDB';
   const IDB_VERSION = 1;
   const IDB_STORE   = 'pendentes';
   let _idb = null;
+  let _idbPromise = null;
 
   function abrirIDB() {
-    return new Promise((resolve, reject) => {
-      if (_idb) { resolve(_idb); return; }
+    if (_idbPromise) return _idbPromise;
+    _idbPromise = new Promise((resolve, reject) => {
+      if (!window.indexedDB) { _idbPromise = null; reject(new Error('IndexedDB indisponível')); return; }
       const req = indexedDB.open(IDB_NAME, IDB_VERSION);
       req.onupgradeneeded = e => {
         const db = e.target.result;
@@ -4734,33 +5017,72 @@
           db.createObjectStore(IDB_STORE, { keyPath: 'id', autoIncrement: true });
         }
       };
-      req.onsuccess = e => { _idb = e.target.result; resolve(_idb); };
-      req.onerror   = () => reject(req.error);
+      req.onsuccess = e => {
+        _idb = e.target.result;
+        // se o navegador fechar/atualizar a conexão, reabre na próxima chamada
+        _idb.onversionchange = () => { try { _idb.close(); } catch(_) {} _idb = null; _idbPromise = null; };
+        _idb.onclose = () => { _idb = null; _idbPromise = null; };
+        resolve(_idb);
+      };
+      req.onerror   = () => { _idbPromise = null; reject(req.error); };
+      req.onblocked = () => { _idbPromise = null; reject(new Error('IndexedDB bloqueado')); };
+    });
+    return _idbPromise;
+  }
+
+  function _gerarIdUnico() {
+    return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
+  }
+
+  // Carimbo monotônico: nunca repete nem volta, mesmo se dois registros nascerem no mesmo ms
+  let _ultimoTs = 0;
+  function _proximoTs() {
+    _ultimoTs = Math.max(Date.now(), _ultimoTs + 1);
+    return _ultimoTs;
+  }
+
+  // Grava na fila. Se o mesmo _uid já estiver lá, NÃO duplica (devolve o id existente).
+  async function _idbAddRaw(payload, ts) {
+    if (!payload._uid) payload._uid = _gerarIdUnico();
+    const db = await abrirIDB();
+    return new Promise((res, rej) => {
+      let id = null;
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      const st = tx.objectStore(IDB_STORE);
+      const g = st.getAll();
+      g.onsuccess = () => {
+        const ex = (g.result || []).find(it => it.payload && it.payload._uid === payload._uid);
+        if (ex) { id = ex.id; return; }
+        const a = st.add({ payload, uid: payload._uid, ts: ts || _proximoTs(), status: 'pendente', tentativas: 0 });
+        a.onsuccess = () => { id = a.result; };
+      };
+      tx.oncomplete = () => res(id);
+      tx.onerror = () => rej(tx.error);
+      tx.onabort = () => rej(tx.error || new Error('transação abortada'));
     });
   }
 
   async function idbAdicionarPendente(payload) {
     try {
-      const db = await abrirIDB();
-      return new Promise((res, rej) => {
-        const tx = db.transaction(IDB_STORE, 'readwrite');
-        tx.objectStore(IDB_STORE).add({ payload, ts: Date.now(), status: 'pendente' });
-        tx.oncomplete = res;
-        tx.onerror = () => rej(tx.error);
-      });
+      const id = await _idbAddRaw(payload);
+      atualizarContadorIDB();
+      _dispararFila();
+      return id;
     } catch(e) {
-      // Fallback para localStorage se IndexedDB falhar
+      // Fallback para localStorage se IndexedDB falhar (migra de volta pro IDB depois)
+      if (!payload._uid) payload._uid = _gerarIdUnico();
       adicionarPendente(payload);
+      return null;
     }
   }
 
   async function idbListarPendentes() {
     try {
       const db = await abrirIDB();
-      return new Promise((res, rej) => {
+      return await new Promise((res, rej) => {
         const tx = db.transaction(IDB_STORE, 'readonly');
         const req = tx.objectStore(IDB_STORE).getAll();
-        req.onsuccess = () => res(req.result || []);
+        req.onsuccess = () => res((req.result || []).sort((a, b) => ((a.ts || 0) - (b.ts || 0)) || (a.id - b.id)));
         req.onerror   = () => rej(req.error);
       });
     } catch(e) {
@@ -4768,40 +5090,66 @@
     }
   }
 
-  async function idbRemoverPendente(id) {
+  async function idbAtualizarPendente(id, patch) {
     try {
       const db = await abrirIDB();
-      return new Promise((res, rej) => {
+      return await new Promise((res) => {
         const tx = db.transaction(IDB_STORE, 'readwrite');
-        tx.objectStore(IDB_STORE).delete(id);
-        tx.oncomplete = res;
-        tx.onerror = () => rej(tx.error);
+        const st = tx.objectStore(IDB_STORE);
+        const g = st.get(id);
+        g.onsuccess = () => { if (g.result) st.put(Object.assign(g.result, patch)); };
+        tx.oncomplete = () => res(true);
+        tx.onerror = tx.onabort = () => res(false);
       });
-    } catch(e) {}
+    } catch(e) { return false; }
   }
 
-  /* ===================== ENVIO ROBUSTO PARA A PLANILHA =====================
-   * Ponto único de envio ao Apps Script. Duas melhorias-chave contra perda de
-   * dados em conexão ruim/instável:
-   * 1) TIMEOUT — se a rede estiver ruim, o fetch pode ficar "pendurado" por
-   *    muito tempo sem nunca resolver nem rejeitar. Com o AbortController,
-   *    depois de alguns segundos desistimos e tratamos como falha (cai na fila).
-   * 2) ID ÚNICO (_uid) — todo payload ganha um identificador. Isso permite que,
-   *    se o mesmo registro for reenviado (ex.: a confirmação se perdeu mas o
-   *    dado já tinha sido gravado), o Apps Script consiga (se implementado lá)
-   *    ignorar duplicidade em vez de criar uma linha repetida na planilha.
-   */
-  function _gerarIdUnico() {
-    return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
+  async function idbRemoverPendente(id) {
+    const db = await abrirIDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).delete(id);
+      tx.oncomplete = res;
+      tx.onerror = () => rej(tx.error);
+    });
   }
 
-  async function enviarPlanilha(payload, timeoutMs = 8000) {
-    // Atribui o ID diretamente no objeto original (não numa cópia) para que,
-    // se esse mesmo payload for reenviado depois pela fila offline, o ID seja
-    // o MESMO em todas as tentativas — essencial para a checagem de duplicidade
-    // funcionar (mesmo que a 1ª tentativa tenha na verdade chegado ao servidor).
-    if (!payload._uid) payload._uid = _gerarIdUnico();
+  async function _idbExiste(id) {
+    try {
+      const db = await abrirIDB();
+      return await new Promise((res, rej) => {
+        const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(id);
+        req.onsuccess = () => res(!!req.result);
+        req.onerror = () => rej(req.error);
+      });
+    } catch(e) { return true; } // na dúvida, considera que ainda está na fila
+  }
+
+  // Itens do fallback localStorage (quando o IDB falhou) voltam pra fila principal, preservando a hora
+  async function _migrarLegadoLS() {
+    let ls = [];
+    try { ls = JSON.parse(localStorage.getItem(LS_PENDING_KEY) || '[]'); } catch(e) { return; }
+    if (!ls.length) return;
+    try {
+      for (const it of ls) { if (it && it.payload) await _idbAddRaw(it.payload, it.ts || Date.now()); }
+      localStorage.removeItem(LS_PENDING_KEY);
+    } catch(e) { /* IDB ainda indisponível — mantém no localStorage */ }
+  }
+
+  /* ===================== ENVIO ===================== */
+  // Acima desse tempo parado na fila, um item deixa de ser reenviado sozinho —
+  // fica esperando revisão humana no painel (círculo), pra evitar regravar
+  // dado desatualizado por cima de algo que já pode ter mudado nesse meio tempo.
+  // Itens POSTERIORES da MESMA placa também esperam, pra não passar na frente.
+  const LIMITE_AUTO_RETRY_MS = 3 * 60 * 60 * 1000; // 3 horas
+  // Chamadas perdem o sentido rápido (a fonte da verdade é o Firestore): expiram sozinhas.
+  const TTL_ACAO_MS = { CHAMAR: 15 * 60 * 1000 };
+  const TIMEOUT_ENVIO_MS = 8000;
+
+  let _envioCtrl = null;
+  async function _postPlanilha(payload, timeoutMs) {
     const ctrl = new AbortController();
+    _envioCtrl = ctrl;
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
       await fetch(WEB_APP_POST_URL, {
@@ -4812,40 +5160,137 @@
       });
     } finally {
       clearTimeout(timer);
+      if (_envioCtrl === ctrl) _envioCtrl = null;
     }
-    return payload;
+  }
+  // Trocou de rede: a conexão que estava em uso morreu, não adianta esperar o timeout
+  function _abortarEnvioAtual() { try { if (_envioCtrl) _envioCtrl.abort(); } catch(e) {} }
+
+  function _chavesPlaca(p) {
+    return [p.placa, p.placaOriginal].filter(Boolean).map(x => String(x).toUpperCase().trim());
   }
 
-  // Acima desse tempo parado na fila, um item deixa de ser reenviado sozinho —
-  // fica esperando revisão humana no painel (⚙ círculo), pra evitar regravar
-  // dado desatualizado por cima de algo que já pode ter mudado nesse meio tempo.
-  const LIMITE_AUTO_RETRY_MS = 3 * 60 * 60 * 1000; // 3 horas
+  let _flushPromise = null;
+  let _backoffN = 0;
+  let _retryTimer = null;
 
-  async function sincronizarIDB(apenasRecentes = false) {
-    const pendentes = await idbListarPendentes();
-    if (pendentes.length === 0) return;
-    const agora = Date.now();
-    const aTentar = apenasRecentes
-      ? pendentes.filter(it => (agora - (it.ts || 0)) <= LIMITE_AUTO_RETRY_MS)
-      : pendentes;
-    if (aTentar.length === 0) return;
-    const badge = document.getElementById('syncBadge');
-    badge.classList.add('ativo', 'sincronizando');
-    let sincronizados = 0;
-    for (const item of aTentar) {
-      try {
-        await enviarPlanilha(item.payload);
-        await idbRemoverPendente(item.id);
-        sincronizados++;
-      } catch(e) { /* mantém na fila, tenta de novo depois */ }
+  function _agendarRetry(ms) {
+    if (_retryTimer) clearTimeout(_retryTimer);
+    _retryTimer = setTimeout(() => { _retryTimer = null; _dispararFila(); }, ms);
+  }
+  function _delayBackoff() {
+    const base = Math.min(4000, 800 * Math.pow(2, _backoffN)); // 0.8s, 1.6s, 3.2s, 4s, 4s... (máx. 4s: voltou a internet, sai em segundos)
+    return base * (0.75 + Math.random() * 0.5);                  // jitter: evita todos os aparelhos juntos
+  }
+
+  /* O "carteiro": envia a fila na ordem. Uma execução por vez (nesta aba e entre abas).
+   * Retorna { enviados, falhou, ocupado, bloqueado }. */
+  function _flushFila({ incluirAntigos = false } = {}) {
+    if (_flushPromise) {
+      // pedido manual (inclui antigos) durante uma rodada automática: roda de novo logo depois
+      return incluirAntigos ? _flushPromise.then(() => _flushFila({ incluirAntigos: true })) : _flushPromise;
     }
-    badge.classList.remove('sincronizando');
-    if (sincronizados > 0) {
-      mostrarToast(`✅ ${sincronizados} registro(s) sincronizado(s)!`, 'success', 3000);
-      carregarEstado();
+    const rodar = async () => {
+      const r = { enviados: 0, falhou: false, ocupado: false, bloqueado: false };
+      await _migrarLegadoLS();
+      const badge = document.getElementById('syncBadge');
+      let mostrouGiro = false;
+      for (let rodada = 0; rodada < 50; rodada++) {
+        const itens = await idbListarPendentes();
+        if (!itens.length) break;
+        const bloqueadas = new Set();
+        let enviouAlgum = false;
+        for (const it of itens) {
+          const p = it.payload || {};
+          const idade = Date.now() - (it.ts || 0);
+          const ttl = TTL_ACAO_MS[p.acao];
+          if (ttl && idade > ttl) { try { await idbRemoverPendente(it.id); } catch(e) {} continue; }
+          const chaves = _chavesPlaca(p);
+          if (chaves.some(k => bloqueadas.has(k))) { r.bloqueado = true; continue; }          // espera o anterior da mesma placa
+          if (!incluirAntigos && idade > LIMITE_AUTO_RETRY_MS) {                               // antigo: só com revisão humana
+            chaves.forEach(k => bloqueadas.add(k)); r.bloqueado = true; continue;
+          }
+          if (!mostrouGiro && badge) { badge.classList.add('ativo', 'sincronizando'); mostrouGiro = true; }
+          try {
+            await _postPlanilha(p, TIMEOUT_ENVIO_MS);
+            await idbRemoverPendente(it.id);
+            _backoffN = 0;
+            // só conta como "sincronizado depois" quem ficou esperando na fila de verdade
+            if ((it.tentativas || 0) > 0 || idade > TIMEOUT_ENVIO_MS * 2) r.enviados++;
+            enviouAlgum = true;
+          } catch(e) {
+            // Rede caiu/oscilou: PARA AQUI. Nada depois deste item pode passar na frente.
+            await idbAtualizarPendente(it.id, { tentativas: (it.tentativas || 0) + 1, ultimoErro: String((e && e.message) || e).slice(0, 120) });
+            r.falhou = true;
+            break;
+          }
+        }
+        if (r.falhou || !enviouAlgum) break;
+      }
+      if (badge) badge.classList.remove('sincronizando');
+      return r;
+    };
+    const comTrava = () => {
+      if (navigator.locks && navigator.locks.request) {
+        // Entre abas/janelas do mesmo app: só um carteiro por vez
+        return navigator.locks.request('portaria-outbox', { ifAvailable: true }, lock => lock ? rodar() : { enviados: 0, falhou: false, ocupado: true, bloqueado: false });
+      }
+      return rodar();
+    };
+    _flushPromise = comTrava().catch(e => ({ enviados: 0, falhou: true, ocupado: false, bloqueado: false }))
+      .then(r => { _posFlush(r); return r; })
+      .finally(() => { _flushPromise = null; });
+    return _flushPromise;
+  }
+
+  let _carregarEstadoTimer = null;
+  function _posFlush(r) {
+    if (!r) return;
+    if (r.enviados > 0) {
+      mostrarToast(`✅ ${r.enviados} registro(s) sincronizado(s)!`, 'success', 3000);
+      if (!_carregarEstadoTimer) _carregarEstadoTimer = setTimeout(() => { _carregarEstadoTimer = null; carregarEstado(); }, 800);
     }
     atualizarContadorIDB();
+    if (r.falhou) { _backoffN = Math.min(_backoffN + 1, 6); _agendarRetry(_delayBackoff()); }
+    else if (r.ocupado) { _agendarRetry(2000); } // outra aba está enviando; confere depois
   }
+
+  function _dispararFila(opts) { return _flushFila(opts); }
+
+  /* Envio de UM registro: grava na fila (durável) e espera o carteiro entregar NA ORDEM.
+   * - resolve  → entregue ao servidor
+   * - rejeita  → não deu a tempo/rede ruim: o registro CONTINUA na fila e sai sozinho depois
+   *              (os chamadores que já têm catch → idbAdicionarPendente continuam funcionando:
+   *              o mesmo _uid não entra duas vezes). */
+  async function enviarPlanilha(payload, timeoutMs = TIMEOUT_ENVIO_MS) {
+    if (!payload._uid) payload._uid = _gerarIdUnico();
+    let id = null;
+    try { id = await _idbAddRaw(payload); }
+    catch(e) {
+      // IDB indisponível: envio direto (sem fila durável); se falhar o chamador usa o fallback
+      await _postPlanilha(payload, timeoutMs);
+      return payload;
+    }
+    atualizarContadorIDB();
+    const limite = Date.now() + timeoutMs + 2000;
+    for (;;) {
+      const r = await _flushFila();
+      if (!(await _idbExiste(id))) return payload;   // entregue
+      if (r.falhou)    { throw new Error('Sem conexão estável — registro guardado na fila'); }
+      if (r.bloqueado && !r.ocupado) { throw new Error('Aguardando registro anterior da mesma placa — guardado na fila'); }
+      if (Date.now() >= limite) { _dispararFila(); throw new Error('Envio demorou — registro guardado na fila'); }
+      await new Promise(rs => setTimeout(rs, 350));
+    }
+  }
+
+  // Disparar-e-esquecer (chamadas, OK de chamada…): fica na fila e sai em ordem, nunca "se perde"
+  function enfileirarPlanilha(payload) {
+    if (!payload._uid) payload._uid = _gerarIdUnico();
+    return idbAdicionarPendente(payload).then(() => payload);
+  }
+
+  // Compatibilidade: antes existia um sincronizador só do IDB
+  function sincronizarIDB(apenasRecentes = false) { return sincronizarPendentes(apenasRecentes); }
 
   async function atualizarContadorIDB() {
     const total = await _contarPendentesTotal();
@@ -5200,6 +5645,8 @@
   // usado pra evitar que o refresh periódico da planilha desfaça uma mudança
   // otimista de tela antes do Apps Script terminar de gravar (ver AGUARDANDO NFE).
   let _statusOverrideRecente = {};
+  let _ordemOverrideRecente = {};  // placa → { ordem, expiraEm }: segura a ordem escolhida enquanto a planilha ainda grava
+  let _manterStatusAte = {};   // placa → { status, expiraEm }: segura o status local enquanto a observação dos lotes é regravada na planilha
 
   // Procura, nos dados JÁ CARREGADOS DA PLANILHA (fonte de verdade, atualizada
   // a cada poucos segundos), se essa placa tem algum registro sem saída
@@ -5215,6 +5662,53 @@
     const aguardandoNfe = veiculosAguardandoNfeBusca.find(v => v.placa === placa); // AGUARDANDO NFE, mesmo de dias anteriores
     if (aguardandoNfe) return aguardandoNfe;
     return null;
+  }
+
+  // "Ciclo" do veículo = data/hora de ENTRADA do registro aberto. Uma chamada guarda o ciclo em que
+  // foi feita; se a mesma placa entra de novo (voltou pra carregar, depois de descarregar...),
+  // o ciclo muda e as chamadas/contagem da vez anterior deixam de valer — recomeça do zero.
+  function _cicloDaPlaca(placa) {
+    try { const r = _buscarRegistroAbertoNaPlanilha(placa); return (r && r.dataEntrada) ? String(r.dataEntrada) : ''; }
+    catch(e) { return ''; }
+  }
+  const _STATUS_ATIVOS_CH = ['PÁTIO', 'CARREGANDO', 'A DESCARREGAR', 'AGUARDANDO NFE'];
+
+  // Zera chamadas da placa (Firestore + contagem local). Chamada na ENTRADA nova e na SAÍDA DE DESCARGA.
+  async function _limparChamadasDaPlaca(placa) {
+    historicoChamadas = historicoChamadas.filter(h => h.placa !== placa);
+    const badgeEl = document.getElementById(`chamada-inline-${placa}`);
+    if (badgeEl) { badgeEl.className = 'chamada-inline chamada-inline-vazia'; badgeEl.innerHTML = ''; }
+    try {
+      const ref = doc(_db, 'chamadas', 'ativas');
+      const sn = await getDoc(ref);
+      if (sn.exists()) {
+        const lista = sn.data().lista || [];
+        const nova = lista.filter(c => c.placa !== placa);
+        if (nova.length !== lista.length) await setDoc(ref, { lista: nova, atualizadoEm: new Date().toISOString() });
+      }
+    } catch(e) { console.warn('[Chamadas] limpar placa falhou:', e); }
+  }
+
+  // SAÍDA = FIM DO CICLO. Limpa tudo o que o aparelho guarda sobre a placa e que poderia
+  // "voltar" quando ela entrar de novo: chamadas/contagem, travas de status/ordem,
+  // alerta de NF-e OK e bloqueio de chamada dispensada. (O Firestore é limpo por _fbSaida.)
+  function _limparEstadoLocalPlaca(placa) {
+    const k = String(placa || '').toUpperCase().trim();
+    if (!k) return;
+    historicoChamadas = historicoChamadas.filter(h => String(h.placa || '').toUpperCase().trim() !== k);
+    const badgeEl = document.getElementById(`chamada-inline-${placa}`);
+    if (badgeEl) { badgeEl.className = 'chamada-inline chamada-inline-vazia'; badgeEl.innerHTML = ''; }
+    try { delete _statusOverrideRecente[k]; } catch(e) {}
+    try { delete _manterStatusAte[k]; } catch(e) {}
+    try { delete _ordemOverrideRecente[k]; } catch(e) {}
+    try { _placasDispensadas.delete(placa); _placasDispensadas.delete(k); } catch(e) {}
+    try { if (window.__chamadasAtivas && window.__chamadasAtivas.delete) window.__chamadasAtivas.delete(placa); } catch(e) {}
+    try {
+      [_SS_NFE_OK_KEY, _SS_NFE_ALERT_KEY].forEach(key => {
+        const st = _ssNfeOkGet(key); st.delete(placa); st.delete(k);
+        sessionStorage.setItem(key, JSON.stringify([...st]));
+      });
+    } catch(e) {}
   }
 
   let turnoAtual = { porteiro: '', inicio: null, trocas: [] };
@@ -5388,6 +5882,19 @@
     });
   }, { passive: true });
 
+  // DESKTOP: roda do mouse / teclas para CIMA sempre expandem os cards.
+  // Motivo: ao compactar, a página encolhe e o navegador joga o scroll para o topo (scrollY = 0);
+  // ali não existe mais "evento de scroll" para cima, então só o delta de scrollY nunca expandia de volta.
+  window.addEventListener('wheel', (e) => {
+    if (e.deltaY < 0 && _painelCompacto && _cardsVisiveis()) _expandir();
+  }, { passive: true });
+  window.addEventListener('keydown', (e) => {
+    if (!_painelCompacto || !_cardsVisiveis()) return;
+    const t = e.target, tag = t && t.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+    if (e.key === 'ArrowUp' || e.key === 'PageUp' || e.key === 'Home') _expandir();
+  });
+
   // Chamado ao trocar de aba — reseta tudo sem interferir no scroll da nova aba
   let resetScrollState = function(novaAba) {
     _abaAtiva = novaAba || 'abaEntrada';
@@ -5459,7 +5966,7 @@
 
   // Lista unificada (para exibir no painel de sincronização), ordenada por horário
   async function _listarTodosPendentes() {
-    const idb = (await idbListarPendentes()).map(it => ({ id: it.id, payload: it.payload, ts: it.ts, origem: 'idb' }));
+    const idb = (await idbListarPendentes()).map(it => ({ id: it.id, payload: it.payload, ts: it.ts, origem: 'idb', tentativas: it.tentativas || 0 }));
     let ls = [];
     try {
       ls = JSON.parse(localStorage.getItem(LS_PENDING_KEY) || '[]')
@@ -5469,34 +5976,10 @@
   }
 
   async function sincronizarPendentes(apenasRecentes = false) {
-    // Prioridade: IndexedDB
-    await sincronizarIDB(apenasRecentes);
-    // Também tenta o localStorage (fallback legado)
-    const fila = JSON.parse(localStorage.getItem(LS_PENDING_KEY) || '[]');
-    if (fila.length === 0) return;
-    const agora = Date.now();
-    const badge = document.getElementById('syncBadge');
-    badge.classList.add('ativo', 'sincronizando');
-    const restante = [];
-    let sincronizados = 0;
-    for (const item of fila) {
-      const idade = agora - (item.ts || 0);
-      if (apenasRecentes && idade > LIMITE_AUTO_RETRY_MS) { restante.push(item); continue; }
-      try {
-        await enviarPlanilha(item.payload);
-        sincronizados++;
-      } catch(e) { restante.push(item); }
-    }
-    localStorage.setItem(LS_PENDING_KEY, JSON.stringify(restante));
-    badge.classList.remove('sincronizando');
-    if (sincronizados > 0) {
-      mostrarToast(`✅ ${sincronizados} registro(s) sincronizado(s)!`, 'success', 3000);
-      if (restante.length === 0) carregarEstado();
-    }
-    atualizarContadorIDB();
+    return _flushFila({ incluirAntigos: !apenasRecentes });
   }
 
-  /* ===================== ONLINE / OFFLINE ===================== */
+  /* ===================== ONLINE / OFFLINE / TROCA DE REDE ===================== */
   function atualizarStatusRede() {
     const bar = document.getElementById('offlineBar');
     if (!navigator.onLine) {
@@ -5504,26 +5987,41 @@
       atualizarContadorIDB();
     } else {
       bar.classList.remove('ativo');
-      sincronizarPendentes(true); // automático: só itens recentes
+      _backoffN = 0;
+      _dispararFila(); // automático: só itens recentes
     }
   }
 
   window.addEventListener('online', atualizarStatusRede);
   window.addEventListener('offline', atualizarStatusRede);
 
-  // RETRY PERIÓDICO — o pulo do gato contra "internet ruim/instável":
-  // o evento 'online' do navegador só dispara numa transição real de
-  // desconectado→conectado. Com Wi-Fi/4G fraco e oscilante, o aparelho
-  // segue "tecnicamente online" o tempo todo e esse evento nunca dispara,
-  // então a fila ficaria parada esperando um sinal que não vem. Por isso,
-  // tentamos reenviar sozinhos de tempos em tempos sempre que há pendências
-  // — mas só as recentes (ver LIMITE_AUTO_RETRY_MS); pendências antigas
-  // esperam revisão humana no painel, pra nunca regravar dado desatualizado
-  // sem ninguém perceber.
+  // Trocou Wi-Fi ↔ 4G (ou mudou a qualidade): o envio em andamento ficou numa conexão morta.
+  // Cancela, zera o backoff e tenta de novo na hora pela rede nova.
+  (function () {
+    const c = navigator.connection;
+    if (c && c.addEventListener) {
+      c.addEventListener('change', () => {
+        _abortarEnvioAtual();
+        _backoffN = 0;
+        setTimeout(() => { atualizarStatusRede(); }, 400);
+      });
+    }
+  })();
+  // Voltou pro app / tela / aba: tenta já (o navegador pode ter congelado os timers em segundo plano)
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { _backoffN = 0; _dispararFila(); } });
+  window.addEventListener('focus', () => { _dispararFila(); });
+  window.addEventListener('pageshow', () => { _dispararFila(); });
+
+  // Rede de segurança: se houver pendência e nenhum retry agendado, tenta de tempos em tempos.
+  // (o evento 'online' só dispara numa transição real; com sinal fraco e oscilante o aparelho
+  // fica "online" o tempo todo e esse evento nunca vem)
   setInterval(async () => {
+    if (_retryTimer || _flushPromise) return;
     const total = await _contarPendentesTotal();
-    if (total > 0) sincronizarPendentes(true);
-  }, 20000);
+    if (total > 0) _dispararFila();
+  }, 5000);
+  // Ao abrir o app: o que ficou da sessão anterior sai primeiro, na ordem
+  setTimeout(() => { _dispararFila(); }, 1500);
 
   /* ===================== PAINEL DE SINCRONIZAÇÃO (círculo no canto) ===================== */
   function _descreverPendente(payload) {
@@ -5558,7 +6056,7 @@
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;gap:8px;">
           ${antigo
             ? `<span style="font-size:0.58rem;font-weight:700;color:var(--warn);">⚠️ Pendente há muito tempo — confira antes de reenviar</span>`
-            : `<span></span>`}
+            : `<span style="font-size:0.58rem;color:var(--text-muted);">${it.tentativas ? 'tentativas: ' + it.tentativas : 'aguardando sua vez na fila'}</span>`}
           <button onclick="descartarPendente('${it.origem}','${it.id}')" style="background:none;border:none;color:var(--danger);font-size:0.6rem;font-weight:700;cursor:pointer;padding:2px 4px;flex-shrink:0;">🗑 Descartar</button>
         </div>
       </div>`;
@@ -5696,7 +6194,7 @@
     const horaStr = agora.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
 
     // Mesma regra do histórico: SAÍDA some após 19h (igual ao processarDados)
-    const ocultarSaidasRel = agora.getHours() >= 19;
+    const ocultarSaidasRel = _passouHorarioLimpeza(agora);
     const filaAtiva = dadosFrescos
       .filter(v => {
         const s = (v.status||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -6036,6 +6534,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     try {
       await setDoc(doc(_db, 'logs_veiculos', `${Date.now()}_${placa}_${evento}`), {
         ts: serverTimestamp(),
+        expiraEm: _expiraEm(30),
         tsClienteMs: Date.now(),
         tsClienteLegivel: new Date().toLocaleString('pt-BR'),
         placa,
@@ -6334,7 +6833,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       // Detalhe: placa, motorista, hora de entrada/saída e NFe/observação, com status à direita
       const sorted = [...veiculosDiversos].sort((a,b) => (a.produto||'').localeCompare(b.produto||''));
       let htmlDiv = '';
-      sorted.forEach(v => {
+      window._diversosOrdenados = sorted;
+      sorted.forEach((v, idxDiv) => {
         const isConcluido = v.status === 'CONCLUIDO';
         const statusHtml = isConcluido
           ? `<span style="color:var(--success);font-weight:800;font-size:0.58rem;">✓ Concluído</span>`
@@ -6346,12 +6846,13 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
         if (v.nfe) nfeObsLinha = `NFe: ${v.nfe}`;
         else if (obsVal) nfeObsLinha = `Obs/NFe: ${obsVal}`;
         const btnChamar = (!isConcluido && perfilAtual !== 'portaria')
-          ? `<button class="btn-chamar" onclick="chamarVeiculoEl(this)" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.36 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg>Chamar</button>`
+          ? `<button class="btn-chamar" onclick="chamarVeiculoEl(this)" style="display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.36 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg>Chamar</button>`
           : '';
         const btnSaidaDescarga = !isConcluido
-          ? `<button class="btn-registrar-saida" onclick="registrarSaidaDescarga(this,'${v.placa||''}')" style="margin-top:4px;margin-left:6px;">⬇ Registrar Saída</button>`
+          ? `<button class="btn-registrar-saida" onclick="registrarSaidaDescarga(this,'${v.placa||''}')">⬇ Registrar Saída</button>`
           : '';
-        htmlDiv += `<div data-placa="${v.placa||''}" data-motorista="${v.motorista||''}" data-busca="${`${v.placa||''} ${v.motorista||''} ${v.produto||''} ${v.transportadora||''} ${v.nfe||''} ${obsVal}`.toUpperCase()}" style="padding:5px 0;border-bottom:1px solid var(--border);">
+        const btnEditDiv = `<button class="btn-edit" title="Editar" onclick="editarDiversosEl(this)" style="margin-left:auto;">${EDIT_ICON_SVG}</button>`;
+        htmlDiv += `<div data-idx="${idxDiv}" data-placa="${v.placa||''}" data-motorista="${v.motorista||''}" data-busca="${`${v.placa||''} ${v.motorista||''} ${v.produto||''} ${v.transportadora||''} ${v.nfe||''} ${obsVal}`.toUpperCase()}" style="padding:5px 0;border-bottom:1px solid var(--border);">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:0.7rem;font-weight:800;color:var(--text-main);font-family:'JetBrains Mono',monospace;letter-spacing:0.3px;">${v.placa||'---'}</span>
             <span style="margin-left:8px;flex-shrink:0;">${statusHtml}</span>
@@ -6361,7 +6862,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
             Mot: ${v.motorista||'---'}${horaEntrada ? ` · Entrada: ${horaEntrada}` : ''}${horaSaida ? ` · Saída: ${horaSaida}` : ''}
           </div>
           ${nfeObsLinha ? `<div style="font-size:0.6rem;color:var(--text-muted);font-weight:500;margin-top:1px;">${nfeObsLinha}</div>` : ''}
-          ${btnChamar}${btnSaidaDescarga}
+          <div style="display:flex;align-items:center;gap:6px;margin-top:5px;">${btnChamar}${btnSaidaDescarga}${btnEditDiv}</div>
         </div>`;
       });
       document.getElementById('detalheDiversos').innerHTML = htmlDiv || '';
@@ -6397,7 +6898,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   function _ajustarCaixaHistoricoVaziaBalanca() {
     const abaHist = document.getElementById('abaHist');
     if (!abaHist) return;
-    if (perfilAtual !== 'balanca') {
+    if (!_diversosNoInicio()) {
       abaHist.classList.remove('hist-vazio-balanca');
       return;
     }
@@ -6493,6 +6994,28 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       }
     });
 
+    // Enquanto a observação dos lotes é regravada na planilha (fallback do script antigo), o status pode voltar
+    // a PÁTIO por alguns segundos — a tela continua mostrando CARREGANDO.
+    dados.forEach(r => {
+      const _k = (r.placa || '').toUpperCase().trim();
+      const _m = _manterStatusAte[_k];
+      if (!_m) return;
+      if (Date.now() > _m.expiraEm) { delete _manterStatusAte[_k]; return; }
+      if (r.status === 'PÁTIO') r.status = _m.status;
+    });
+
+    // Ordem recém-alterada (toque no C/OC ou edição do veículo): a planilha demora alguns segundos para gravar.
+    // Enquanto isso, mantém na tela a ordem escolhida — assim um veículo verde (C/OC) não volta a vermelho.
+    dados.forEach(r => {
+      const _k = (r.placa || '').toUpperCase().trim();
+      const _o = _ordemOverrideRecente[_k];
+      if (!_o) return;
+      if (Date.now() > _o.expiraEm) { delete _ordemOverrideRecente[_k]; return; }
+      const _atual = String(r.ordem || '').toUpperCase().trim() === 'SIM' ? 'SIM' : 'NÃO';
+      if (_atual === _o.ordem) delete _ordemOverrideRecente[_k];   // planilha já confirmou
+      else r.ordem = _o.ordem;                                      // ainda não alcançou
+    });
+
     // Promoção de status: se a planilha devolveu PÁTIO mas o campo descarregar=SIM,
     // o frontend trata como A DESCARREGAR (garante compatibilidade com planilhas legadas)
     dados.forEach(r => {
@@ -6513,7 +7036,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // • AGUARDANDO NFE → entra no card "Carregados" apenas se for do dia atual e antes das 19h; do dia anterior aparece só na lista
     // • SAÍDA         → carregados + histórico (some após 19h)
     // • CONCLUIDO     → não aparece em nada
-    const ocultarSaidas = new Date().getHours() >= 19;
+    const ocultarSaidas = _passouHorarioLimpeza();
+
+    // Placa sem nenhum registro ATIVO na planilha (saiu / concluiu) não mantém "Nx chamado".
+    // Vale em todos os aparelhos, inclusive os que não registraram a saída.
+    if (dados.length) {
+      const _ativasSet = new Set(dados.filter(r => _STATUS_ATIVOS_CH.includes(r.status)).map(r => String(r.placa || '').trim().toUpperCase()));
+      historicoChamadas = historicoChamadas.filter(h => _ativasSet.has(String(h.placa || '').trim().toUpperCase()));
+    }
 
     dados.forEach(r => {
       if (r.dataEntrada && !r.chegadaTimestamp) {
@@ -6646,12 +7176,457 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // onde o listener do Firestore disparou antes do DOM estar pronto)
     _reaplicarAlertasNfeOkAposRender();
     // Aplica filtro de produto do perfil (se configurado)
+    _iniciarListenerLotes();
     _aplicarFiltroProdutoHistorico();
     // Completa o produto nos cards de chamada que chegaram antes da lista
     _atualizarProdutosChamadas();
   }
 
+  /* ===================== INFORMAR LOTES (conta Lucas / carregamento de pluma) =====================
+   * Botão "Informar lotes" em cada veículo → 1) instrução (opcional)  2) lotes + fardos (1 a 110, quantos precisar)
+   * → "Validar": a observação do veículo passa a ser  "<instrução> | LT 201: 110 F, LT 189: 23 F, TOTAL: 133 fardos".
+   * Fica salva no Firestore (coleção 'lotes') → todos os aparelhos veem na hora; balança/admin veem "validado ✓".
+   * Também é enviada à planilha (EDITAR) para a coluna de observação ficar igual.
+   * ================================================================================================ */
+  const LOTE_FARDOS_MIN = 1, LOTE_FARDOS_MAX = 110;
+  // Envia a observação dos lotes à planilha pela ação 'OBSERVACAO' (só a coluna K — NÃO mexe no status).
+  // (A ação 'EDITAR' recalculava o status e derrubava o CARREGANDO — por isso não é mais usada aqui.)
+  // Requer o codigo.gs atualizado com a ação OBSERVACAO.
+  const LOTES_GRAVAR_NA_PLANILHA = true;
+  let _lotesMap = {};            // chave do veículo → documento de lotes
+  let _lotesUnsub = null;
+  let _lotesCtx = null;          // veículo aberto no modal
+
+  function _chaveLote(placa, dataEntrada) {
+    return String(placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '') + '_' + String(dataEntrada || '').replace(/[^0-9]/g, '');
+  }
+  function _textoLotes(lotes) {
+    const total = lotes.reduce((t, l) => t + l.f, 0);
+    return lotes.map(l => `LT ${l.lt}: ${l.f} F`).concat(`TOTAL: ${total} ${total === 1 ? 'fardo' : 'fardos'}`).join(', ');
+  }
+  function _escHtml(t) { return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+  // (re)monta a linha de observação de um veículo do histórico (planilha + lotes validados)
+  function _montarObsRow(tr) {
+    if (!tr || tr.dataset.tipo !== 'ENTRADA') return;
+    const placa = tr.dataset.placa || '';
+    const lt0 = _lotesMap[_chaveLote(placa, tr.dataset.data)];
+    // lotes removidos pelo admin: a observação some (enquanto a da planilha for a mesma de quando foi removida) e o Lucas pode validar de novo
+    const removido = !!(lt0 && lt0.removido);
+    const lt = removido ? null : lt0;
+    const obsSheet = tr.dataset.obssheet || '';
+    const texto = removido ? (obsSheet === (lt0.obsSheetAnterior || '') ? '' : obsSheet) : (lt ? lt.obsTexto : obsSheet);
+    let trObs = tr.nextElementSibling && tr.nextElementSibling.classList.contains('obs-row-full') && tr.nextElementSibling.dataset.obsplaca === placa
+      ? tr.nextElementSibling : null;
+    const btnTxt = tr.querySelector('.btn-lotes-txt');
+    if (btnTxt) btnTxt.textContent = lt ? 'Editar Lotes' : 'Informar Lotes';          // já validado → 'Editar Lotes' (sem ✓)
+    const btnL = tr.querySelector('.btn-lotes');
+    if (btnL) btnL.title = lt ? 'Editar lotes' : 'Informar lotes';
+    if (!texto) { if (trObs) trObs.remove(); return; }
+    if (!trObs) {
+      trObs = document.createElement('tr');
+      trObs.className = 'obs-row-full';
+      trObs.dataset.obsplaca = placa;
+      tr.after(trObs);
+    }
+    const quem = lt ? `Validado por ${lt.validadoPorNome || lt.validadoPor || ''} às ${lt.validadoHora || ''}`.trim() : '';
+    trObs.innerHTML = `<td colspan="3" style="padding:0 12px 10px;border-top:none;">
+        <div class="obs-linha-full" style="flex-direction:column;align-items:stretch;gap:2px;">
+          <div style="display:flex;align-items:flex-start;gap:4px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span style="flex:1;min-width:0;overflow-wrap:anywhere;">${_escHtml(texto)}</span>
+            ${lt ? `<div class="obs-validado" title="${_escHtml(quem)}"><span>validado ✓</span><button class="obs-remover" onclick="removerLotes(this)" title="Remover lotes e validação" aria-label="Remover lotes e validação"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></div>` : ''}
+          </div>
+        </div>
+      </td>`;
+  }
+  function _aplicarLotesNoHistorico() {
+    document.querySelectorAll('#tabDia tbody tr[data-tipo="ENTRADA"], #tabNoite tbody tr[data-tipo="ENTRADA"]').forEach(tr => {
+      if (!tr.classList.contains('obs-row-full')) _montarObsRow(tr);
+    });
+    _aplicarFiltroProdutoHistorico();
+  }
+  // Escuta os lotes validados (últimas 72h) — todos os aparelhos recebem na hora
+  function _iniciarListenerLotes() {
+    if (_lotesUnsub) return;
+    try {
+      const q = query(collection(_db, 'lotes'), where('ts', '>', Date.now() - 72 * 3600 * 1000));
+      _lotesUnsub = onSnapshot(q, snap => {
+        const m = {};
+        snap.forEach(d => { const x = d.data(); if (x && x.chave) m[x.chave] = x; });
+        _lotesMap = m;
+        _aplicarLotesNoHistorico();
+      }, err => console.warn('[Lotes] escutar falhou:', err));
+      onSnapshot(doc(_db, 'config', 'instrucoes_lotes'), snap => {            // lista de instruções compartilhada
+        if (!snap.exists()) return;
+        const l = snap.data().lista;
+        if (Array.isArray(l)) {
+          _instrLista = l.filter(x => typeof x === 'string');
+          try { localStorage.setItem(_INSTR_KEY, JSON.stringify(_instrLista)); } catch (e) {}
+          if (document.getElementById('modalLotes').classList.contains('open')) _renderChipsInstr();
+        }
+      }, err => console.warn('[Lotes] instruções:', err));
+    } catch (e) { console.warn('[Lotes] listener:', e); }
+  }
+
+  // Admin: remove a validação e a observação dos lotes → some o "validado ✓" e o Lucas pode informar/validar de novo
+  async function removerLotes(btn) {
+    const trObs = btn.closest('tr');
+    const placa = trObs ? trObs.dataset.obsplaca : '';
+    const prev = trObs ? trObs.previousElementSibling : null;
+    const linha = (prev && prev.dataset.placa === placa) ? prev : document.querySelector(`#tabDia tbody tr[data-tipo="ENTRADA"][data-placa="${placa}"]`);
+    if (!linha) return;
+    const ok = await mostrarDialog({ icone: '🗑️', titulo: 'Remover lotes e observação?',
+      msg: `${placa}: isso apaga a observação com os lotes e o "validado ✓". O Lucas poderá informar e validar de novo.`,
+      botoes: [{ texto: 'Cancelar', tipo: 'cancel' }, { texto: 'Remover', tipo: 'ok' }] });
+    if (!ok) return;
+    const ds = linha.dataset;
+    const chave = _chaveLote(ds.placa, ds.data);
+    const tomb = { chave, placa: ds.placa, dataEntrada: ds.data || '', produto: ds.produto || '', removido: true, obsTexto: '',
+                   obsSheetAnterior: ds.obssheet || '', lotes: [], validado: false, removidoPor: perfilAtual || '', ts: Date.now() };
+    const antes = _lotesMap[chave];
+    try {
+      _lotesMap[chave] = tomb;                         // some na hora neste aparelho
+      _aplicarLotesNoHistorico();
+      await setDoc(doc(_db, 'lotes', chave), { ...tomb, atualizadoEm: serverTimestamp(), expiraEm: _expiraEm(7) });
+      _logEventoVeiculo(ds.placa, 'LOTES_REMOVIDOS', { observacao: '' });
+      if (LOTES_GRAVAR_NA_PLANILHA) {
+        const payload = { acao: 'OBSERVACAO', placa: ds.placa, dataEntrada: ds.data || '', observacao: '' };
+        try { await enviarPlanilha(payload); }
+        catch (e) { try { await idbAdicionarPendente(payload); atualizarContadorIDB(); } catch (e2) { console.warn('[Lotes] fila offline falhou:', e2); } }
+      }
+      vibrar(40);
+      mostrarToast('🗑️ Lotes removidos — o Lucas já pode validar de novo', 'success', 3200);
+    } catch (e) {
+      console.warn('[Lotes] remover falhou:', e);
+      if (antes) _lotesMap[chave] = antes; else delete _lotesMap[chave];
+      _aplicarLotesNoHistorico();
+      mostrarToast('⚠️ Não foi possível remover agora. Tente de novo.', 'error', 3200);
+    }
+  }
+
+  // ---------- instruções memorizadas (escolher / editar / apagar) ----------
+  // Ficam no Firestore (config/instrucoes_lotes) → todos os aparelhos e contas com lotes usam a mesma lista; cache local para abrir rápido.
+  const _INSTR_KEY = 'lotesInstrucoes_v1', _INSTR_MAX = 40;
+  let _instrLista = [];
+  let _instrSel = null;          // instrução memorizada que foi tocada (para "atualizar a memorizada")
+  let _instrFiltrar = false;     // só filtra a lista salva depois que o usuário DIGITA (ao abrir, mostra todas)
+  try { const c = JSON.parse(localStorage.getItem(_INSTR_KEY)); if (Array.isArray(c)) _instrLista = c.filter(x => typeof x === 'string'); } catch (e) {}
+
+  function _instrSalvar() {
+    try { localStorage.setItem(_INSTR_KEY, JSON.stringify(_instrLista)); } catch (e) {}
+    setDoc(doc(_db, 'config', 'instrucoes_lotes'), { lista: _instrLista, atualizadoEm: new Date().toISOString() })
+      .catch(e => console.warn('[Lotes] salvar instruções falhou:', e));
+  }
+  function _instrMemorizar(txt) {                         // adiciona/sobe para o topo (sem repetir)
+    const t = String(txt || '').toUpperCase().trim();
+    if (!t) return;
+    _instrLista = [t].concat(_instrLista.filter(x => x !== t)).slice(0, _INSTR_MAX);
+    _instrSalvar();
+  }
+  // texto da observação → só a instrução ("Inst. X | LT ..." → "X"; só lotes → "")
+  function _instrDoTexto(t) {
+    const x = String(t || '').trim();
+    const m = x.match(/^INST\.?\s*(.*?)\s*\|\s*LT\s/i);
+    if (m) return m[1].trim();
+    if (/^LT\s/i.test(x)) return '';
+    return x.replace(/^INST\.?\s*/i, '');
+  }
+  // Sugestões no mesmo estilo da lista de empresas da entrada: abre ao focar/digitar, filtra pelo que foi digitado,
+  // toque seleciona, × remove da memória. A instrução nova é memorizada ao validar.
+  function _renderChipsInstr(forcarAbrir) {
+    const cont = document.getElementById('mlAcLista');
+    if (!cont) return;
+    if (!forcarAbrir && !cont.classList.contains('visivel')) return;
+    const q = _instrFiltrar ? (document.getElementById('mlInstrucao').value || '').toUpperCase().trim() : '';
+    const itens = _instrLista.map((t, i) => ({ t, i })).filter(o => !q || o.t.includes(q));
+    if (!itens.length) { cont.classList.remove('visivel'); cont.innerHTML = ''; return; }
+    cont.innerHTML = itens.slice(0, 8).map(o => `<div class="autocomplete-item" style="justify-content:space-between;" onmousedown="lotesUsarInstrucao(${o.i})">
+        <span style="font-size:0.78rem;font-weight:600;color:var(--text-main);">${_escHtml(o.t)}</span>
+        <button type="button" onmousedown="event.stopPropagation();lotesApagarInstrucao(${o.i})" title="Remover das sugestões" style="background:none;border:none;color:var(--text-muted);font-size:1rem;font-weight:700;cursor:pointer;padding:2px 6px;line-height:1;flex-shrink:0;">×</button>
+      </div>`).join('');
+    cont.classList.add('visivel');
+  }
+  function lotesInstrucaoAbrir() { _instrFiltrar = false; _renderChipsInstr(true); }
+  function lotesInstrucaoFechar() {
+    setTimeout(() => { const c = document.getElementById('mlAcLista'); if (c) c.classList.remove('visivel'); }, 200);
+  }
+  function _previewObs() {                                  // mostra como a observação vai ficar (com "Inst.")
+    const inst = (document.getElementById('mlInstrucao').value || '').toUpperCase().trim();
+    const lotes = [];
+    document.querySelectorAll('#mlLista .ml-linha').forEach(d => {
+      const lt = d.querySelector('.ml-lt').value.trim(), f = parseInt(d.querySelector('.ml-f').value, 10);
+      if (lt && f >= LOTE_FARDOS_MIN && f <= LOTE_FARDOS_MAX) lotes.push({ lt: String(parseInt(lt, 10)), f });
+    });
+    const corpo = lotes.length ? _textoLotes(lotes) : '';
+    const txt = inst ? (corpo ? `Inst. ${inst} | ${corpo}` : `Inst. ${inst}`) : corpo;
+    ['mlPreview2'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = txt ? 'Observação: ' + txt : '';
+      el.style.display = txt ? '' : 'none';
+    });
+  }
+  function lotesUsarInstrucao(i) {
+    const t = _instrLista[i]; if (t === undefined) return;
+    _instrSel = t;
+    _instrFiltrar = false;                                   // mantém todas as salvas visíveis
+    const inp = document.getElementById('mlInstrucao');
+    inp.value = t; inp.focus();
+    inp.setSelectionRange(t.length, t.length);              // cursor no fim: já dá para editar
+    const c = document.getElementById('mlAcLista'); if (c) c.classList.remove('visivel');
+    lotesInstrucaoDigitou();
+  }
+  function lotesInstrucaoDigitou(ev) {
+    if (ev && ev.type === 'input') _instrFiltrar = true;     // usuário digitando → filtra a lista
+    const v = document.getElementById('mlInstrucao').value.toUpperCase().trim();
+    document.getElementById('mlAtualizarInstr').style.display = (_instrSel !== null && v && v !== _instrSel) ? '' : 'none';
+    _renderChipsInstr(!!(ev && ev.type === 'input'));         // digitando → mostra as sugestões que combinam
+    _previewObs();
+  }
+  function lotesAtualizarInstrucao() {                      // troca a memorizada pelo texto editado
+    const v = document.getElementById('mlInstrucao').value.toUpperCase().trim();
+    if (_instrSel === null || !v) return;
+    _instrLista = _instrLista.map(x => x === _instrSel ? v : x).filter((x, i, a) => a.indexOf(x) === i);
+    _instrSel = v;
+    _instrSalvar();
+    mostrarToast('💾 Instrução atualizada', 'success', 1800);
+    lotesInstrucaoDigitou();
+  }
+  function lotesApagarInstrucao(i) {
+    const t = _instrLista[i]; if (t === undefined) return;
+    _instrLista.splice(i, 1);
+    if (_instrSel === t) _instrSel = null;
+    _instrSalvar();
+    lotesInstrucaoDigitou();
+  }
+
+  // ---------- modal ----------
+  // Lotes só podem ser informados/editados enquanto o veículo está CARREGANDO
+  function _lotesNaoPermitido(btn) {
+    vibrar([30, 40, 30]);
+    mostrarToast('⛔ Não permitido — lotes só enquanto o veículo está CARREGANDO', 'error', 2800);
+    const t = btn && btn.querySelector('.btn-lotes-txt');
+    if (!t || btn.dataset.flash) return;
+    btn.dataset.flash = '1';
+    const orig = t.textContent;
+    t.textContent = '(não permitido)';
+    btn.classList.add('negado');
+    setTimeout(() => { t.textContent = orig; btn.classList.remove('negado'); delete btn.dataset.flash; }, 1700);
+  }
+  function _statusLinhaVeiculo(placa) {
+    const tr = document.querySelector(`#tabDia tbody tr[data-tipo="ENTRADA"][data-placa="${String(placa).replace(/"/g, '')}"]`)
+            || document.querySelector(`#tabNoite tbody tr[data-tipo="ENTRADA"][data-placa="${String(placa).replace(/"/g, '')}"]`);
+    return tr ? (tr.dataset.status || '') : null;
+  }
+  function abrirLotesEl(btn) {
+    const tr = btn.closest('tr');
+    if (tr && tr.dataset.status !== 'CARREGANDO') { _lotesNaoPermitido(btn); return; }
+    abrirLotes(tr);
+  }
+  function abrirLotes(tr) {
+    if (!tr) return;
+    const ds = tr.dataset;
+    const chave = _chaveLote(ds.placa, ds.data);
+    const ex0 = _lotesMap[chave];
+    const ex = (ex0 && !ex0.removido) ? ex0 : null;          // lotes removidos pelo admin = começa do zero
+    _lotesCtx = { chave, placa: ds.placa, dataEntrada: ds.data || '', motorista: ds.motorista || '', transportadora: ds.transportadora || '',
+                  produto: ds.produto || '', ordem: ds.ordem || 'NÃO', descarregar: ds.descarregar || 'NÃO' };
+    document.getElementById('mlSub').textContent = `${ds.placa}${ds.produto ? ' · ' + ds.produto : ''}`;
+    _instrSel = null;
+    _instrFiltrar = false;
+    document.getElementById('mlInstrucao').value = ex ? (ex.instrucao || '') : (ex0 && ex0.removido ? '' : _instrDoTexto(ds.obssheet));
+    document.getElementById('mlAtualizarInstr').style.display = 'none';
+    document.getElementById('mlAcLista').classList.remove('visivel');
+    const lista = document.getElementById('mlLista');
+    lista.innerHTML = '';
+    if (ex && ex.lotes && ex.lotes.length) ex.lotes.forEach(l => lotesAddLinha(false, l.lt, l.f));
+    else lotesAddLinha(false);
+    document.getElementById('mlErro').textContent = '';
+    document.getElementById('mlPasso1').style.display = '';
+    document.getElementById('mlPasso2').style.display = 'none';
+    _previewObs();
+    document.getElementById('modalLotes').classList.add('open');
+    setTimeout(() => { const i = document.getElementById('mlInstrucao'); i.focus(); i.select(); }, 320);
+  }
+  function fecharLotes() { document.getElementById('modalLotes').classList.remove('open'); _lotesCtx = null; }
+  function lotesProximo() {
+    document.getElementById('mlPasso1').style.display = 'none';
+    document.getElementById('mlPasso2').style.display = '';
+    const vazio = [...document.querySelectorAll('#mlLista .ml-lt')].find(i => !i.value);
+    (vazio || document.querySelector('#mlLista .ml-lt'))?.focus();
+    _lotesTotal();
+  }
+  function lotesVoltar() {
+    document.getElementById('mlPasso2').style.display = 'none';
+    document.getElementById('mlPasso1').style.display = '';
+    document.getElementById('mlInstrucao').focus();
+  }
+  function lotesAddLinha(foco, lt, f) {
+    const lista = document.getElementById('mlLista');
+    const div = document.createElement('div');
+    div.className = 'ml-linha';
+    div.innerHTML = `<input class="ml-input ml-lt" type="text" inputmode="numeric" maxlength="8" placeholder="Nº lote" autocomplete="off" enterkeyhint="next">
+      <input class="ml-input ml-f" type="text" inputmode="numeric" maxlength="3" placeholder="Fardos" autocomplete="off" enterkeyhint="next">
+      <button class="ml-rm" type="button" aria-label="Remover lote">✕</button>`;
+    const iLt = div.querySelector('.ml-lt'), iF = div.querySelector('.ml-f');
+    if (lt !== undefined) iLt.value = lt;
+    if (f !== undefined) iF.value = f;
+    [iLt, iF].forEach(i => i.addEventListener('input', () => {
+      i.value = i.value.replace(/\D/g, '');
+      i.classList.remove('erro');
+      document.getElementById('mlErro').textContent = '';
+      _lotesTotal();
+    }));
+    iLt.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); iF.focus(); } });
+    iF.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const prox = div.nextElementSibling;
+      if (prox) prox.querySelector('.ml-lt').focus();
+      else if (iLt.value && iF.value) lotesAddLinha(true);
+      else lotesValidar();
+    });
+    div.querySelector('.ml-rm').addEventListener('click', () => {
+      if (lista.children.length > 1) div.remove(); else { iLt.value = ''; iF.value = ''; }
+      _lotesTotal();
+    });
+    lista.appendChild(div);
+    if (foco) { iLt.focus(); div.scrollIntoView({ block: 'nearest' }); }
+    _lotesTotal();
+  }
+  function _lotesTotal() {
+    let t = 0;
+    document.querySelectorAll('#mlLista .ml-f').forEach(i => { const n = parseInt(i.value, 10); if (n >= LOTE_FARDOS_MIN && n <= LOTE_FARDOS_MAX) t += n; });
+    document.getElementById('mlTotal').textContent = t ? `TOTAL: ${t} ${t === 1 ? 'fardo' : 'fardos'}` : '';
+    _previewObs();
+  }
+
+  // lê e valida as linhas; devolve { lotes } ou { erro, campo }
+  function _lerLotes() {
+    const lotes = [], vistos = new Set();
+    const linhas = [...document.querySelectorAll('#mlLista .ml-linha')];
+    document.querySelectorAll('#mlLista .ml-input').forEach(i => i.classList.remove('erro'));
+    for (const div of linhas) {
+      const iLt = div.querySelector('.ml-lt'), iF = div.querySelector('.ml-f');
+      const lt = iLt.value.trim(), fs = iF.value.trim();
+      if (!lt && !fs) continue;                                                   // linha em branco: ignora
+      if (!lt) return { erro: 'Informe o número do lote.', campo: iLt };
+      if (!fs) return { erro: `Informe a quantidade de fardos do lote ${lt}.`, campo: iF };
+      const f = parseInt(fs, 10);
+      if (!(f >= LOTE_FARDOS_MIN && f <= LOTE_FARDOS_MAX))
+        return { erro: `Lote ${lt}: fardos deve ser de ${LOTE_FARDOS_MIN} a ${LOTE_FARDOS_MAX}.`, campo: iF };
+      const ltNum = String(parseInt(lt, 10));                                      // 0201 → 201
+      if (vistos.has(ltNum)) return { erro: `Lote ${ltNum} está repetido.`, campo: iLt };
+      vistos.add(ltNum);
+      lotes.push({ lt: ltNum, f });
+    }
+    if (!lotes.length) return { erro: 'Informe pelo menos um lote.', campo: document.querySelector('#mlLista .ml-lt') };
+    return { lotes };
+  }
+
+  async function lotesValidar() {
+    if (!_lotesCtx) return;
+    const r = _lerLotes();
+    const erroEl = document.getElementById('mlErro');
+    if (r.erro) {
+      erroEl.textContent = '⚠️ ' + r.erro;
+      if (r.campo) { r.campo.classList.add('erro'); r.campo.focus(); }
+      vibrar([40, 30, 40]);
+      return;
+    }
+    const stAtual = _statusLinhaVeiculo(_lotesCtx.placa);
+    if (stAtual !== null && stAtual !== 'CARREGANDO') {         // o status mudou enquanto a tela estava aberta
+      erroEl.textContent = '⛔ Não permitido: o veículo já saiu de CARREGANDO.';
+      vibrar([40, 30, 40]);
+      return;
+    }
+    const btn = document.getElementById('mlBtnValidar');
+    btn.disabled = true; btn.textContent = '⏳ Validando...';
+    const ctx = _lotesCtx;
+    const instrucao = document.getElementById('mlInstrucao').value.toUpperCase().trim();
+    const corpo = _textoLotes(r.lotes);
+    const obsTexto = instrucao ? `Inst. ${instrucao} | ${corpo}` : corpo;
+    const perfilObj = _carregarPerfisCustom()[perfilAtual] || {};
+    const agora = new Date();
+    const doc_ = {
+      chave: ctx.chave, placa: ctx.placa, dataEntrada: ctx.dataEntrada, produto: ctx.produto,
+      instrucao, lotes: r.lotes, total: r.lotes.reduce((t, l) => t + l.f, 0), obsTexto,
+      validado: true, validadoPor: perfilAtual || '', validadoPorNome: String(perfilObj.label || perfilAtual || '').replace(/^\S+\s*/, ''),
+      validadoHora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      ts: Date.now()
+    };
+    _instrMemorizar(instrucao);                         // guarda a instrução já (mesmo offline) para usar de novo
+    try {
+      // 1) manda para a planilha e ESPERA chegar — só depois disso o veículo aparece como "validado".
+      //    Se não chegar, nada é gravado nem mostrado (a tela de lotes continua aberta para tentar de novo).
+      const eraCarregando = (stAtual === 'CARREGANDO') && ctx.descarregar !== 'SIM';
+      const chegouNaPlanilha = LOTES_GRAVAR_NA_PLANILHA ? await _enviarObsEConfirmar(ctx, obsTexto, eraCarregando) : true;
+      if (!chegouNaPlanilha) return;
+      // 2) planilha confirmou → grava os lotes (Firestore) e o "validado ✓" aparece em todos os aparelhos
+      _lotesMap[ctx.chave] = doc_;
+      _aplicarLotesNoHistorico();
+      try {
+        await setDoc(doc(_db, 'lotes', ctx.chave), { ...doc_, atualizadoEm: serverTimestamp(), expiraEm: _expiraEm(7) });
+        _logEventoVeiculo(ctx.placa, 'LOTES', { observacao: obsTexto, total: doc_.total });
+      } catch (e) {
+        console.warn('[Lotes] gravar falhou:', e);
+        delete _lotesMap[ctx.chave];
+        _aplicarLotesNoHistorico();
+        erroEl.textContent = '⚠️ Não foi possível salvar agora. Verifique a conexão e tente de novo.';
+        return;
+      }
+      vibrar(60);
+      fecharLotes();
+    } catch (e) {
+      console.warn('[Lotes] validar falhou:', e);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Validar ✓';
+    }
+  }
+
+  /* ===== Envia a observação dos lotes para a planilha (mesmo caminho do cadastro: ação EDITAR → coluna K)
+   * e RELÊ a planilha para confirmar. O envio é "no-cors" (o app não recebe resposta), então a única prova
+   * de que chegou é ver o texto na coluna K. 'manterStatus' pede ao script para não mexer no status; se o script
+   * for o antigo (volta o veículo para PÁTIO), o CARREGANDO é devolvido com OK_CHAMADA. Retorna true/false. */
+  const _esperar = ms => new Promise(r => setTimeout(r, ms));
+  const _obsIgual = (a, b) => String(a || '').trim() === String(b || '').trim();
+  async function _linhaDaPlanilha(placa, dataEntrada) {
+    const res = await fetch(WEB_APP_URL + '&_t=' + Date.now());
+    const json = await res.json();
+    const placaN = String(placa).trim().toUpperCase();
+    const ativos = (json.dados || []).filter(r => String(r.placa).trim().toUpperCase() === placaN
+      && ['PÁTIO', 'CARREGANDO', 'A DESCARREGAR', 'AGUARDANDO NFE'].includes(normalizarStatus(r.status)));
+    return ativos.find(r => String(r.dataEntrada || '').trim() === String(dataEntrada || '').trim()) || ativos[ativos.length - 1] || null;
+  }
+  async function _enviarObsEConfirmar(ctx, obsTexto, eraCarregando) {
+    const placaN = String(ctx.placa).trim().toUpperCase();
+    try {
+      if (eraCarregando) _manterStatusAte[placaN] = { status: 'CARREGANDO', expiraEm: Date.now() + 45000 };
+      await enviarPlanilha({ placa: ctx.placa, motorista: ctx.motorista, transportadora: ctx.transportadora, produto: ctx.produto,
+                             ordem: ctx.ordem, observacao: obsTexto, descarregar: ctx.descarregar === 'SIM' ? 'SIM' : 'NÃO',
+                             acao: 'EDITAR', placaOriginal: ctx.placa, manterStatus: eraCarregando });
+      for (let t = 0; t < 3; t++) {
+        await _esperar(t === 0 ? 4000 : 5000);
+        const linha = await _linhaDaPlanilha(ctx.placa, ctx.dataEntrada);
+        if (!linha) return false;
+        if (eraCarregando && normalizarStatus(linha.status) === 'PÁTIO') {      // script antigo derrubou o status → devolve CARREGANDO
+          _manterStatusAte[placaN] = { status: 'CARREGANDO', expiraEm: Date.now() + 30000 };
+          await enviarPlanilha({ acao: 'OK_CHAMADA', placa: ctx.placa });
+          continue;
+        }
+        if (_obsIgual(linha.observacao, obsTexto)) { carregarEstado(); return true; }
+      }
+    } catch (e) { console.warn('[Lotes] envio/conferência da planilha falhou:', e); }
+    return false;
+  }
+
   /* ===================== ADD HISTÓRICO ===================== */
+  const BTN_LOTES_HTML = `<button class="btn-lotes" onclick="abrirLotesEl(this)"><span class="btn-lotes-txt">Informar Lotes</span></button>`;
+  // "Informar Lotes" só existe para ALGODÃO EM PLUMA — os demais produtos seguem normais, sem o botão
+  function _ehProdutoPluma(produto) {
+    return /PLUMA/.test(String(produto || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+  }
   function addHist(d, tipo, dataManual = null) {
     const agora = new Date();
     const hStr = dataManual ? dataManual.split(" ")[1] : agora.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
@@ -6678,20 +7653,26 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     tr.dataset.seqgeral       = d.seqGeral        || '';
     tr.dataset.seqproduto     = d.seqProduto      || '';
     tr.dataset.chegadats      = d.chegadaTimestamp || '';
+    tr.dataset.tipo           = tipo;
+    tr.dataset.obssheet       = d.observacao || '';
     // Rank cronológico (0 = mais antigo). Guardado na própria linha pra que a
     // reordenação imediata (ao salvar o painel "Ordem de exibição") funcione
     // sem precisar recarregar os dados da planilha.
     tr.dataset.ordrank        = (d._ordRank !== undefined) ? d._ordRank : '';
 
-    const chamadaInfo = historicoChamadas.find(c => c.placa === d.placa);
+    let chamadaInfo = historicoChamadas.find(c => c.placa === d.placa);
+    // Chamada de OUTRA entrada dessa placa (ex.: chamou de manhã, saiu, voltou à tarde): não vale
+    if (chamadaInfo && chamadaInfo.entrada && d.dataEntrada && String(chamadaInfo.entrada) !== String(d.dataEntrada)) {
+      if (_STATUS_ATIVOS_CH.includes(d.status)) historicoChamadas = historicoChamadas.filter(h => h !== chamadaInfo); // registro ativo = ciclo atual: some a contagem velha
+      chamadaInfo = undefined;
+    }
     const chamadaBadge = chamadaInfo
       ? `<div class="chamada-inline" id="chamada-inline-${d.placa}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.36 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg> <b>${chamadaInfo.count}x</b> chamado — última: ${chamadaInfo.ultimaHora}${_btnCancelInline(d.placa)}</div>`
       : `<div class="chamada-inline chamada-inline-vazia" id="chamada-inline-${d.placa}"></div>`;
 
     tr.innerHTML = `
       <td class="container-info" style="vertical-align:top;padding-top:12px;padding-bottom:12px;">
-        <span class="data-hora-canto" style="display:block;margin-bottom:3px;">${dStr} ${hStr}</span>
-        <span style="font-size:0.55rem;color:var(--text-muted);font-weight:700;">${d.seqGeral ? `N°${String(d.seqGeral).padStart(2,'0')}` : ''}${d.seqProduto ? ` <span style="color:var(--accent);margin-left:4px;">${d.produto||''} #${d.seqProduto}</span>` : ''}</span>
+        <span class="data-hora-canto" style="display:block;margin-bottom:3px;">${d.seqGeral ? `N°${String(d.seqGeral).padStart(2,'0')} <span style="opacity:0.45;">|</span> ` : ''}${dStr} ${hStr}</span>
         <div style="font-size:1rem;font-weight:700;color:var(--text-main);font-family:'JetBrains Mono',monospace;letter-spacing:1px;margin:2px 0 1px;">${d.placa}</div>
         <div class="detalhe-linha"><b>MOT:</b> ${d.motorista||'---'}</div>
         ${tempoBadge}
@@ -6699,10 +7680,11 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           <div class="row-btns">
             ${d.status === 'A DESCARREGAR' ? `
               <button class="btn-registrar-saida" onclick="registrarSaidaDescarga(this,'${d.placa}')">⬇ Registrar Saída</button>
-            ` : d.status === 'CARREGANDO' || d.status === 'AGUARDANDO NFE' ? '' : `
+            ` : d.status === 'CARREGANDO' || d.status === 'AGUARDANDO NFE' ? ((d.status === 'CARREGANDO' && _ehProdutoPluma(d.produto)) ? `<div class="row-btns-top">${BTN_LOTES_HTML}</div>` : '') : `
               <div class="row-btns-top">
                 ${perfilAtual === 'portaria' ? '' : `<button class="btn-chamar" onclick="chamarVeiculoEl(this)" style="display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.36 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg>Chamar</button>`}
                 <button class="st-badge" style="background:${d.ordem==='SIM'?'var(--success)':'var(--danger)'}" onclick="toggleOrdem(this,'${d.placa}')">${d.ordem==='SIM'?'C/OC':'S/OC'}</button>
+                ${_ehProdutoPluma(d.produto) ? BTN_LOTES_HTML : ''}
               </div>
             `}
           </div>
@@ -6711,15 +7693,15 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       </td>
       <td style="width:22%;text-align:center;vertical-align:top;padding:10px 4px;overflow:hidden;">
         <div class="detalhe-linha" style="white-space:normal;word-break:break-word;line-height:1.3;">${d.transportadora||'---'}</div>
-        <div class="detalhe-linha" style="white-space:normal;word-break:break-word;line-height:1.3;"><b>${d.produto||(d.nfe?'NFE: '+d.nfe:'---')}</b></div>
+        <div class="detalhe-linha" style="white-space:normal;word-break:break-word;line-height:1.3;"><b>${d.produto||(d.nfe?'NFE: '+d.nfe:'---')}</b>${(d.produto && d.seqProduto) ? ` <span style="color:var(--accent);font-weight:700;white-space:nowrap;">#${d.seqProduto}</span>` : ''}</div>
       </td>
       <td class="container-status" style="vertical-align:top;padding-top:12px;padding-bottom:12px;">
 
-        <!-- LINHA 1: botão editar -->
-        <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-bottom:6px;">
+        <!-- LINHA 1: botão editar + excluir (lado a lado) -->
+        <div style="display:flex;flex-wrap:nowrap;align-items:center;justify-content:flex-end;gap:4px;margin-bottom:6px;">
           ${tipo==='ENTRADA' ? `<button class="btn-edit" title="Editar" onclick="prepararEdicaoEl(this)" style="flex-shrink:0;">${EDIT_ICON_SVG}</button>` : ''}
+          ${((perfilAtual === 'admin' || perfilAtual === 'balanca') && d.status !== 'SAÍDA' && d.status !== 'CONCLUIDO') ? `<button class="btn-excluir-veiculo" title="Excluir veículo" onclick="excluirVeiculoEl(this)">✕</button>` : ''}
         </div>
-        ${(perfilAtual === 'admin' || perfilAtual === 'balanca') ? `<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:6px;"><button class="btn-excluir-veiculo" title="Excluir veículo" onclick="excluirVeiculoEl(this)">✕</button></div>` : ''}
 
         <!-- LINHA 2: status + fluxo NFE -->
         ${tipo==='ENTRADA' ? (() => {
@@ -6744,7 +7726,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
             // addHist NUNCA decide mostrar NFE OK — sempre renderiza AGUARD. NFE.
             // O estado NFE OK chega depois via _reaplicarAlertasNfeOkAposRender
             // que consulta o Firestore diretamente, sem sessionStorage.
-            if (_isBA) {
+            if (_podeAcionarNfeOk()) {
               return `<div class="linha-status-nfe" style="text-align:right;margin-bottom:6px;">
                 <span class="btn-aguard-nfe-texto" onclick="registrarNfeOkEl(this)" title="NFE OK? CLIQUE AQUI">AGUARD. NFE</span>
               </div>`;
@@ -6768,20 +7750,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
     tbody.appendChild(tr);
 
-    // Linha de observação vinda da planilha/Firebase (somente leitura)
-    const obsFirebase = d.observacao || '';
-    if (obsFirebase && tipo === 'ENTRADA') {
-      const trObs = document.createElement('tr');
-      trObs.className = 'obs-row-full';
-      trObs.dataset.obsplaca = d.placa || '';
-      trObs.innerHTML = `<td colspan="3" style="padding:0 12px 10px;border-top:none;">
-        <div class="obs-linha-full">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          <span>${obsFirebase}</span>
-        </div>
-      </td>`;
-      tbody.appendChild(trObs);
-    }
+    // Linha de observação: vem da planilha/Firebase e, se o Lucas já validou lotes, mostra a observação com os lotes
+    if (tipo === 'ENTRADA') _montarObsRow(tr);
   }
 
   /* ===================== BUSCA HISTÓRICO ===================== */
@@ -6839,12 +7809,51 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     _aplicarFiltroChipHist();
   }
 
+  // Normaliza o texto digitado: maiúsculas, sem acento, espaços colapsados
+  function _normBusca(t) {
+    return String(t || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+  }
+  // Reconhece "COM ORDEM / C/OC / C.OC" e "SEM ORDEM / S/OC / S.OC" em qualquer parte do que foi digitado.
+  // Devolve { ordem: 'SIM' | 'NAO' | null, resto: texto sobrando para a busca normal (placa, motorista, produto…) }
+  function _extrairFiltroOrdem(q) {
+    const re = /(^|\s)(COM ORDEM|SEM ORDEM|C ?[\/.\\] ?OC|S ?[\/.\\] ?OC)(?=\s|$)/;
+    const m = q.match(re);
+    if (!m) return { ordem: null, resto: q };
+    const tok = m[2];
+    const ordem = (tok === 'COM ORDEM' || tok.charAt(0) === 'C') ? 'SIM' : 'NAO';
+    const resto = (q.slice(0, m.index) + ' ' + q.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim();
+    return { ordem, resto };
+  }
   function filtrarHistorico(val) {
-    const q = val.toUpperCase().trim();
-    document.querySelectorAll('#tabDia tbody tr:not(.prod-titulo-row), #tabNoite tbody tr:not(.prod-titulo-row)').forEach(tr => {
-      tr.classList.toggle('tr-hidden', q.length > 0 && !tr.dataset.busca?.includes(q));
+    const q = _normBusca(val);
+    const { ordem: fOrdem, resto } = _extrairFiltroOrdem(q);
+    const temFiltroPerfil = _filtroProdutosLista().length > 0;
+    const linhas = [...document.querySelectorAll('#tabDia tbody tr:not(.prod-titulo-row), #tabNoite tbody tr:not(.prod-titulo-row)')];
+    const placasOk = new Set();
+    linhas.forEach(tr => {
+      if (tr.classList.contains('obs-row-full')) return;
+      let ok = true;
+      if (temFiltroPerfil && !_produtoPassaFiltro(tr.dataset.produto)) ok = false;
+      if (ok && fOrdem) {
+        // Ordem só vale para veículos de entrada e que não estão em descarga (lá a ordem não se aplica)
+        const temOrdem = (tr.dataset.ordem || '').toUpperCase().trim() === 'SIM';
+        ok = tr.dataset.tipo === 'ENTRADA' && tr.dataset.status !== 'A DESCARREGAR'
+             && (fOrdem === 'SIM' ? temOrdem : !temOrdem);
+      }
+      if (ok && resto) ok = _normBusca(tr.dataset.busca).includes(resto);
+      tr.classList.toggle('tr-hidden', !ok);
+      if (ok) placasOk.add(tr.dataset.placa);
+    });
+    // a linha de observação acompanha a linha principal da mesma placa
+    linhas.forEach(tr => {
+      if (tr.classList.contains('obs-row-full')) tr.classList.toggle('tr-hidden', !placasOk.has(tr.dataset.obsplaca));
     });
     _atualizarTitulosProdutoHist();
+  }
+  // Depois que a lista é redesenhada (a cada atualização da planilha), reaplica o que está digitado na busca
+  function _reaplicarBuscaHist() {
+    const campo = document.getElementById('campoBusca');
+    if (campo && campo.value) filtrarHistorico(campo.value);
   }
 
   function _carregarOrdemProdutos() {
@@ -7316,15 +8325,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
 
     // Filtra placas já dispensadas localmente (Firestore ainda pode não ter propagado)
     // Também filtra por produto se o perfil tiver produto_filtro configurado
-    const prodFiltro = _getProdutoFiltro();
+    const temFiltroProd = _filtroProdutosLista().length > 0;
     const chamadasVisiveis = (chamadas || []).filter(c => {
       if (_placasDispensadas.has(c.placa)) return false;
       if (_assinaturasDispensadas.has(_sigChamada(c))) return false;
-      if (prodFiltro) {
+      if (temFiltroProd) {
         // Busca o produto do veículo na lista atual
         const veiculo = veiculosPatio.find(v => v.placa === c.placa);
-        const prodVeiculo = (veiculo && veiculo.produto) ? veiculo.produto.toUpperCase() : '';
-        if (!prodVeiculo.includes(prodFiltro.toUpperCase())) return false;
+        if (!_produtoPassaFiltro(veiculo && veiculo.produto)) return false;
       }
       return true;
     });
@@ -7623,11 +8631,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     } catch(e) { console.warn('[Firebase] Erro ao dispensar chamada:', e); }
 
     // 4. Atualiza planilha e status do veículo em paralelo (fire-and-forget)
-    fetch(WEB_APP_POST_URL, {
-      method:"POST", mode:"no-cors",
-      headers:{"Content-Type":"text/plain"},
-      body: JSON.stringify({ acao:"OK_CHAMADA", placa })
-    }).catch(() => {});
+    enfileirarPlanilha({ acao:"OK_CHAMADA", placa });
 
     try {
       const q = query(collection(_db,'veiculos'), where('placa','==',placa), orderBy('criadoEm','desc'));
@@ -7694,21 +8698,24 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   async function dispensarChamada(btn) {
     btn.disabled = true;
     document.getElementById('painelChamadas').classList.remove('ativo');
-    try { await fetch(WEB_APP_POST_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ acao:"OK_CHAMADA" }) }); } catch(e) {}
+    try { await enfileirarPlanilha({ acao:"OK_CHAMADA" }); } catch(e) {}
     vibrar(60);
     btn.disabled = false;
   }
 
   async function chamarVeiculo(placa, motorista, btn) {
     const nome = motorista || placa;
+    const _ciclo = _cicloDaPlaca(placa);
     const agora = new Date();
     const horaStr = agora.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
     btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
     btn.style.background = "#9ca3af"; btn.disabled = true;
 
-    const idx = historicoChamadas.findIndex(c => c.placa === placa);
-    if (idx >= 0) { historicoChamadas[idx].count++; historicoChamadas[idx].ultimaHora = horaStr; }
-    else { historicoChamadas.unshift({ placa, motorista: motorista||'---', hora: horaStr, ultimaHora: horaStr, count: 1 }); }
+    let idx = historicoChamadas.findIndex(c => c.placa === placa);
+    // chamada de uma entrada ANTERIOR da mesma placa: descarta e recomeça a contagem
+    if (idx >= 0 && _ciclo && historicoChamadas[idx].entrada && historicoChamadas[idx].entrada !== _ciclo) { historicoChamadas.splice(idx, 1); idx = -1; }
+    if (idx >= 0) { historicoChamadas[idx].count++; historicoChamadas[idx].ultimaHora = horaStr; if (!historicoChamadas[idx].entrada) historicoChamadas[idx].entrada = _ciclo; }
+    else { historicoChamadas.unshift({ placa, motorista: motorista||'---', hora: horaStr, ultimaHora: horaStr, count: 1, entrada: _ciclo }); }
 
     _chamadasAtivas().add(placa);
     const chamadaAtual = historicoChamadas.find(c => c.placa === placa);
@@ -7758,25 +8765,24 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       // runTransaction garante leitura+escrita atômica: sem duplicate, sem race
       const snap = await getDoc(docRef);
       const listaAtual = snap.exists() ? (snap.data().lista || []) : [];
-      const idxFirestore = listaAtual.findIndex(c => c.placa === placa);
+      let idxFirestore = listaAtual.findIndex(c => c.placa === placa);
+      // sobrou chamada de uma entrada anterior dessa placa: remove e conta como chamada nova
+      if (idxFirestore >= 0 && _ciclo && listaAtual[idxFirestore].entrada && listaAtual[idxFirestore].entrada !== _ciclo) { listaAtual.splice(idxFirestore, 1); idxFirestore = -1; }
       if (idxFirestore >= 0) {
+        if (!listaAtual[idxFirestore].entrada) listaAtual[idxFirestore].entrada = _ciclo;
         // Já existe: incrementa o contador e atualiza a hora no Firestore
         listaAtual[idxFirestore].count = (listaAtual[idxFirestore].count || 1) + 1;
         listaAtual[idxFirestore].ultimaHora = horaStr;
         if (!listaAtual[idxFirestore].produto) listaAtual[idxFirestore].produto = _produtoDaPlaca(placa);
       } else {
         // Nova chamada: adiciona com count inicial 1
-        listaAtual.push({ placa, motorista: nome, hora: horaStr, ultimaHora: horaStr, count: 1, produto: _produtoDaPlaca(placa) });
+        listaAtual.push({ placa, motorista: nome, hora: horaStr, ultimaHora: horaStr, count: 1, produto: _produtoDaPlaca(placa), entrada: _ciclo });
       }
       await setDoc(docRef, { lista: listaAtual, atualizadoEm: new Date().toISOString() });
     } catch(e) { console.warn('[Firebase] Erro ao salvar chamada:', e); }
 
     try {
-      fetch(WEB_APP_POST_URL, {
-        method:"POST", mode:"no-cors",
-        headers:{"Content-Type":"text/plain"},
-        body: JSON.stringify({ acao:"CHAMAR", placa, motorista: nome, hora: horaStr })
-      });
+      enfileirarPlanilha({ acao:"CHAMAR", placa, motorista: nome, hora: horaStr });
     } catch(e) {}
 
     btn.innerHTML = CHAMAR_OK_SVG; btn.style.background = "var(--success)";
@@ -7786,6 +8792,19 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   /* ===================== ENTRADA ===================== */
   // Limpa o formulário de entrada — usado tanto no sucesso quanto quando o
   // registro é salvo na fila offline (nos dois casos o dado está seguro).
+  // Janelinha de Nova Entrada (conta admin)
+  function abrirEntradaModal(manter) {
+    const w = document.getElementById('entradaWrap');
+    if (!w) return;
+    if (manter !== true) _resetFormEntrada();     // cadastro novo = formulário limpo
+    w.classList.add('aberto');
+    if (manter !== true) setTimeout(() => { const pl = document.getElementById('p_ent'); if (pl) pl.focus(); }, 200);
+  }
+  function fecharEntradaModal() {
+    const w = document.getElementById('entradaWrap');
+    if (w) w.classList.remove('aberto');
+  }
+
   function _resetFormEntrada() {
     document.getElementById('p_ent').value = "";
     document.getElementById('m_ent').value = "";
@@ -7800,6 +8819,13 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const campoChk = document.getElementById('campoDescarregar');
     if (campoChk) campoChk.classList.remove('marcado');
     _aplicarRegraGatilho();
+    fecharEntradaModal();   // salvou (ou foi para a fila offline): fecha a janelinha
+    // admin: se era uma edição (aberta pelo lápis do histórico), volta para o histórico
+    if (_entradaEraEdicao && document.body.classList.contains('entrada-em-modal')) {
+      _entradaEraEdicao = false;
+      switchTab('abaHist', document.querySelectorAll('.tab-btn')[2]);
+    }
+    _entradaEraEdicao = false;
   }
 
   async function registrarEntrada() {
@@ -7841,6 +8867,19 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // "fantasma" no Firestore mesmo que a planilha já esteja correta e com a
     // saída registrada. Checar a planilha evita esses falsos positivos.
     if (!isEdit) {
+      // Entrada da MESMA placa ainda esperando envio na fila offline (a planilha ainda não a conhece)
+      try {
+        const _pend = (await _listarTodosPendentes()).find(it => it.payload && it.payload.acao === 'ENTRADA'
+          && String(it.payload.placa || '').toUpperCase().trim() === d.placa);
+        if (_pend) {
+          const _ok = await mostrarDialog({
+            icone: '📴', titulo: 'Entrada já aguardando envio',
+            msg: `A placa ${d.placa} já tem uma entrada salva neste aparelho esperando a conexão para ser enviada. Criar outra pode duplicar o registro.`,
+            botoes: [{ texto: 'Cancelar', tipo: 'cancelar' }, { texto: 'Criar mesmo assim', tipo: 'ok' }]
+          });
+          if (!_ok) return;
+        }
+      } catch(e) {}
       const docAntigo = _buscarRegistroAbertoNaPlanilha(d.placa);
       if (docAntigo) {
         const confirmar = await mostrarDialog({
@@ -7878,6 +8917,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       // O Firestore já tem persistência offline própria (enableIndexedDbPersistence),
       // então mesmo sem internet esse lado se resolve sozinho quando reconectar.
       if (isEdit) { _fbEditar(d); } else {
+        _limparChamadasDaPlaca(d.placa); // volta do zero: chamadas da vez anterior não valem
         _fbEntrada(d);
         _notificarNovaEntrada(d.placa, d.motorista, d.produto);
       }
@@ -7903,6 +8943,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       }
       setStatusEnt('sucesso', '✅ Salvo com sucesso!');
       setTimeout(() => setStatusEnt(null), 2500);
+      if (document.body.classList.contains('entrada-em-modal') && typeof mostrarToast === 'function') mostrarToast(`✅ ${d.placa} salvo`, 'success', 2500);
       _resetFormEntrada();
       carregarEstado();
     } catch(e) {
@@ -7955,7 +8996,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     try {
       // Firebase dispara primeiro, de forma independente — já tem persistência
       // offline própria (enableIndexedDbPersistence) e se resolve sozinho.
-      _fbSaida(placa, nfe); // deleta docs do veículo e limpa nfeok/ativas
+      _fbSaida(placa, nfe); // deleta docs do veículo e limpa nfeok/ativas + chamadas (Firestore)
+      _limparEstadoLocalPlaca(placa); // e zera o que ficou guardado neste aparelho
       // Log de ciclo de vida — fim do registro dessa placa (saída normal)
       _logEventoVeiculo(placa, 'SAIDA', {
         nfe: nfe || '', motorista: veiculo?.motorista || '', produto: veiculo?.produto || ''
@@ -8130,6 +9172,10 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       }
       // Log de ciclo de vida — fim do registro dessa placa (saída de descarga)
       _logEventoVeiculo(placa, 'SAIDA_DESCARGA', {});
+      // Terminou a descarga: mesma limpeza total da saída normal (todos os docs da placa,
+      // NF-e OK, chamadas no Firestore e estado local) — o caminhão que voltar começa do zero.
+      _fbSaida(placa, '');
+      _limparEstadoLocalPlaca(placa);
       // Planilha: agora aguardada de verdade, com timeout. Se falhar, cai na fila
       // offline — mas a interface já reflete a saída (o caminhão já foi liberado).
       let avisoOffline = false;
@@ -8167,6 +9213,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     btn.innerText = novo === 'SIM' ? 'C/OC' : 'S/OC';
     vibrar(40);
     const payload = { placa, ordem: novo, acao:"EDITAR_ORDEM" };
+    _ordemOverrideRecente[String(placa).toUpperCase().trim()] = { ordem: novo, expiraEm: Date.now() + 60000 };
+    const _trO = btn.closest('tr'); if (_trO) _trO.dataset.ordem = novo;
     _fbOrdem(placa, novo);
     _logEventoVeiculo(placa, 'EDITAR_ORDEM', { ordem: novo });
     // Planilha: aguardada com timeout; se falhar de verdade, cai na fila offline
@@ -8182,6 +9230,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   }
 
   // Lê os dados do dataset do <tr> com segurança (sem quebrar por aspas/caracteres especiais)
+  let _entradaEraEdicao = false;
   function voltarDoEditor() {
     const btn = document.getElementById('btnVoltarHistorico');
     if (!btn) return;
@@ -8196,6 +9245,12 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     document.getElementById('placa_original').value = "";
     document.getElementById('tituloEntradaTexto').innerText = "Nova Entrada";
     document.getElementById('headerEntrada').classList.remove('modo-edicao');
+
+    // Janelinha de Nova Entrada (admin): fecha. Se era um cadastro novo, continua onde estava.
+    const eraEdicao = _entradaEraEdicao;
+    fecharEntradaModal();
+    _entradaEraEdicao = false;
+    if (document.body.classList.contains('entrada-em-modal') && !eraEdicao) return;
 
     // Volta para o histórico
     const tabHist = document.querySelectorAll('.tab-btn')[2];
@@ -8214,8 +9269,166 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     switchTab('abaHist', tabHist);
   }
 
+
+  /* ===================== EDITAR VEÍCULO (janela pequena — perfil balança) =====================
+   * Mesma ficha do registro da portaria. Regras importantes:
+   *  • A ordem (C/OC) é preservada: veículo verde continua verde depois de salvar.
+   *  • Veículo CARREGANDO / AGUARD. NFE mantém o status (editar dados não derruba o status).
+   *  • A observação atual é carregada na ficha, então não é apagada ao salvar.
+   */
+  let _ebCtx = null;
+
+  function _ebToggleDesc() {
+    const chk = document.getElementById('eb_chk_desc');
+    chk.checked = !chk.checked;
+    document.getElementById('eb_campo_desc').classList.toggle('marcado', chk.checked);
+  }
+
+  // Produto "gatilho" (descarga): mesma regra do formulário da portaria.
+  // Produto digitado à mão e NÃO alterado não vira gatilho — assim a ordem dele não é perdida.
+  function _ebGatilho() {
+    const sel = document.getElementById('eb_prod');
+    if (sel.value === '__OUTROS__') {
+      const nome = (document.getElementById('eb_prod_manual').value || '').trim().toUpperCase();
+      return (_ebCtx && _ebCtx.descarregar === 'SIM') || nome !== (_ebCtx ? _ebCtx.produto : '');
+    }
+    const opt = sel.options[sel.selectedIndex];
+    if (opt && opt.dataset.descarregar === 'SIM') return true;
+    const prod = sel.value.toUpperCase().trim();
+    return PRODUTOS_GATILHO.some(g => prod.includes(g));
+  }
+
+  function _ebAplicarRegra() {
+    const sel = document.getElementById('eb_prod');
+    document.getElementById('eb_prod_manual').style.display = sel.value === '__OUTROS__' ? 'block' : 'none';
+    const g = _ebGatilho();
+    document.getElementById('eb_campo_ordem').style.display = g ? 'none' : '';
+    document.getElementById('eb_campo_obs').style.display   = g ? 'none' : '';
+    const cd = document.getElementById('eb_campo_desc');
+    cd.classList.toggle('ativo', g);
+    if (!g) { cd.classList.remove('marcado'); document.getElementById('eb_chk_desc').checked = false; }
+  }
+
+  function abrirEdicaoVeiculo(tr) {
+    const ds = tr.dataset;
+    _ebCtx = {
+      placa: ds.placa || '', produto: (ds.produto || '').toUpperCase().trim(),
+      ordem: (ds.ordem || '').toUpperCase().trim() === 'SIM' ? 'SIM' : 'NÃO',
+      descarregar: (ds.descarregar || '').toUpperCase() === 'SIM' ? 'SIM' : 'NÃO',
+      status: ds.status || '', obs: ds.obssheet || ''
+    };
+    // lista de produtos = a mesma do formulário de entrada
+    const sel = document.getElementById('eb_prod');
+    sel.innerHTML = '';
+    [...document.getElementById('prod_ent').options].forEach(o => {
+      const n = document.createElement('option');
+      n.value = o.value; n.textContent = o.textContent;
+      if (o.dataset.descarregar) n.dataset.descarregar = o.dataset.descarregar;
+      sel.appendChild(n);
+    });
+    const existe = [...sel.options].some(o => o.value === ds.produto);
+    if (existe) { sel.value = ds.produto; document.getElementById('eb_prod_manual').value = ''; }
+    else { sel.value = '__OUTROS__'; document.getElementById('eb_prod_manual').value = ds.produto || ''; }
+
+    document.getElementById('eb_placa').value  = ds.placa || '';
+    document.getElementById('eb_mot').value    = ds.motorista || '';
+    document.getElementById('eb_transp').value = ds.transportadora || '';
+    document.getElementById('eb_ordem').value  = _ebCtx.ordem;
+    document.getElementById('eb_obs').value    = _ebCtx.obs;
+    const desc = _ebCtx.descarregar === 'SIM';
+    document.getElementById('eb_chk_desc').checked = desc;
+    document.getElementById('eb_campo_desc').classList.toggle('marcado', desc);
+    document.getElementById('ebTitulo').textContent = '✏️ Editando: ' + (ds.placa || '');
+    const b = document.getElementById('btnSalvarEdicaoVeiculo');
+    b.disabled = false; b.style.opacity = ''; b.innerText = '✓ Salvar Edição';
+    _ebAplicarRegra();
+    if (desc) document.getElementById('eb_campo_desc').classList.add('marcado');
+    document.getElementById('modalEditarVeiculo').classList.add('ativo');
+  }
+
+  async function salvarEdicaoVeiculo() {
+    if (!_ebCtx) return;
+    const btn = document.getElementById('btnSalvarEdicaoVeiculo');
+    const selP = document.getElementById('eb_prod');
+    const g = _ebGatilho();
+    const produto = selP.value === '__OUTROS__'
+      ? (document.getElementById('eb_prod_manual').value.trim().toUpperCase() || 'OUTROS')
+      : selP.value;
+    const placa = document.getElementById('eb_placa').value.toUpperCase().trim();
+    if (!placa) {
+      await mostrarDialog({ icone: '🚛', titulo: 'Placa obrigatória', msg: 'Informe a placa do veículo antes de salvar.', botoes: [{ texto: 'OK', tipo: 'ok' }] });
+      return;
+    }
+    const descarregar = g && document.getElementById('eb_chk_desc').checked ? 'SIM' : 'NÃO';
+    // Ordem: o que está na ficha. Produto de descarga não usa ordem (igual ao cadastro da portaria).
+    const ordem = g ? 'NÃO' : (document.getElementById('eb_ordem').value === 'SIM' ? 'SIM' : 'NÃO');
+    const manterStatus = !['PÁTIO', 'PATIO', 'A DESCARREGAR', ''].includes(String(_ebCtx.status || '').toUpperCase());
+    const d = {
+      placa,
+      motorista: document.getElementById('eb_mot').value.toUpperCase().trim(),
+      transportadora: document.getElementById('eb_transp').value.toUpperCase().trim(),
+      produto, ordem,
+      observacao: document.getElementById('eb_obs').value.toUpperCase().trim(),
+      descarregar,
+      acao: 'EDITAR',
+      placaOriginal: _ebCtx.placa,
+      manterStatus
+    };
+    btn.disabled = true; btn.style.opacity = '0.7'; btn.innerText = '⏳ Salvando...';
+
+    // Segura na tela o que foi escolhido (ordem e status) até a planilha confirmar
+    const kNova = placa, kAnt = String(_ebCtx.placa).toUpperCase().trim();
+    [kNova, kAnt].forEach(k => { _ordemOverrideRecente[k] = { ordem, expiraEm: Date.now() + 60000 }; });
+    if (manterStatus) [kNova, kAnt].forEach(k => { _manterStatusAte[k] = { status: _ebCtx.status, expiraEm: Date.now() + 45000 }; });
+
+    _salvarTransportadora(d.transportadora);
+    _logEventoVeiculo(d.placa, 'EDITAR', { motorista: d.motorista, transportadora: d.transportadora, produto: d.produto,
+      observacao: d.observacao || '', descarregar: d.descarregar, ordem: d.ordem });
+    _fbEditar(d);
+
+    const payloadOrdem = { placa: d.placa, ordem: d.ordem, acao: 'EDITAR_ORDEM' };
+    try {
+      await enviarPlanilha(d);
+      // Reforço: regrava a ordem logo depois, para o EDITAR do script nunca devolver o veículo para "sem ordem"
+      if (ordem === 'SIM') { try { await enviarPlanilha(payloadOrdem); } catch(e2) { try { await idbAdicionarPendente(payloadOrdem); } catch(e3) {} } }
+      vibrar(60);
+      mostrarToast(`✅ ${d.placa} atualizado`, 'success', 2500);
+    } catch(e) {
+      console.warn('[Editar] Planilha falhou, guardando na fila offline:', e);
+      let salvo = true;
+      try { await idbAdicionarPendente(d); if (ordem === 'SIM') await idbAdicionarPendente(payloadOrdem); }
+      catch(e2) { salvo = false; }
+      if (salvo) { mostrarToast(`📴 ${d.placa} salvo — será sincronizado automaticamente`, 'info', 5000); atualizarContadorIDB(); }
+      else {
+        btn.disabled = false; btn.style.opacity = ''; btn.innerText = '✓ Salvar Edição';
+        mostrarToast('⚠️ Erro ao salvar a edição', 'error');
+        return;
+      }
+    }
+    fecharModal('modalEditarVeiculo');
+    _ebCtx = null;
+    // Atualiza a tela já com o valor novo (sem esperar a planilha)
+    carregarEstado();
+  }
+
+  // Lápis dos veículos em "Diversos" (descarga): abre a mesma janelinha de edição
+  function editarDiversosEl(btn) {
+    const row = btn.closest('[data-idx]');
+    const v = (window._diversosOrdenados || [])[Number(row && row.dataset.idx)];
+    if (!v) return;
+    const obsVal = v.observacao || v.obs || v['observação'] || v['OBSERVAÇÃO'] || v['OBSERVACAO'] || '';
+    abrirEdicaoVeiculo({ dataset: {
+      placa: v.placa || '', produto: v.produto || '', motorista: v.motorista || '',
+      transportadora: v.transportadora || '', ordem: v.ordem || 'NÃO', descarregar: 'SIM',
+      status: v.status || 'A DESCARREGAR', obssheet: obsVal
+    } });
+  }
+
   function prepararEdicaoEl(btn) {
     const tr = btn.closest('tr');
+    // Perfil sem o formulário "Nova Entrada" (ex.: balança): abre a janela pequena de edição
+    const headerEnt = document.getElementById('headerEntrada');
+    if (headerEnt && headerEnt.style.display === 'none') { abrirEdicaoVeiculo(tr); return; }
     prepararEdicao(
       tr.dataset.placa,
       tr.dataset.motorista,
@@ -8261,7 +9474,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     document.getElementById('edit_mode').value = "true";
     document.getElementById('tituloEntradaTexto').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg> Editando: ${p}`;
     document.getElementById('headerEntrada').classList.add('modo-edicao');
+    _entradaEraEdicao = true;
     switchTab('abaEntrada', document.getElementById('tabBtnEnt'));
+    if (document.body.classList.contains('entrada-em-modal')) abrirEntradaModal(true);   // admin: edita na janelinha
   }
 
   function switchTab(id, btn) {
@@ -8294,7 +9509,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // perfil, volta a aparecer no Histórico, como sempre foi.)
     const cardDiv = document.getElementById('cardDiversos');
     if (cardDiv) {
-      const mostrarDiversos = perfilAtual === 'balanca'
+      const mostrarDiversos = _diversosNoInicio()
         ? (_balancaTemEntrada() ? id === 'abaEntrada' : id === 'abaHist')
         : (id === 'abaHist');
       if (mostrarDiversos) {
@@ -8347,20 +9562,26 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   // ResizeObserver REMOVIDO — causava loop infinito:
   // header compacta → margin-top aumenta → conteúdo desce → scrollY sobe → header expande → loop
 
-  /* ===================== LIMPEZA AUTOMÁTICA ÀS 19H =====================
-   * Às 19:00 o app limpa a tela (cards + histórico + cache local).
+  /* ===================== LIMPEZA AUTOMÁTICA ÀS 23:30 =====================
+   * Às 23:30 o app limpa a tela (cards + histórico + cache local).
    * Os dados continuam salvos no Firebase e na planilha Google.
    * A flag do dia é salva em localStorage para não limpar duas vezes no mesmo dia.
    */
   const LS_LIMPEZA_KEY = 'portaria_limpeza_dia';
+  // Horário da limpeza do dia (igual ao gatilho do Apps Script): 23:30
+  const LIMPEZA_HORA = 23, LIMPEZA_MIN = 30;
+  function _passouHorarioLimpeza(d) {
+    d = d || new Date();
+    return d.getHours() > LIMPEZA_HORA || (d.getHours() === LIMPEZA_HORA && d.getMinutes() >= LIMPEZA_MIN);
+  }
 
   function _deveExecutarLimpeza() {
     const agora = new Date();
     const h = agora.getHours();
     const diaHoje = agora.toLocaleDateString('pt-BR'); // "DD/MM/YYYY"
     const diaUltimaLimpeza = localStorage.getItem(LS_LIMPEZA_KEY);
-    // Executa se for >= 19h E ainda não limpou hoje
-    return h >= 19 && diaUltimaLimpeza !== diaHoje;
+    // Executa se já passou das 23:30 E ainda não limpou hoje
+    return _passouHorarioLimpeza(agora) && diaUltimaLimpeza !== diaHoje;
   }
 
   function executarLimpezaNoturna(exibirToast = false) {
@@ -8389,7 +9610,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     localStorage.setItem(LS_LIMPEZA_KEY, diaHoje);
 
     if (exibirToast) {
-      mostrarToast('🌙 19h — Cargas concluídas removidas da tela!', 'success', 5000);
+      mostrarToast('🌙 23:30 — Cargas concluídas removidas da tela!', 'success', 5000);
     }
   }
 
@@ -8464,7 +9685,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     setInterval(carregarTurno, 30000); // sincroniza turno entre dispositivos a cada 30s
     setInterval(atualizarRelogio, 30000);
     setInterval(atualizarContadorIDB, 30000);
-    // Verifica limpeza a cada minuto (detecta quando bater 19h com o app aberto)
+    // Verifica limpeza a cada minuto (detecta quando bater 23:30 com o app aberto)
     setInterval(verificarLimpezaAgendada, 60000);
   });
 
@@ -8629,6 +9850,8 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     { id: 'dashboard',        nome: 'Dashboard Desktop',     desc: 'Abrir painel dashboard em nova janela (admin/balança)' },
     { id: 'janela_mini',      nome: 'Janela Mini (PiP)',     desc: 'Abrir janela flutuante sempre no topo (admin/balança)' },
     { id: 'cotton',           nome: 'Cotton',                desc: 'Acessar o painel Cotton (link externo)' },
+    { id: 'diversos_inicio',  nome: 'Diversos na tela inicial', desc: 'Card Diversos fora da caixa do Histórico, no topo da tela inicial (igual ao perfil Balança)' },
+    { id: 'informar_lotes',   nome: '📦 Informar Lotes',     desc: 'Botão "Informar lotes" nos veículos: lote + fardos (1 a 110) que vão para a observação. Balança/admin veem "validado ✓"' },
     { id: 'notif_entradas',   nome: '🔔 Notif. Nova Entrada', desc: 'Receber notificação push de nova entrada. Respeita o filtro de produto do perfil (só notifica se o produto do filtro estiver marcado abaixo); sem filtro configurado, recebe de todos os produtos.' },
     { id: 'notif_chamada',    nome: '📢 Notif. Chamada',      desc: 'Receber notificação push quando o porteiro for chamado pela balança' },
     { id: 'notif_nfe_ok',     nome: '📄 Notif. Nota Fiscal OK', desc: 'Receber notificação push quando a balança/admin confirmar NFE OK de uma placa' },
@@ -8707,6 +9930,19 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       if (perfis[k].permissoes && !('notif_nfe_ok' in perfis[k].permissoes)) {
         perfis[k].permissoes.notif_nfe_ok = _padraoNfeOk[k] ?? false;
       }
+      // "Informar lotes": por padrão só a conta do Lucas / carregamento de pluma (outras contas liberam em Gerenciar Perfis)
+      const _ehLucas = /lucas|pluma/i.test(String(k) + ' ' + String(perfis[k].usuario || '') + ' ' + String(perfis[k].label || ''));
+      if (perfis[k].permissoes && !('informar_lotes' in perfis[k].permissoes)) {
+        perfis[k].permissoes.informar_lotes = _ehLucas || k === 'admin';   // admin também vê/usa o botão
+      }
+      // Card Diversos na tela inicial (como o perfil Balança): padrão só para o Lucas / carregamento de pluma
+      if (perfis[k].permissoes && !('diversos_inicio' in perfis[k].permissoes)) {
+        perfis[k].permissoes.diversos_inicio = _ehLucas;
+      }
+      // Lucas sem filtro de produto salvo: só algodão em pluma + fibrilha
+      if (_ehLucas && !_filtroProdutosLista(perfis[k].produto_filtro).length) {
+        perfis[k].produto_filtro = ['ALGODÃO EM PLUMA', 'FIBRILHA'];
+      }
     });
     return perfis;
   }
@@ -8770,7 +10006,11 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       // No perfil balança, com o cadastro desativado (temNova false), o card
       // #abaEntrada sobra vazio (só a caixa/borda, sem conteúdo) — mesma
       // "casca vazia" do Histórico. Remove a caixa nesse caso.
-      formEnt.classList.toggle('entrada-vazia-balanca', perfilAtual === 'balanca' && !temNova);
+      formEnt.classList.toggle('entrada-vazia-balanca', _diversosNoInicio() && !temNova);
+      // Conta admin: formulário de entrada vira botão + janelinha
+      const emModal = !!temNova && !!(perm.gerenciar_perfis || perfilAtual === 'admin');
+      document.body.classList.toggle('entrada-em-modal', emModal);
+      if (!emModal) { const w = document.getElementById('entradaWrap'); if (w) w.classList.remove('aberto'); }
     }
 
     // Se a aba entrada não está disponível, vai para Histórico
@@ -8792,6 +10032,13 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       if (txt === 'Relatório') btn.style.display = perm.relatorio ? '' : 'none';
       if (txt === 'Planilha')  btn.style.display = perm.planilha  ? '' : 'none';
     });
+
+    // Informar lotes (botão nas linhas do histórico) e selo "validado ✓" (balança / admin / quem informa)
+    document.body.classList.toggle('perm-lotes', !!perm.informar_lotes);
+    document.body.classList.toggle('ve-admin', !!(perm.gerenciar_perfis || perfilAtual === 'admin'));
+    // quem só informa lotes (perfil Lucas) não edita veículo → some o lápis
+    document.body.classList.toggle('ve-sem-edicao', !!perm.informar_lotes && !perm.gerenciar_perfis && perfilAtual !== 'admin' && perfilAtual !== 'balanca');
+    document.body.classList.toggle('ve-validado', !!(perm.informar_lotes || perm.gerenciar_perfis || perfilAtual === 'balanca' || perfilAtual === 'admin'));
 
     // Tema
     const temaToggle = document.getElementById('temaToggle');
@@ -8860,6 +10107,12 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     _posicionarCardDiversosBalanca();
   }
 
+  // Balança (sempre) ou perfil com a permissão "diversos_inicio" (ex.: Lucas): card Diversos no topo da tela inicial
+  function _diversosNoInicio() {
+    if (perfilAtual === 'balanca') return true;
+    try { const p = _carregarPerfisCustom()[perfilAtual]; return !!(p && p.permissoes && p.permissoes.diversos_inicio); }
+    catch (e) { return false; }
+  }
   function _balancaTemEntrada() {
     const tabEnt = document.getElementById('tabBtnEnt');
     return !!tabEnt && tabEnt.style.display !== 'none';
@@ -8872,7 +10125,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const tabelaDia = document.getElementById('tabDia');
     if (!card || !wrapper || !abaHist) return;
 
-    if (perfilAtual === 'balanca') {
+    if (_diversosNoInicio()) {
       // Move para logo após o wrapper dos mini-cards (No Pátio / Carregados)
       if (card.previousElementSibling !== wrapper) {
         wrapper.insertAdjacentElement('afterend', card);
@@ -8967,37 +10220,35 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     document.getElementById('perfisEditView').classList.add('ativo');
   }
 
-  // Renderiza os pills de seleção de produto para filtro de perfil
+  // Renderiza os pills de seleção de produto para filtro de perfil (pode marcar VÁRIOS)
   function _renderProdutosFiltro(selecionado) {
     const container = document.getElementById('perfilProdutosList');
     if (!container) return;
     const produtos = _carregarProdutos();
+    const marcados = new Set(_filtroProdutosLista(selecionado));
     container.innerHTML = '';
-
-    // Pill "Todos" (sem filtro)
     const pillTodos = document.createElement('div');
     pillTodos.dataset.val = '';
     pillTodos.textContent = 'Todos';
-    _estilizarPillProduto(pillTodos, !selecionado);
-    pillTodos.addEventListener('click', () => {
-      container.querySelectorAll('[data-val]').forEach(p => _estilizarPillProduto(p, false));
-      _estilizarPillProduto(pillTodos, true);
-    });
     container.appendChild(pillTodos);
-
+    const pills = [];
+    const refresh = () => {
+      const algum = pills.some(p => p.dataset.on === '1');
+      _estilizarPillProduto(pillTodos, !algum);
+      pills.forEach(p => _estilizarPillProduto(p, p.dataset.on === '1'));
+    };
+    pillTodos.addEventListener('click', () => { pills.forEach(p => { p.dataset.on = '0'; }); refresh(); });
     produtos.forEach(prod => {
       const nome = typeof prod === 'string' ? prod : prod.nome;
       const pill = document.createElement('div');
       pill.dataset.val = nome;
+      pill.dataset.on = marcados.has(String(nome).toUpperCase()) ? '1' : '0';
       pill.textContent = nome;
-      const ativo = selecionado === nome;
-      _estilizarPillProduto(pill, ativo);
-      pill.addEventListener('click', () => {
-        container.querySelectorAll('[data-val]').forEach(p => _estilizarPillProduto(p, false));
-        _estilizarPillProduto(pill, true);
-      });
+      pill.addEventListener('click', () => { pill.dataset.on = pill.dataset.on === '1' ? '0' : '1'; refresh(); });
       container.appendChild(pill);
+      pills.push(pill);
     });
+    refresh();
   }
 
   function _estilizarPillProduto(el, ativo) {
@@ -9015,7 +10266,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     ].join(';');
   }
 
-  // Retorna o produto filtrado do perfil atual (string ou null)
+  // Retorna o filtro de produto do perfil atual: string, array (vários produtos) ou null
   function _getProdutoFiltro() {
     try {
       const perfis = _carregarPerfisCustom();
@@ -9023,17 +10274,39 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       return (p && p.produto_filtro) ? p.produto_filtro : null;
     } catch(e) { return null; }
   }
+  // Lista normalizada (MAIÚSCULAS) dos produtos do filtro — vazia = sem filtro (vê tudo)
+  // Sem argumento = filtro do perfil logado; com argumento (mesmo undefined) = o valor passado.
+  function _filtroProdutosLista(...args) {
+    const v = args.length ? args[0] : _getProdutoFiltro();
+    if (!v) return [];
+    return (Array.isArray(v) ? v : [v]).map(x => String(x || '').toUpperCase().trim()).filter(Boolean);
+  }
+  // O produto passa pelo filtro do perfil? (sem filtro → sempre; com filtro → contém algum dos produtos)
+  function _produtoPassaFiltro(produto) {
+    const lista = _filtroProdutosLista();
+    if (!lista.length) return true;
+    const pr = String(produto || '').toUpperCase();
+    return lista.some(f => pr.includes(f));
+  }
 
   // Aplica filtro de produto no histórico (oculta linhas que não batem)
   function _aplicarFiltroProdutoHistorico() {
     _aplicarFiltroChipHist(); // reaplica o atalho do Total do dia quando a lista é redesenhada
-    const prod = _getProdutoFiltro();
-    if (!prod) return; // sem filtro — mostra tudo
-    document.querySelectorAll('#tabDia tbody tr:not(.prod-titulo-row), #tabNoite tbody tr:not(.prod-titulo-row)').forEach(tr => {
-      const trProd = (tr.dataset.produto || '').toUpperCase();
-      tr.classList.toggle('tr-hidden', !trProd.includes(prod.toUpperCase()));
+    if (!_filtroProdutosLista().length) { _reaplicarBuscaHist(); return; } // sem filtro de perfil — só reaplica a busca
+    const linhas = [...document.querySelectorAll('#tabDia tbody tr:not(.prod-titulo-row), #tabNoite tbody tr:not(.prod-titulo-row)')];
+    const placasOk = new Set();
+    linhas.forEach(tr => {
+      if (tr.classList.contains('obs-row-full')) return;
+      const ok = _produtoPassaFiltro(tr.dataset.produto);
+      tr.classList.toggle('tr-hidden', !ok);
+      if (ok) placasOk.add(tr.dataset.placa);
+    });
+    // linha de observação segue a linha principal da mesma placa (antes ela sumia em perfis com filtro)
+    linhas.forEach(tr => {
+      if (tr.classList.contains('obs-row-full')) tr.classList.toggle('tr-hidden', !placasOk.has(tr.dataset.obsplaca));
     });
     _atualizarTitulosProdutoHist();
+    _reaplicarBuscaHist();
   }
 
   function perfilVoltarLista() {
@@ -9133,8 +10406,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     const produtoFiltroContainer = document.getElementById('perfilProdutosList');
     let produto_filtro = null;
     if (produtoFiltroContainer) {
-      const pillAtivo = produtoFiltroContainer.querySelector('[data-val][style*="var(--accent)"]');
-      if (pillAtivo && pillAtivo.dataset.val) produto_filtro = pillAtivo.dataset.val;
+      const ativos = [...produtoFiltroContainer.querySelectorAll('[data-val][data-on="1"]')].map(p => p.dataset.val).filter(Boolean);
+      if (ativos.length === 1) produto_filtro = ativos[0];          // um produto: mantém o formato antigo (texto)
+      else if (ativos.length > 1) produto_filtro = ativos;          // vários: lista
     }
 
     // Se mudou a key (novo login), remove a antiga
@@ -9604,12 +10878,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           const notifEntrada = !!_permPerfil.notif_entradas;
           const notifChamada = !!_permPerfil.notif_chamada;
           const notifNfeOk   = !!_permPerfil.notif_nfe_ok;
-          const produtoFiltro = _perfilObj.produto_filtro || null;
+          const _fl = _filtroProdutosLista(_perfilObj.produto_filtro);
+          const produtoFiltro = _fl.length === 1 ? _perfilObj.produto_filtro && (Array.isArray(_perfilObj.produto_filtro) ? _perfilObj.produto_filtro[0] : _perfilObj.produto_filtro) : null;
+          const produtoFiltros = _fl.length > 1 ? _fl : null;
           // ID único por perfil+dispositivo — evita que a portaria sobrescreva o token do admin
           const docId = `${perfil}_android_${_fcmToken.slice(-16)}`;
           await setDoc(
             doc(_db, 'fcm_tokens', docId),
-            { token: _fcmToken, perfil, plataforma: 'android', notifEntrada, notifChamada, notifNfeOk, produtoFiltro, atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
+            { token: _fcmToken, perfil, plataforma: 'android', notifEntrada, notifChamada, notifNfeOk, produtoFiltro, produtoFiltros, atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
             { merge: true }
           );
           console.log('[FCM] Token nativo registrado — perfil:', perfil, '| entrada:', notifEntrada, '| chamada:', notifChamada, '| filtroProduto:', produtoFiltro, '| doc:', docId);
@@ -9649,12 +10925,14 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           const notifEntradaWeb  = !!_permPerfilWeb.notif_entradas;
           const notifChamadaWeb  = !!_permPerfilWeb.notif_chamada;
           const notifNfeOkWeb    = !!_permPerfilWeb.notif_nfe_ok;
-          const produtoFiltroWeb = _perfilObjWeb.produto_filtro || null;
+          const _flW = _filtroProdutosLista(_perfilObjWeb.produto_filtro);
+          const produtoFiltroWeb = _flW.length === 1 ? (Array.isArray(_perfilObjWeb.produto_filtro) ? _perfilObjWeb.produto_filtro[0] : _perfilObjWeb.produto_filtro) : null;
+          const produtoFiltrosWeb = _flW.length > 1 ? _flW : null;
           // ID único por perfil+dispositivo — evita sobrescrita entre perfis
           const docIdWeb = `${perfilWeb}_web_${_fcmToken.slice(-16)}`;
           await setDoc(
             doc(_db, 'fcm_tokens', docIdWeb),
-            { token: _fcmToken, perfil: perfilWeb, plataforma: 'web', notifEntrada: notifEntradaWeb, notifChamada: notifChamadaWeb, notifNfeOk: notifNfeOkWeb, produtoFiltro: produtoFiltroWeb, atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
+            { token: _fcmToken, perfil: perfilWeb, plataforma: 'web', notifEntrada: notifEntradaWeb, notifChamada: notifChamadaWeb, notifNfeOk: notifNfeOkWeb, produtoFiltro: produtoFiltroWeb, produtoFiltros: produtoFiltrosWeb, atualizadoEm: serverTimestamp(), ts: serverTimestamp() },
             { merge: true }
           );
           console.log('[FCM] Token web registrado — perfil:', perfilWeb, '| entrada:', notifEntradaWeb, '| chamada:', notifChamadaWeb, '| nfeOk:', notifNfeOkWeb, '| filtroProduto:', produtoFiltroWeb, '| doc:', docIdWeb);
@@ -9759,7 +11037,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     // Remover este bloco (e os outros marcados DIAGNÓSTICO TEMPORÁRIO abaixo)
     // depois de identificar o problema.
     try {
-      await setDoc(doc(_db, 'debug_push_log', `${Date.now()}-inicio`), {
+      await setDoc(doc(_db, 'debug_push_log', `${Date.now()}-inicio`), { expiraEm: _expiraEm(3),
         etapa: 'inicio_notificarNovaEntrada',
         placa, nativo: _isCapacitor(), ts: serverTimestamp()
       });
@@ -9777,12 +11055,13 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           titulo, corpo, placa, produto: produto || '',
           tipo:    'entrada',   // a Cloud Function decide quem recebe pela permissão notif_entradas + filtro de produto
           ts:      serverTimestamp(),
+          expiraEm: _expiraEm(2),
           enviado: false
         }
       );
       // DIAGNÓSTICO TEMPORÁRIO — confirma sucesso da escrita
       try {
-        await setDoc(doc(_db, 'debug_push_log', `${Date.now()}-ok`), {
+        await setDoc(doc(_db, 'debug_push_log', `${Date.now()}-ok`), { expiraEm: _expiraEm(3),
           etapa: 'push_queue_sucesso', placa, nativo: _isCapacitor(), ts: serverTimestamp()
         });
       } catch(_) {}
@@ -9790,7 +11069,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
       console.error('[FCM] Erro ao notificar nova entrada (push_queue):', e);
       // DIAGNÓSTICO TEMPORÁRIO — grava o erro real pra conferir no Firestore
       try {
-        await setDoc(doc(_db, 'debug_push_log', `${Date.now()}-erro`), {
+        await setDoc(doc(_db, 'debug_push_log', `${Date.now()}-erro`), { expiraEm: _expiraEm(3),
           etapa: 'push_queue_falhou', placa, nativo: _isCapacitor(),
           erro: String((e && e.message) || e), ts: serverTimestamp()
         });
@@ -9843,6 +11122,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           titulo, corpo, placa,
           tipo:    'chamada',   // a Cloud Function decide quem recebe pela permissão notif_chamada
           ts:      serverTimestamp(),
+          expiraEm: _expiraEm(2),
           enviado: false
         }
       );
@@ -9871,6 +11151,7 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
           titulo, corpo, placa,
           tipo:    'nfe_ok',   // a Cloud Function decide quem recebe pela permissão notif_nfe_ok
           ts:      serverTimestamp(),
+          expiraEm: _expiraEm(2),
           enviado: false
         }
       );
@@ -9962,8 +11243,12 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     abrirDashboard,
     // Cotton (link externo)
     abrirCotton,
+    // Informar lotes
+    abrirLotesEl, fecharLotes, lotesProximo, lotesVoltar, lotesAddLinha, lotesValidar, removerLotes, lotesUsarInstrucao, lotesInstrucaoDigitou, lotesInstrucaoAbrir, lotesInstrucaoFechar, lotesAtualizarInstrucao, lotesApagarInstrucao,
     // Tela de logs (diagnóstico)
     abrirTelaLogs, fecharTelaLogs, copiarLogsDiag, limparLogsDiag,
+    // Editar veículo (janela pequena)
+    abrirEdicaoVeiculo, editarDiversosEl, salvarEdicaoVeiculo, abrirEntradaModal, fecharEntradaModal, _ebAplicarRegra, _ebToggleDesc,
   });
 
 
@@ -10321,9 +11606,9 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
   // 12 + 16 + 12 = 40 → pequeno num canto, grande no meio e pequeno no outro canto, linha cheia.
   const span = nome => (nome.length <= 6 ? 12 : 16);
   const curto = nome => nome.length <= 6;                        // só para a ordem padrão (curtos primeiro)
-  // O contador "Veículos" também é um item da grade: 12 colunas de largura e 2 linhas de altura.
+  // O contador "Veículos" também é um item da grade: 8 colunas de largura (mínimo) e 2 linhas de altura.
   const TOT = '__veiculos__';
-  const dim = nome => (nome === TOT ? { n: 12, h: 2 } : { n: span(nome), h: 1 });
+  const dim = nome => (nome === TOT ? { n: 8, h: 2 } : { n: span(nome), h: 1 });   // contador mínimo: 8 colunas
   const colide = (a, b) => a.c < b.c + b.n && b.c < a.c + a.n && a.r < b.r + b.h && b.r < a.r + a.h;
 
   // converte posição da grade antiga (12 col.) para a nova (40 col.), pelo centro do balão, com ímã nos pontos de encaixe
@@ -10379,18 +11664,38 @@ PORTEIRO: ${ultimoPorteiro || 'Não informado'}
     nomes.forEach(nm => {
       const sv = saved[nm]; if (!sv) return;
       const d = dim(nm);
-      const it = { r: (sv.r | 0) + (nm === TOT ? 0 : desloc), c: sv.c | 0, n: d.n, h: d.h };
+      const it = { r: (sv.r | 0) + (nm === TOT ? 0 : desloc), c: (nm === TOT && (sv.c | 0) === 14) ? 16 : (sv.c | 0), n: d.n, h: d.h };
       if (it.r >= 0 && it.c >= 0 && it.c + it.n <= NCOL && livre(it)) { pos[nm] = it; lista.push(it); }
     });
-    // 2) o resto entra no primeiro espaço livre (o contador no topo, no centro; balões novos abaixo dele se ele ainda está no padrão)
-    nomes.forEach(nm => {
-      if (pos[nm]) return;
-      const d = dim(nm);
-      const starts = nm === TOT ? [14] : (d.n === 12 ? [0, 14, 28] : [0, 24]);
-      const minRow = (nm !== TOT && pos[TOT] && !saved[TOT]) ? pos[TOT].r + pos[TOT].h : 0;
+    // 2) o contador, se ainda não tem lugar, entra no topo, centralizado
+    if (!pos[TOT]) {
+      const d = dim(TOT);
+      for (let r = 0; ; r++) {
+        const it = { r, c: (NCOL - d.n) / 2, n: d.n, h: d.h };
+        if (livre(it)) { pos[TOT] = it; lista.push(it); break; }
+      }
+    }
+    // 3) produtos sem lugar salvo (novos): são organizados em LINHAS HARMONIOSAS, sempre simétricas e centralizadas:
+    //    curto + LONGO + curto = linha cheia; sobrou: longo+longo, curto+longo, curto+curto(+curto)… cada linha centralizada.
+    const novos = prods.filter(nm => !pos[nm]);
+    const S = novos.filter(curto), L = novos.filter(nm => !curto(nm));   // já vêm ordenados do maior para o menor
+    const linhas = [];
+    while (S.length >= 2 && L.length >= 1) linhas.push([S.shift(), L.shift(), S.shift()]);
+    if (S.length === 1 && L.length >= 1) linhas.push([S.shift(), L.shift()]);
+    while (L.length >= 2) linhas.push([L.shift(), L.shift()]);
+    if (L.length === 1) linhas.push([L.shift()]);
+    while (S.length >= 3) linhas.push([S.shift(), S.shift(), S.shift()]);
+    if (S.length) linhas.push(S.splice(0));
+    const minRow = (pos[TOT] && !saved[TOT]) ? pos[TOT].r + pos[TOT].h : 0;
+    linhas.forEach(linha => {
+      const total = linha.reduce((t, nm) => t + dim(nm).n, 0);
       for (let r = minRow; ; r++) {
-        const c = starts.find(c0 => livre({ r, c: c0, n: d.n, h: d.h }));
-        if (c !== undefined) { const it = { r, c, n: d.n, h: d.h }; pos[nm] = it; lista.push(it); break; }
+        let c = Math.floor((NCOL - total) / 2);
+        const itens = linha.map(nm => { const d = dim(nm); const it = { nm, r, c, n: d.n, h: d.h }; c += d.n; return it; });
+        if (itens.every(it => livre(it))) {          // a linha inteira cabe nessa altura sem bater em ninguém
+          itens.forEach(it => { pos[it.nm] = { r: it.r, c: it.c, n: it.n, h: it.h }; lista.push(pos[it.nm]); });
+          break;
+        }
       }
     });
     return compactar(pos);
